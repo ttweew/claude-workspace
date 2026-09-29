@@ -6,14 +6,39 @@
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
     <title>AI 智慧運動分析系統</title>
     <style>
-        video {
-            width: 100%;
-            max-width: 640px;
+        /* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */
+        #stage {
+            position: fixed;
+            inset: 0;
             background: #000;
         }
+        /* contain：完整顯示整個畫面、不裁切，才看得到全身 */
+        #video {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
         /* 只翻轉畫面顯示，不影響鏡頭原始資料，後續 AI 分析的左右仍正確 */
-        video.mirrored {
+        #video.mirrored {
             transform: scaleX(-1);
+        }
+        /* 疊在畫面上方的半透明控制列 */
+        #toolbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+        }
+        #cameraSelect {
+            max-width: 50vw;
         }
     </style>
 </head>
@@ -25,25 +50,31 @@
     <main>
         <p>
             <button id="startBtn">開啟鏡頭</button>
-            <button id="stopBtn" disabled>關閉鏡頭</button>
-        </p>
-        <p>
-            <label for="cameraSelect">選擇鏡頭：</label>
-            <select id="cameraSelect" disabled></select>
         </p>
         <p id="status">尚未開啟鏡頭</p>
-        <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
-        <video id="video" autoplay playsinline muted></video>
     </main>
 
     <footer>
         <p>&copy; 2026 AI 智慧運動分析系統</p>
     </footer>
 
+    <div id="stage" hidden>
+        <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
+        <video id="video" autoplay playsinline muted></video>
+        <div id="toolbar">
+            <button id="stopBtn">關閉鏡頭</button>
+            <label for="cameraSelect">選擇鏡頭：</label>
+            <select id="cameraSelect"></select>
+            <button id="fullscreenBtn">全螢幕</button>
+        </div>
+    </div>
+
     <script>
+        const stage = document.getElementById('stage');
         const video = document.getElementById('video');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
         const cameraSelect = document.getElementById('cameraSelect');
         const statusText = document.getElementById('status');
 
@@ -51,7 +82,7 @@
 
         // 開啟鏡頭；沒指定 deviceId 時使用裝置預設鏡頭
         async function startCamera(deviceId) {
-            stopCamera();
+            stopStream();
             const constraints = {
                 video: deviceId ? { deviceId: { exact: deviceId } } : true,
                 audio: false
@@ -60,27 +91,33 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
                 statusText.textContent = '鏡頭已開啟';
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
+                stage.hidden = false;
                 // 手機後鏡頭拍的是別人，不需要鏡像；前鏡頭與電腦鏡頭預設鏡像
                 const facing = currentStream.getVideoTracks()[0].getSettings().facingMode;
                 video.classList.toggle('mirrored', facing !== 'environment');
                 // 取得權限後才看得到鏡頭名稱，所以開啟後再列出清單
                 await listCameras();
             } catch (err) {
+                closeCamera();
                 statusText.textContent = '無法開啟鏡頭：' + err.name + '（' + err.message + '）';
             }
         }
 
-        function stopCamera() {
+        // 只停止鏡頭串流（切換鏡頭時使用，畫面維持全螢幕）
+        function stopStream() {
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
                 currentStream = null;
             }
             video.srcObject = null;
+        }
+
+        // 關閉鏡頭並回到首頁
+        function closeCamera() {
+            stopStream();
+            if (document.fullscreenElement) document.exitFullscreen();
+            stage.hidden = true;
             statusText.textContent = '鏡頭已關閉';
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
         }
 
         // 列出所有可用鏡頭（手機前後鏡頭、筆電內建、外接 USB 鏡頭等）
@@ -99,14 +136,29 @@
                 if (camera.deviceId === activeId) option.selected = true;
                 cameraSelect.appendChild(option);
             });
-            cameraSelect.disabled = cameras.length === 0;
+        }
+
+        // 全螢幕會連瀏覽器網址列一起隱藏；瀏覽器規定必須由使用者按鈕觸發
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                stage.requestFullscreen();
+            }
         }
 
         startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
-        stopBtn.addEventListener('click', stopCamera);
-        cameraSelect.addEventListener('change', () => {
-            if (currentStream) startCamera(cameraSelect.value);
+        stopBtn.addEventListener('click', closeCamera);
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
+        document.addEventListener('fullscreenchange', () => {
+            fullscreenBtn.textContent = document.fullscreenElement ? '離開全螢幕' : '全螢幕';
         });
+
+        // iPhone 等不支援網頁全螢幕的裝置，隱藏全螢幕按鈕（畫面仍會佔滿視窗）
+        if (!document.fullscreenEnabled) {
+            fullscreenBtn.hidden = true;
+        }
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
