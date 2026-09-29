@@ -12,15 +12,21 @@
             inset: 0;
             background: #000;
         }
-        /* contain：完整顯示整個畫面、不裁切，才看得到全身 */
-        #video {
-            display: block;
+        /* contain：完整顯示整個畫面、不裁切，才看得到全身
+           骨架畫布與影像用相同設定，兩者會完全重疊 */
+        #video, #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             object-fit: contain;
         }
+        #overlay {
+            pointer-events: none;
+        }
         /* 只翻轉畫面顯示，不影響鏡頭原始資料，後續 AI 分析的左右仍正確 */
-        #video.mirrored {
+        .mirrored {
             transform: scaleX(-1);
         }
         /* 疊在畫面上方的半透明控制列 */
@@ -61,15 +67,22 @@
     <div id="stage" hidden>
         <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
         <video id="video" autoplay playsinline muted></video>
+        <!-- 骨架畫在這張透明畫布上，疊在影像上方 -->
+        <canvas id="overlay"></canvas>
         <div id="toolbar">
             <button id="stopBtn">關閉鏡頭</button>
             <label for="cameraSelect">選擇鏡頭：</label>
             <select id="cameraSelect"></select>
             <button id="fullscreenBtn">全螢幕</button>
+            <span id="poseStatus">骨架模型載入中…</span>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // MediaPipe 版本與骨架模型（lite：最輕量、手機也跑得動）
+        const MEDIAPIPE_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+        const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+
         const stage = document.getElementById('stage');
         const video = document.getElementById('video');
         const startBtn = document.getElementById('startBtn');
@@ -77,8 +90,74 @@
         const fullscreenBtn = document.getElementById('fullscreenBtn');
         const cameraSelect = document.getElementById('cameraSelect');
         const statusText = document.getElementById('status');
+        const overlay = document.getElementById('overlay');
+        const ctx = overlay.getContext('2d');
+        const poseStatus = document.getElementById('poseStatus');
 
         let currentStream = null;
+        let vision = null;          // MediaPipe 函式庫
+        let poseLandmarker = null;  // 骨架偵測器
+        let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
+        let lastVideoTime = -1;
+        let animationId = null;
+
+        // 載入 MediaPipe 與骨架模型；失敗時鏡頭仍可正常使用
+        async function loadPoseModel() {
+            try {
+                vision = await import(MEDIAPIPE_URL + '/vision_bundle.mjs');
+                const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_URL + '/wasm');
+                // 優先用顯示卡（GPU）加速，不支援時改用 CPU
+                try {
+                    poseLandmarker = await createPoseLandmarker(fileset, 'GPU');
+                } catch (gpuErr) {
+                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                }
+                drawingUtils = new vision.DrawingUtils(ctx);
+                poseStatus.textContent = '骨架模型已就緒';
+            } catch (err) {
+                console.error(err);
+                poseStatus.textContent = '骨架模型載入失敗（鏡頭仍可使用）';
+            }
+        }
+
+        function createPoseLandmarker(fileset, delegate) {
+            return vision.PoseLandmarker.createFromOptions(fileset, {
+                baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: delegate },
+                runningMode: 'VIDEO',
+                numPoses: 1
+            });
+        }
+
+        // 每一個畫面都做一次骨架偵測，並把 33 個關鍵點與連線畫出來
+        function detectPose() {
+            if (!currentStream) return;
+            if (poseLandmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                // 畫布大小跟鏡頭原始解析度一致，座標才會對齊
+                if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+                }
+                try {
+                    const result = poseLandmarker.detectForVideo(video, performance.now());
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+                    if (result.landmarks.length > 0) {
+                        // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
+                        const landmarks = result.landmarks[0];
+                        drawingUtils.drawConnectors(landmarks, vision.PoseLandmarker.POSE_CONNECTIONS,
+                            { color: '#00FF00', lineWidth: 4 });
+                        drawingUtils.drawLandmarks(landmarks, { color: '#FF0000', radius: 4 });
+                        poseStatus.textContent = '已偵測到人體';
+                    } else {
+                        poseStatus.textContent = '未偵測到人體，請站進畫面';
+                    }
+                } catch (err) {
+                    console.error(err);
+                    poseStatus.textContent = '骨架偵測發生錯誤';
+                }
+            }
+            animationId = requestAnimationFrame(detectPose);
+        }
 
         // 開啟鏡頭；沒指定 deviceId 時使用裝置預設鏡頭
         async function startCamera(deviceId) {
@@ -95,6 +174,8 @@
                 // 手機後鏡頭拍的是別人，不需要鏡像；前鏡頭與電腦鏡頭預設鏡像
                 const facing = currentStream.getVideoTracks()[0].getSettings().facingMode;
                 video.classList.toggle('mirrored', facing !== 'environment');
+                overlay.classList.toggle('mirrored', facing !== 'environment');
+                detectPose();
                 // 取得權限後才看得到鏡頭名稱，所以開啟後再列出清單
                 await listCameras();
             } catch (err) {
@@ -110,6 +191,9 @@
                 currentStream = null;
             }
             video.srcObject = null;
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            lastVideoTime = -1;
         }
 
         // 關閉鏡頭並回到首頁
@@ -164,6 +248,9 @@
             statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
             startBtn.disabled = true;
         }
+
+        // 網頁一打開就在背景載入骨架模型，按下開啟鏡頭時通常已經準備好
+        loadPoseModel();
     </script>
 </body>
 </html>
