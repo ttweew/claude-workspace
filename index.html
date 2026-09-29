@@ -11,6 +11,10 @@
             max-width: 640px;
             background: #000;
         }
+        /* 只翻轉畫面顯示，不影響鏡頭原始資料，後續 AI 分析的左右仍正確 */
+        video.mirrored {
+            transform: scaleX(-1);
+        }
     </style>
 </head>
 <body>
@@ -27,6 +31,12 @@
             <label for="cameraSelect">選擇鏡頭：</label>
             <select id="cameraSelect" disabled></select>
         </p>
+        <p>
+            <label>
+                <input type="checkbox" id="mirrorCheck" checked>
+                鏡像顯示（像照鏡子一樣）
+            </label>
+        </p>
         <p id="status">尚未開啟鏡頭</p>
         <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
         <video id="video" autoplay playsinline muted></video>
@@ -42,6 +52,7 @@
         const stopBtn = document.getElementById('stopBtn');
         const cameraSelect = document.getElementById('cameraSelect');
         const statusText = document.getElementById('status');
+        const mirrorCheck = document.getElementById('mirrorCheck');
 
         let currentStream = null;
 
@@ -58,6 +69,10 @@
                 statusText.textContent = '鏡頭已開啟';
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
+                // 手機後鏡頭拍的是別人，不需要鏡像；前鏡頭與電腦鏡頭預設鏡像
+                const facing = currentStream.getVideoTracks()[0].getSettings().facingMode;
+                mirrorCheck.checked = facing !== 'environment';
+                updateMirror();
                 // 取得權限後才看得到鏡頭名稱，所以開啟後再列出清單
                 await listCameras();
             } catch (err) {
@@ -95,11 +110,18 @@
             cameraSelect.disabled = cameras.length === 0;
         }
 
+        function updateMirror() {
+            video.classList.toggle('mirrored', mirrorCheck.checked);
+        }
+
         startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
         stopBtn.addEventListener('click', stopCamera);
+        mirrorCheck.addEventListener('change', updateMirror);
         cameraSelect.addEventListener('change', () => {
             if (currentStream) startCamera(cameraSelect.value);
         });
+
+        updateMirror();
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
