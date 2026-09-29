@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
     <title>AI 智慧運動分析系統</title>
+    <style>
+        video {
+            width: 100%;
+            max-width: 640px;
+            background: #000;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -12,11 +19,92 @@
     </header>
 
     <main>
-        <p>網站建置中</p>
+        <p>
+            <button id="startBtn">開啟鏡頭</button>
+            <button id="stopBtn" disabled>關閉鏡頭</button>
+        </p>
+        <p>
+            <label for="cameraSelect">選擇鏡頭：</label>
+            <select id="cameraSelect" disabled></select>
+        </p>
+        <p id="status">尚未開啟鏡頭</p>
+        <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
+        <video id="video" autoplay playsinline muted></video>
     </main>
 
     <footer>
         <p>&copy; 2026 AI 智慧運動分析系統</p>
     </footer>
+
+    <script>
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const statusText = document.getElementById('status');
+
+        let currentStream = null;
+
+        // 開啟鏡頭；沒指定 deviceId 時使用裝置預設鏡頭
+        async function startCamera(deviceId) {
+            stopCamera();
+            const constraints = {
+                video: deviceId ? { deviceId: { exact: deviceId } } : true,
+                audio: false
+            };
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                statusText.textContent = '鏡頭已開啟';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                // 取得權限後才看得到鏡頭名稱，所以開啟後再列出清單
+                await listCameras();
+            } catch (err) {
+                statusText.textContent = '無法開啟鏡頭：' + err.name + '（' + err.message + '）';
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            video.srcObject = null;
+            statusText.textContent = '鏡頭已關閉';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        // 列出所有可用鏡頭（手機前後鏡頭、筆電內建、外接 USB 鏡頭等）
+        async function listCameras() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(d => d.kind === 'videoinput');
+            const activeId = currentStream
+                ? currentStream.getVideoTracks()[0].getSettings().deviceId
+                : '';
+
+            cameraSelect.innerHTML = '';
+            cameras.forEach((camera, i) => {
+                const option = document.createElement('option');
+                option.value = camera.deviceId;
+                option.textContent = camera.label || '鏡頭 ' + (i + 1);
+                if (camera.deviceId === activeId) option.selected = true;
+                cameraSelect.appendChild(option);
+            });
+            cameraSelect.disabled = cameras.length === 0;
+        }
+
+        startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
+        stopBtn.addEventListener('click', stopCamera);
+        cameraSelect.addEventListener('change', () => {
+            if (currentStream) startCamera(cameraSelect.value);
+        });
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
+            startBtn.disabled = true;
+        }
+    </script>
 </body>
 </html>
