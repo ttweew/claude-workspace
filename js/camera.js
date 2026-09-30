@@ -1,6 +1,8 @@
 // 鏡頭：開啟、關閉、判斷前後鏡頭、列出所有鏡頭
 // 這裡只處理鏡頭本身，畫面上的文字與按鈕由 main.js 負責
 
+import { CAMERA_RESOLUTION } from './config.js';
+
 // 瀏覽器是否支援鏡頭功能
 export function isCameraSupported() {
     return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -8,11 +10,11 @@ export function isCameraSupported() {
 
 // 開啟鏡頭並回傳鏡頭串流；沒指定 deviceId 時使用裝置預設鏡頭
 // 第一次使用時瀏覽器會詢問使用者是否允許相機
+// 解析度用 ideal（建議值）：鏡頭不支援時瀏覽器會自動選最接近的，不會開啟失敗
 export function openCamera(deviceId) {
-    return navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
-        audio: false
-    });
+    const video = { width: { ideal: CAMERA_RESOLUTION[0] }, height: { ideal: CAMERA_RESOLUTION[1] } };
+    if (deviceId) video.deviceId = { exact: deviceId };
+    return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
 }
 
 // 停止鏡頭串流（鏡頭指示燈會熄滅）
