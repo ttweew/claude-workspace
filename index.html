@@ -75,6 +75,7 @@
             <select id="cameraSelect"></select>
             <button id="fullscreenBtn">全螢幕</button>
             <span id="poseStatus">骨架模型載入中…</span>
+            <span id="perfInfo"></span>
         </div>
     </div>
 
@@ -93,6 +94,10 @@
         const overlay = document.getElementById('overlay');
         const ctx = overlay.getContext('2d');
         const poseStatus = document.getElementById('poseStatus');
+        const perfInfo = document.getElementById('perfInfo');
+
+        // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
+        const FORCE_CPU = new URLSearchParams(location.search).has('cpu');
 
         let currentStream = null;
         let vision = null;          // MediaPipe 函式庫
@@ -100,24 +105,58 @@
         let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
         let lastVideoTime = -1;
         let animationId = null;
+        let computeLabel = '';      // 目前運算方式的說明文字
+        let fpsCount = 0;           // 這一秒內完成的偵測次數
+        let fpsStart = 0;
+        let fps = 0;
 
         // 載入 MediaPipe 與骨架模型；失敗時鏡頭仍可正常使用
         async function loadPoseModel() {
             try {
                 vision = await import(MEDIAPIPE_URL + '/vision_bundle.mjs');
                 const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_URL + '/wasm');
-                // 優先用顯示卡（GPU）加速，不支援時改用 CPU
-                try {
-                    poseLandmarker = await createPoseLandmarker(fileset, 'GPU');
-                } catch (gpuErr) {
+                // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
+                const gpu = getGpuInfo();
+                if (FORCE_CPU) {
                     poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                    computeLabel = 'CPU（測試模式）';
+                } else if (!gpu || gpu.software) {
+                    // 沒有實體 GPU（例如軟體模擬）時，直接用 CPU 反而比較快
+                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                    computeLabel = 'CPU（未偵測到可用的 GPU）';
+                } else {
+                    try {
+                        poseLandmarker = await createPoseLandmarker(fileset, 'GPU');
+                        computeLabel = 'GPU（' + gpu.name + '）';
+                    } catch (gpuErr) {
+                        console.warn('GPU 無法使用，改用 CPU：', gpuErr);
+                        poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                        computeLabel = 'CPU（此裝置無法使用 GPU）';
+                    }
                 }
                 drawingUtils = new vision.DrawingUtils(ctx);
                 poseStatus.textContent = '骨架模型已就緒';
+                updatePerfInfo();
             } catch (err) {
                 console.error(err);
                 poseStatus.textContent = '骨架模型載入失敗（鏡頭仍可使用）';
             }
+        }
+
+        // 向瀏覽器查詢 GPU 名稱；software 為 true 代表只是軟體模擬的 GPU（實際仍由 CPU 運算）
+        function getGpuInfo() {
+            const gl = document.createElement('canvas').getContext('webgl2')
+                || document.createElement('canvas').getContext('webgl');
+            if (!gl) return null;
+            const ext = gl.getExtension('WEBGL_debug_renderer_info');
+            const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+            return { name: name, software: /swiftshader|llvmpipe|software/i.test(name) };
+        }
+
+        // 控制列顯示：運算方式與每秒偵測次數（FPS）
+        function updatePerfInfo() {
+            if (!computeLabel) return;
+            perfInfo.textContent = '｜運算：' + computeLabel + (currentStream ? '｜FPS ' + (fps || '計算中') : '');
         }
 
         function createPoseLandmarker(fileset, delegate) {
@@ -139,7 +178,16 @@
                     overlay.height = video.videoHeight;
                 }
                 try {
-                    const result = poseLandmarker.detectForVideo(video, performance.now());
+                    const now = performance.now();
+                    const result = poseLandmarker.detectForVideo(video, now);
+                    // 每滿一秒，更新一次每秒偵測次數
+                    fpsCount++;
+                    if (now - fpsStart >= 1000) {
+                        fps = Math.round(fpsCount * 1000 / (now - fpsStart));
+                        fpsCount = 0;
+                        fpsStart = now;
+                        updatePerfInfo();
+                    }
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
                     if (result.landmarks.length > 0) {
                         // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
@@ -176,6 +224,7 @@
                 video.classList.toggle('mirrored', facing !== 'environment');
                 overlay.classList.toggle('mirrored', facing !== 'environment');
                 detectPose();
+                updatePerfInfo();
                 // 取得權限後才看得到鏡頭名稱，所以開啟後再列出清單
                 await listCameras();
             } catch (err) {
@@ -192,6 +241,9 @@
             }
             video.srcObject = null;
             cancelAnimationFrame(animationId);
+            fpsCount = 0;
+            fpsStart = performance.now();
+            fps = 0;
             ctx.clearRect(0, 0, overlay.width, overlay.height);
             lastVideoTime = -1;
         }
