@@ -49,7 +49,8 @@
             opacity: 0.5;
             cursor: default;
         }
-        #status {
+        #status, #modelStatus {
+            margin: 12px 0 0;
             color: #6B7585;
             font-size: 15px;
         }
@@ -154,6 +155,7 @@
     <main>
         <button id="startBtn">開啟鏡頭</button>
         <p id="status">尚未開啟鏡頭</p>
+        <p id="modelStatus">AI 模型準備中…</p>
     </main>
 
     <footer>
@@ -172,7 +174,7 @@
             <button id="fullscreenBtn">全螢幕</button>
         </div>
         <div id="infobar">
-            <span id="poseStatus">骨架模型載入中…</span>
+            <span id="poseStatus">AI 模型準備中…</span>
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
         </div>
     </div>
@@ -252,6 +254,7 @@
         const overlay = document.getElementById('overlay');
         const ctx = overlay.getContext('2d');
         const poseStatus = document.getElementById('poseStatus');
+        const modelStatus = document.getElementById('modelStatus');
         const perfBtn = document.getElementById('perfBtn');
 
         // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
@@ -272,37 +275,98 @@
         let fpsStart = 0;
         let fps = 0;
 
+        // 首頁與鏡頭畫面同時顯示 AI 模型的載入狀態
+        function setModelStatus(text) {
+            modelStatus.textContent = text;
+            poseStatus.textContent = text;
+        }
+
+        // 自己下載骨架模型（約 5.8 MB）：
+        // 1. 網頁一打開就開始下載，和 AI 引擎同時進行，不用排隊
+        // 2. 邊下載邊回報進度，畫面上可以顯示百分比
+        // reader：一邊下載一邊交給 MediaPipe 讀取；finished：下載完成後的完整檔案（改用 CPU 重試時使用）
+        function startModelDownload(onProgress) {
+            let controller;
+            const stream = new ReadableStream({ start(c) { controller = c; } });
+            const finished = (async () => {
+                const res = await fetch(POSE_MODEL_URL);
+                if (!res.ok) throw new Error('骨架模型下載失敗（HTTP ' + res.status + '）');
+                const total = Number(res.headers.get('Content-Length')) || 0;
+                const reader = res.body.getReader();
+                const chunks = [];
+                let received = 0;
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    controller.enqueue(value);
+                    received += value.length;
+                    if (total) onProgress(Math.min(1, received / total));
+                }
+                controller.close();
+                const data = new Uint8Array(received);
+                let offset = 0;
+                for (const chunk of chunks) {
+                    data.set(chunk, offset);
+                    offset += chunk.length;
+                }
+                return data;
+            })();
+            finished.catch(err => controller.error(err));
+            return { reader: stream.getReader(), finished: finished };
+        }
+
+        // 暖機：先用一張空白小圖跑一次偵測。第一次偵測特別慢，提早在首頁把這段時間花掉，
+        // 按下「開啟鏡頭」後骨架就能馬上出現
+        function warmUp() {
+            try {
+                const blank = document.createElement('canvas');
+                blank.width = 64;
+                blank.height = 64;
+                blank.getContext('2d').fillRect(0, 0, 64, 64);
+                poseLandmarker.detectForVideo(blank, performance.now());
+            } catch (err) {
+                console.warn('暖機失敗，不影響使用：', err);
+            }
+        }
+
         // 載入 MediaPipe 與骨架模型；失敗時鏡頭仍可正常使用
         async function loadPoseModel() {
+            const startTime = performance.now();
             try {
+                const download = startModelDownload(p => {
+                    if (!poseLandmarker) setModelStatus('AI 模型下載中 ' + Math.round(p * 100) + '%');
+                });
                 vision = await import(MEDIAPIPE_URL + '/vision_bundle.mjs');
                 const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_URL + '/wasm');
                 // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
                 const gpu = getGpuInfo();
                 if (gpu) perfBtn.title = '瀏覽器回報的 GPU：' + gpu.name;
                 if (FORCE_CPU) {
-                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU', download.reader);
                     setCompute('CPU', '測試模式');
                 } else if (!gpu || gpu.software) {
                     // 沒有實體 GPU（例如軟體模擬）時，直接用 CPU 反而比較快
-                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                    poseLandmarker = await createPoseLandmarker(fileset, 'CPU', download.reader);
                     setCompute('CPU', '未偵測到可用的 GPU');
                 } else {
                     try {
-                        poseLandmarker = await createPoseLandmarker(fileset, 'GPU');
+                        poseLandmarker = await createPoseLandmarker(fileset, 'GPU', download.reader);
                         setCompute('GPU', shortGpuName(gpu.name));
                     } catch (gpuErr) {
                         console.warn('GPU 無法使用，改用 CPU：', gpuErr);
-                        poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
+                        poseLandmarker = await createPoseLandmarker(fileset, 'CPU', await download.finished);
                         setCompute('CPU', '此裝置無法使用 GPU');
                     }
                 }
                 drawingUtils = new vision.DrawingUtils(ctx);
-                poseStatus.textContent = '骨架模型已就緒';
+                warmUp();
+                const seconds = ((performance.now() - startTime) / 1000).toFixed(1);
+                setModelStatus('AI 模型已就緒（載入 ' + seconds + ' 秒）');
                 updatePerfInfo();
             } catch (err) {
                 console.error(err);
-                poseStatus.textContent = '骨架模型載入失敗（鏡頭仍可使用）';
+                setModelStatus('AI 模型載入失敗（鏡頭仍可使用）');
             }
         }
 
@@ -400,9 +464,10 @@
             ctx.restore();
         }
 
-        function createPoseLandmarker(fileset, delegate) {
+        // model：下載中的模型（reader）或已下載完成的模型檔（Uint8Array）
+        function createPoseLandmarker(fileset, delegate, model) {
             return vision.PoseLandmarker.createFromOptions(fileset, {
-                baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: delegate },
+                baseOptions: { modelAssetBuffer: model, delegate: delegate },
                 runningMode: 'VIDEO',
                 numPoses: 1
             });
