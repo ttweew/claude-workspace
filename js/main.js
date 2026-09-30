@@ -4,7 +4,8 @@ import { SHOW_LABELS_AT_START } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { getDerivedPoints } from './landmarks.js';
-import { drawSkeleton, drawLabels } from './draw.js';
+import { drawSkeleton } from './draw.js';
+import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 
 // ---------- 畫面元素 ----------
@@ -21,6 +22,7 @@ const statusText = document.getElementById('status');
 const poseStatus = document.getElementById('poseStatus');
 const modelStatus = document.getElementById('modelStatus');
 const perfBtn = document.getElementById('perfBtn');
+const labelLayer = document.getElementById('labels');
 
 // ---------- 狀態 ----------
 let currentStream = null;
@@ -31,6 +33,8 @@ let lastVideoTime = -1;
 let animationId = null;
 let showLabels = SHOW_LABELS_AT_START;  // 是否在每個點旁邊標出編號與名稱
 let perfExpanded = false;   // 運算資訊標籤是否展開顯示詳細資訊
+let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面時用來找最近的點
+let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 
 // ---------- AI 模型 ----------
@@ -89,9 +93,12 @@ function detectPose() {
                 const landmarks = result.landmarks[0];
                 const derived = getDerivedPoints(landmarks);
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived);
-                if (showLabels) drawLabels(ctx, landmarks, derived, stage.clientWidth, stage.clientHeight);
+                lastPose = { landmarks, derived };
+                showPoseLabels();
                 poseStatus.textContent = '已偵測到人體';
             } else {
+                lastPose = null;
+                hideLabels();
                 poseStatus.textContent = '未偵測到人體，請站進畫面';
             }
         } catch (err) {
@@ -100,6 +107,26 @@ function detectPose() {
         }
     }
     animationId = requestAnimationFrame(detectPose);
+}
+
+// 顯示編號標籤：「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
+function showPoseLabels() {
+    if (!lastPose) return;
+    if (picked && performance.now() > picked.until) picked = null;
+    const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
+    updateLabels(labelLayer, lastPose.landmarks, lastPose.derived, rect, video.classList.contains('mirrored'),
+        showLabels, picked ? picked.id : null);
+}
+
+// 點畫面上任何一個點（包括臉、手指），顯示它的編號與名稱
+function pickPoint(event) {
+    if (!lastPose || event.target.closest('#toolbar, #infobar')) return;
+    const bounds = stage.getBoundingClientRect();
+    const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
+    const id = nearestPoint(event.clientX - bounds.left, event.clientY - bounds.top,
+        lastPose.landmarks, lastPose.derived, rect, video.classList.contains('mirrored'), 40);
+    picked = id === null ? null : { id, until: performance.now() + 3000 };
+    showPoseLabels();
 }
 
 // ---------- 鏡頭 ----------
@@ -162,6 +189,9 @@ function stopStream() {
     fps.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
+    lastPose = null;
+    picked = null;
+    hideLabels();
 }
 
 // 關閉鏡頭並回到首頁
@@ -213,7 +243,9 @@ document.addEventListener('fullscreenchange', () => {
 labelBtn.addEventListener('click', () => {
     showLabels = !showLabels;
     updateLabelBtn();
+    showPoseLabels();
 });
+stage.addEventListener('click', pickPoint);
 perfBtn.addEventListener('click', () => {
     perfExpanded = !perfExpanded;
     updatePerfInfo();
