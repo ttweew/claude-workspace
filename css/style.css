@@ -1,0 +1,140 @@
+/* AI 智慧運動分析系統：全站樣式 */
+
+/* 全站字型：優先用各系統內建的無襯線中文字型 */
+body {
+    margin: 0 auto;
+    max-width: 640px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
+    padding: 48px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    background: #F5F6F2;
+    color: #1B2536;
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.5;
+}
+/* 首頁 */
+h1 {
+    margin: 0 0 8px;
+    font-size: clamp(26px, 7vw, 40px);
+    color: #15233F;
+}
+.intro {
+    margin: 0 0 32px;
+    color: #45505F;
+}
+/* 開啟鏡頭：大按鈕，手機上用手指也好按 */
+#startBtn {
+    width: 100%;
+    max-width: 360px;
+    min-height: 52px;
+    border: none;
+    border-radius: 12px;
+    background: #15233F;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+}
+#startBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+#status, #modelStatus {
+    margin: 12px 0 0;
+    color: #6B7585;
+    font-size: 15px;
+}
+footer {
+    margin-top: auto;
+    padding-top: 24px;
+    color: #6B7585;
+    font-size: 13px;
+}
+/* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */
+#stage {
+    position: fixed;
+    inset: 0;
+    background: #000;
+}
+/* contain：完整顯示整個畫面、不裁切，才看得到全身
+   骨架畫布與影像用相同設定，兩者會完全重疊 */
+#video, #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+#overlay {
+    pointer-events: none;
+}
+/* 只翻轉畫面顯示，不影響鏡頭原始資料，後續 AI 分析的左右仍正確 */
+.mirrored {
+    transform: scaleX(-1);
+}
+/* 疊在畫面上方的控制列：只放按鈕，手機上也維持一行
+   env(safe-area-inset-*)：避開 iPhone 瀏海與圓角 */
+#toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+    background: rgba(0, 0, 0, 0.55);
+    font-size: 14px;
+}
+#toolbar button, #toolbar select {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+/* 下拉選單佔剩下的寬度；字級 16px 以上，iPhone 點選時才不會自動放大畫面 */
+#toolbar select {
+    flex: 1;
+    min-width: 0;
+    max-width: 320px;
+    font-size: 16px;
+    text-overflow: ellipsis;
+}
+#toolbar select option {
+    color: #1B2536;
+}
+/* 狀態小標籤：浮在控制列下方，不佔整條寬度，也不會擋住腳的位置 */
+#infobar {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 60px);
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 14px;
+    pointer-events: none;
+}
+#infobar > * {
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    background: rgba(21, 35, 63, 0.8);
+    color: #FFFFFF;
+    pointer-events: auto;
+}
+/* 運算方式與 FPS：點一下可展開或收合詳細資訊 */
+#perfBtn {
+    font: inherit;
+    cursor: pointer;
+}
