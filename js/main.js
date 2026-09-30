@@ -1,7 +1,7 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
 import { SHOW_LABELS_AT_START } from './config.js';
-import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras } from './camera.js';
+import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { getDerivedPoints } from './landmarks.js';
 import { drawSkeleton, drawLabels } from './draw.js';
@@ -24,7 +24,8 @@ const perfBtn = document.getElementById('perfBtn');
 
 // ---------- 狀態 ----------
 let currentStream = null;
-let pose = null;            // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
+let cameraRequest = 0;      // 每次開啟或關閉鏡頭就加 1，用來丟棄已經過時的開啟請求
+let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
 let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
 let lastVideoTime = -1;
 let animationId = null;
@@ -105,21 +106,48 @@ function detectPose() {
 
 // 開啟鏡頭並切換到全畫面；沒指定 deviceId 時使用裝置預設鏡頭
 async function startCamera(deviceId) {
+    const request = ++cameraRequest;
     stopStream();
+    let stream;
     try {
-        currentStream = await openCamera(deviceId);
-        video.srcObject = currentStream;
-        statusText.textContent = '鏡頭已開啟';
-        stage.hidden = false;
-        const mirror = shouldMirror(currentStream);
-        video.classList.toggle('mirrored', mirror);
-        overlay.classList.toggle('mirrored', mirror);
-        detectPose();
-        updatePerfInfo();
+        stream = await openCamera(deviceId);
+    } catch (err) {
+        if (request !== cameraRequest) return;
+        // 之前選的鏡頭已經不在了（例如外接鏡頭被拔掉）：改用裝置預設鏡頭
+        if (deviceId && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
+            cameraSelect.innerHTML = '';
+            return startCamera();
+        }
+        closeCamera();
+        statusText.textContent = cameraErrorMessage(err);
+        return;
+    }
+    // 等待鏡頭的期間，使用者已經又切換或關閉鏡頭：這個舊的鏡頭直接關掉
+    if (request !== cameraRequest) {
+        stopCamera(stream);
+        return;
+    }
+    currentStream = stream;
+    video.srcObject = stream;
+    // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
+    video.play().catch(() => {});
+    statusText.textContent = '鏡頭已開啟';
+    stage.hidden = false;
+    const mirror = shouldMirror(stream);
+    video.classList.toggle('mirrored', mirror);
+    overlay.classList.toggle('mirrored', mirror);
+    // 鏡頭中途斷線（外接鏡頭被拔掉、被其他程式搶走）：回到首頁並說明原因
+    stream.getVideoTracks()[0].addEventListener('ended', () => {
+        if (stream !== currentStream) return;
+        closeCamera();
+        statusText.textContent = '鏡頭連線中斷（可能被拔除或被其他程式使用），請重新開啟鏡頭';
+    });
+    detectPose();
+    updatePerfInfo();
+    try {
         await fillCameraSelect();
     } catch (err) {
-        closeCamera();
-        statusText.textContent = '無法開啟鏡頭：' + err.name + '（' + err.message + '）';
+        console.warn('無法列出鏡頭清單，不影響使用：', err);
     }
 }
 
@@ -138,13 +166,14 @@ function stopStream() {
 
 // 關閉鏡頭並回到首頁
 function closeCamera() {
+    cameraRequest++;
     stopStream();
-    if (document.fullscreenElement) document.exitFullscreen();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     stage.hidden = true;
     statusText.textContent = '鏡頭已關閉';
 }
 
-// 把所有鏡頭放進下拉選單，並選到目前使用的那一顆
+// 把所有鏡頭放進下拉選單，並選到目前使用的那一顆；只有一顆鏡頭時沒得選，隱藏選單
 async function fillCameraSelect() {
     const cameras = await listCameras();
     const activeId = currentStream ? activeDeviceId(currentStream) : '';
@@ -156,6 +185,7 @@ async function fillCameraSelect() {
         if (camera.deviceId === activeId) option.selected = true;
         cameraSelect.appendChild(option);
     });
+    cameraSelect.hidden = cameras.length <= 1;
 }
 
 // ---------- 按鈕 ----------
@@ -163,9 +193,9 @@ async function fillCameraSelect() {
 // 全螢幕會連瀏覽器網址列一起隱藏；瀏覽器規定必須由使用者按鈕觸發
 function toggleFullscreen() {
     if (document.fullscreenElement) {
-        document.exitFullscreen();
+        document.exitFullscreen().catch(() => {});
     } else {
-        stage.requestFullscreen();
+        stage.requestFullscreen().catch(err => console.warn('無法進入全螢幕：', err));
     }
 }
 

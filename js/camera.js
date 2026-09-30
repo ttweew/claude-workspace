@@ -30,6 +30,25 @@ export function activeDeviceId(stream) {
     return stream.getVideoTracks()[0].getSettings().deviceId;
 }
 
+// 把瀏覽器的錯誤代碼翻成使用者看得懂、知道下一步怎麼做的中文說明
+export function cameraErrorMessage(err) {
+    switch (err.name) {
+        case 'NotAllowedError':
+            return '無法使用相機：相機權限被拒絕。請在瀏覽器的網站設定中允許相機，再重新整理頁面；'
+                + '若是在 LINE、Instagram 等 App 裡開啟，請改用 Chrome 或 Safari';
+        case 'NotFoundError':
+            return '找不到鏡頭：請確認裝置有鏡頭，或外接鏡頭已經接好';
+        case 'NotReadableError':
+            return '鏡頭無法使用：可能正被其他程式（例如視訊會議）使用中，請關閉後再試';
+        case 'OverconstrainedError':
+            return '找不到選擇的鏡頭，請重新選擇';
+        case 'SecurityError':
+            return '瀏覽器基於安全性封鎖了相機，請使用 https 開頭的網址開啟';
+        default:
+            return '無法開啟鏡頭：' + err.name + '（' + err.message + '）';
+    }
+}
+
 // 列出所有可用鏡頭（手機前後鏡頭、筆電內建、外接 USB 鏡頭等）
 // 取得相機權限後才看得到鏡頭名稱，所以要在開啟鏡頭後呼叫
 export async function listCameras() {

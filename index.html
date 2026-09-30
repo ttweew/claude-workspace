@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
     <title>AI 智慧運動分析系統</title>
+    <!-- 目前沒有網站圖示；宣告空白圖示，瀏覽器就不會去找 favicon.ico 而產生錯誤 -->
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -30,7 +32,8 @@
         <canvas id="overlay"></canvas>
         <div id="toolbar">
             <button id="stopBtn">關閉鏡頭</button>
-            <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭"></select>
+            <!-- 有兩顆以上鏡頭時才顯示 -->
+            <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
             <button id="labelBtn">顯示編號</button>
             <button id="fullscreenBtn">全螢幕</button>
         </div>
