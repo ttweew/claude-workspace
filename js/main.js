@@ -70,9 +70,6 @@ function updatePerfInfo() {
     if (!pose) return;
     const parts = [perfExpanded ? pose.computeMode + '：' + pose.computeDetail : pose.computeMode];
     if (currentStream) parts.push(fps.value ? fps.value + ' FPS' : 'FPS 計算中');
-    if (currentStream && perfExpanded && video.videoWidth) {
-        parts.push('鏡頭 ' + video.videoWidth + '×' + video.videoHeight);
-    }
     if (currentStream && perfExpanded) {
         parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
             : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗');
