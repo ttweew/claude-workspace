@@ -2,10 +2,63 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
     <title>AI 智慧運動分析系統</title>
     <style>
+        /* 全站字型：優先用各系統內建的無襯線中文字型 */
+        body {
+            margin: 0 auto;
+            max-width: 640px;
+            min-height: 100vh;
+            min-height: 100dvh;
+            box-sizing: border-box;
+            padding: 48px 20px 24px;
+            display: flex;
+            flex-direction: column;
+            background: #F5F6F2;
+            color: #1B2536;
+            font-family: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.5;
+        }
+        /* 首頁 */
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(26px, 7vw, 40px);
+            color: #15233F;
+        }
+        .intro {
+            margin: 0 0 32px;
+            color: #45505F;
+        }
+        /* 開啟鏡頭：大按鈕，手機上用手指也好按 */
+        #startBtn {
+            width: 100%;
+            max-width: 360px;
+            min-height: 52px;
+            border: none;
+            border-radius: 12px;
+            background: #15233F;
+            color: #FFFFFF;
+            font: inherit;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #startBtn:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+        #status {
+            color: #6B7585;
+            font-size: 15px;
+        }
+        footer {
+            margin-top: auto;
+            padding-top: 24px;
+            color: #6B7585;
+            font-size: 13px;
+        }
         /* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */
         #stage {
             position: fixed;
@@ -29,44 +82,77 @@
         .mirrored {
             transform: scaleX(-1);
         }
-        /* 疊在畫面上方的半透明控制列 */
+        /* 疊在畫面上方的控制列：只放按鈕，手機上也維持一行
+           env(safe-area-inset-*)：避開 iPhone 瀏海與圓角 */
         #toolbar {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
-            gap: 8px;
-            padding: 8px;
-            background: rgba(0, 0, 0, 0.5);
-            color: #fff;
+            gap: 6px;
+            padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+            background: rgba(0, 0, 0, 0.55);
+            font-size: 14px;
         }
-        /* 運算方式與 FPS 的小標籤，點一下可展開或收合詳細資訊 */
-        #perfBtn {
-            border: none;
-            border-radius: 999px;
-            padding: 2px 12px;
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
+        #toolbar button, #toolbar select {
+            min-height: 36px;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #FFFFFF;
             font: inherit;
+            white-space: nowrap;
             cursor: pointer;
         }
-        #cameraSelect {
-            max-width: 50vw;
+        /* 下拉選單佔剩下的寬度；字級 16px 以上，iPhone 點選時才不會自動放大畫面 */
+        #toolbar select {
+            flex: 1;
+            min-width: 0;
+            max-width: 320px;
+            font-size: 16px;
+            text-overflow: ellipsis;
+        }
+        #toolbar select option {
+            color: #1B2536;
+        }
+        /* 狀態小標籤：浮在控制列下方，不佔整條寬度，也不會擋住腳的位置 */
+        #infobar {
+            position: absolute;
+            top: calc(max(8px, env(safe-area-inset-top)) + 60px);
+            left: max(8px, env(safe-area-inset-left));
+            right: max(8px, env(safe-area-inset-right));
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        #infobar > * {
+            padding: 4px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 999px;
+            background: rgba(21, 35, 63, 0.8);
+            color: #FFFFFF;
+            pointer-events: auto;
+        }
+        /* 運算方式與 FPS：點一下可展開或收合詳細資訊 */
+        #perfBtn {
+            font: inherit;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <header>
         <h1>AI 智慧運動分析系統</h1>
+        <p class="intro">用一支鏡頭，即時看見你的運動姿勢</p>
     </header>
 
     <main>
-        <p>
-            <button id="startBtn">開啟鏡頭</button>
-        </p>
+        <button id="startBtn">開啟鏡頭</button>
         <p id="status">尚未開啟鏡頭</p>
     </main>
 
@@ -81,10 +167,11 @@
         <canvas id="overlay"></canvas>
         <div id="toolbar">
             <button id="stopBtn">關閉鏡頭</button>
-            <label for="cameraSelect">選擇鏡頭：</label>
-            <select id="cameraSelect"></select>
-            <button id="fullscreenBtn">全螢幕</button>
+            <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭"></select>
             <button id="labelBtn">顯示編號</button>
+            <button id="fullscreenBtn">全螢幕</button>
+        </div>
+        <div id="infobar">
             <span id="poseStatus">骨架模型載入中…</span>
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
         </div>
@@ -268,7 +355,10 @@
             const w = overlay.width;
             const h = overlay.height;
             const mirrored = overlay.classList.contains('mirrored');
-            const size = Math.round(h / 36);
+            // 文字在螢幕上固定約 12～18px：依畫面縮放比例換算，手機直式畫面的字才不會太大
+            const scale = Math.min(stage.clientWidth / w, stage.clientHeight / h);
+            const screenPx = Math.max(12, Math.min(18, Math.min(stage.clientWidth, stage.clientHeight) / 40));
+            const size = Math.round(screenPx / scale);
             ctx.save();
             // 畫布是鏡像顯示時，文字先反向翻一次，顯示出來才不會變成鏡像字
             if (mirrored) {
@@ -279,17 +369,21 @@
             ctx.strokeStyle = '#000000';
             // outward：被拍攝者左側的點往一邊標、右側的點往另一邊標，文字才不會壓在身體上
             //         outward 為 0 時，文字置中標在點的正下方
+            //         文字超出畫面邊緣時，往內移回畫面裡
+            ctx.textAlign = 'left';
             function label(point, text, color, outward, fontSize) {
                 const x = (mirrored ? 1 - point.x : point.x) * w;
                 const dir = mirrored ? -outward : outward;
-                ctx.font = 'bold ' + fontSize + 'px sans-serif';
-                ctx.textAlign = dir > 0 ? 'left' : dir < 0 ? 'right' : 'center';
+                ctx.font = 'bold ' + fontSize + 'px system-ui, sans-serif';
                 ctx.lineWidth = Math.max(2, fontSize / 5);
                 ctx.fillStyle = color;
-                const tx = x + dir * fontSize * 0.6;
+                const width = ctx.measureText(text).width;
+                const gap = fontSize * 0.6;
+                let left = dir > 0 ? x + gap : dir < 0 ? x - gap - width : x - width / 2;
+                left = Math.min(Math.max(left, 2), w - width - 2);
                 const ty = point.y * h + (dir === 0 ? fontSize * 1.1 : 0);
-                ctx.strokeText(text, tx, ty);
-                ctx.fillText(text, tx, ty);
+                ctx.strokeText(text, left, ty);
+                ctx.fillText(text, left, ty);
             }
             // 先畫只有編號的小標籤，最後畫主要關節，名稱才不會被蓋住
             const isMainJoint = id => (id >= 11 && id <= 16) || (id >= 23 && id <= 28);
