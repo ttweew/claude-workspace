@@ -18,6 +18,7 @@ js/draw.js          在畫布上畫骨架
 js/labels.js        關鍵點的編號標籤、點選查看某個點
 js/gpu.js           查詢 GPU 名稱並整理成看得懂的名稱
 js/fps.js           計算每秒偵測次數（FPS）
+js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。

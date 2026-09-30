@@ -7,6 +7,7 @@ import { getDerivedPoints } from './landmarks.js';
 import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
+import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -64,11 +65,15 @@ async function initPose() {
     }
 }
 
-// 運算資訊標籤：平常只顯示「GPU · 30 FPS」，點一下展開成「GPU：晶片名稱 · 30 FPS」
+// 運算資訊標籤：平常只顯示「GPU · 30 FPS」，點一下展開成「GPU：晶片名稱 · 30 FPS · 螢幕保持亮著」
 function updatePerfInfo() {
     if (!pose) return;
     const parts = [perfExpanded ? pose.computeMode + '：' + pose.computeDetail : pose.computeMode];
     if (currentStream) parts.push(fps.value ? fps.value + ' FPS' : 'FPS 計算中');
+    if (currentStream && perfExpanded) {
+        parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
+            : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗');
+    }
     perfBtn.textContent = parts.join(' · ');
     perfBtn.hidden = false;
 }
@@ -171,6 +176,8 @@ async function startCamera(deviceId) {
     });
     detectPose();
     updatePerfInfo();
+    // 運動時手機不會因為沒碰螢幕而變暗、鎖定
+    keepScreenOn(updatePerfInfo);
     try {
         await fillCameraSelect();
     } catch (err) {
@@ -198,6 +205,7 @@ function stopStream() {
 function closeCamera() {
     cameraRequest++;
     stopStream();
+    allowScreenOff();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     stage.hidden = true;
     statusText.textContent = '鏡頭已關閉';
@@ -237,6 +245,10 @@ startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
 stopBtn.addEventListener('click', closeCamera);
 cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
 fullscreenBtn.addEventListener('click', toggleFullscreen);
+// 切到別的 App 再回來時，瀏覽器會自動解除螢幕常亮，這裡重新開啟
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && currentStream) keepScreenOn(updatePerfInfo);
+});
 document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement ? '離開全螢幕' : '全螢幕';
 });
