@@ -8,6 +8,9 @@ export function getGpuInfo() {
     if (!gl) return null;
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    // 查完就釋放這個繪圖資源（瀏覽器同時能開的數量有限）
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
     return { name: name, software: /swiftshader|llvmpipe|software/i.test(name) };
 }
 

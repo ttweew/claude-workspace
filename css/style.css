@@ -7,7 +7,8 @@ body {
     min-height: 100vh;
     min-height: 100dvh;
     box-sizing: border-box;
-    padding: 48px 20px 24px;
+    /* env(safe-area-inset-*)：手機橫拿時，避開 iPhone 瀏海與圓角 */
+    padding: max(48px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
     display: flex;
     flex-direction: column;
     background: #F5F6F2;
@@ -43,15 +44,16 @@ h1 {
     opacity: 0.5;
     cursor: default;
 }
+/* 灰色文字與背景的對比至少 4.5:1，小字才看得清楚 */
 #status, #modelStatus {
     margin: 12px 0 0;
-    color: #6B7585;
+    color: #5A6474;
     font-size: 15px;
 }
 footer {
     margin-top: auto;
     padding-top: 24px;
-    color: #6B7585;
+    color: #5A6474;
     font-size: 13px;
 }
 /* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */
