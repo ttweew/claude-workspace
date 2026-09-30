@@ -157,6 +157,8 @@
 
         // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
         const FORCE_CPU = new URLSearchParams(location.search).has('cpu');
+        // 測試用：網址加上 ?debug 會在每個點旁邊標出編號與名稱
+        const DEBUG = new URLSearchParams(location.search).has('debug');
 
         let currentStream = null;
         let vision = null;          // MediaPipe 函式庫
@@ -215,7 +217,52 @@
         // 控制列顯示：運算方式與每秒偵測次數（FPS）
         function updatePerfInfo() {
             if (!computeLabel) return;
-            perfInfo.textContent = '｜運算：' + computeLabel + (currentStream ? '｜FPS ' + (fps || '計算中') : '');
+            perfInfo.textContent = '｜運算：' + computeLabel + (currentStream ? '｜FPS ' + (fps || '計算中') : '')
+                + (DEBUG ? '｜編號模式' : '');
+        }
+
+        // 在每個點旁邊標上編號與名稱
+        // 主要關節（肩、肘、腕、髖、膝、踝）標「編號＋名稱」；臉、手指、腳跟腳尖的點很密集，只標編號
+        function drawLabels(landmarks, derived) {
+            const w = overlay.width;
+            const h = overlay.height;
+            const mirrored = overlay.classList.contains('mirrored');
+            const size = Math.round(h / 36);
+            ctx.save();
+            // 畫布是鏡像顯示時，文字先反向翻一次，顯示出來才不會變成鏡像字
+            if (mirrored) {
+                ctx.translate(w, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#000000';
+            // outward：被拍攝者左側的點往一邊標、右側的點往另一邊標，文字才不會壓在身體上
+            //         outward 為 0 時，文字置中標在點的正下方
+            function label(point, text, color, outward, fontSize) {
+                const x = (mirrored ? 1 - point.x : point.x) * w;
+                const dir = mirrored ? -outward : outward;
+                ctx.font = 'bold ' + fontSize + 'px sans-serif';
+                ctx.textAlign = dir > 0 ? 'left' : dir < 0 ? 'right' : 'center';
+                ctx.lineWidth = Math.max(2, fontSize / 5);
+                ctx.fillStyle = color;
+                const tx = x + dir * fontSize * 0.6;
+                const ty = point.y * h + (dir === 0 ? fontSize * 1.1 : 0);
+                ctx.strokeText(text, tx, ty);
+                ctx.fillText(text, tx, ty);
+            }
+            // 先畫只有編號的小標籤，最後畫主要關節，名稱才不會被蓋住
+            const isMainJoint = id => (id >= 11 && id <= 16) || (id >= 23 && id <= 28);
+            LANDMARKS.forEach(([key], id) => {
+                if (isMainJoint(id)) return;
+                label(landmarks[id], String(id), '#FFFF66', key.includes('RIGHT') ? -1 : 1, Math.round(size * 0.75));
+            });
+            LANDMARKS.forEach(([key, name], id) => {
+                if (!isMainJoint(id)) return;
+                label(landmarks[id], id + ' ' + name, '#FFFFFF', key.includes('RIGHT') ? -1 : 1, size);
+            });
+            label(derived.SHOULDER_CENTER, '肩膀中心', '#8FD3FF', 0, size);
+            label(derived.HIP_CENTER, '髖部中心', '#8FD3FF', 0, size);
+            ctx.restore();
         }
 
         function createPoseLandmarker(fileset, delegate) {
@@ -259,6 +306,7 @@
                         const trunk = [derived.SHOULDER_CENTER, derived.HIP_CENTER];
                         drawingUtils.drawConnectors(trunk, [{ start: 0, end: 1 }], { color: '#1E90FF', lineWidth: 4 });
                         drawingUtils.drawLandmarks(trunk, { color: '#1E90FF', radius: 6 });
+                        if (DEBUG) drawLabels(landmarks, derived);
                         poseStatus.textContent = '已偵測到人體';
                     } else {
                         poseStatus.textContent = '未偵測到人體，請站進畫面';
