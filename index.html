@@ -43,6 +43,16 @@
             background: rgba(0, 0, 0, 0.5);
             color: #fff;
         }
+        /* 運算方式與 FPS 的小標籤，點一下可展開或收合詳細資訊 */
+        #perfBtn {
+            border: none;
+            border-radius: 999px;
+            padding: 2px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font: inherit;
+            cursor: pointer;
+        }
         #cameraSelect {
             max-width: 50vw;
         }
@@ -76,7 +86,7 @@
             <button id="fullscreenBtn">全螢幕</button>
             <button id="labelBtn">顯示編號</button>
             <span id="poseStatus">骨架模型載入中…</span>
-            <span id="perfInfo"></span>
+            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
         </div>
     </div>
 
@@ -155,7 +165,7 @@
         const overlay = document.getElementById('overlay');
         const ctx = overlay.getContext('2d');
         const poseStatus = document.getElementById('poseStatus');
-        const perfInfo = document.getElementById('perfInfo');
+        const perfBtn = document.getElementById('perfBtn');
 
         // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
         const FORCE_CPU = new URLSearchParams(location.search).has('cpu');
@@ -168,7 +178,9 @@
         let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
         let lastVideoTime = -1;
         let animationId = null;
-        let computeLabel = '';      // 目前運算方式的說明文字
+        let computeMode = '';       // 'GPU' 或 'CPU'
+        let computeDetail = '';     // GPU 時為晶片名稱，CPU 時為原因
+        let perfExpanded = false;   // 標籤是否展開顯示詳細資訊
         let fpsCount = 0;           // 這一秒內完成的偵測次數
         let fpsStart = 0;
         let fps = 0;
@@ -180,21 +192,22 @@
                 const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_URL + '/wasm');
                 // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
                 const gpu = getGpuInfo();
+                if (gpu) perfBtn.title = '瀏覽器回報的 GPU：' + gpu.name;
                 if (FORCE_CPU) {
                     poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
-                    computeLabel = 'CPU（測試模式）';
+                    setCompute('CPU', '測試模式');
                 } else if (!gpu || gpu.software) {
                     // 沒有實體 GPU（例如軟體模擬）時，直接用 CPU 反而比較快
                     poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
-                    computeLabel = 'CPU（未偵測到可用的 GPU）';
+                    setCompute('CPU', '未偵測到可用的 GPU');
                 } else {
                     try {
                         poseLandmarker = await createPoseLandmarker(fileset, 'GPU');
-                        computeLabel = 'GPU（' + gpu.name + '）';
+                        setCompute('GPU', shortGpuName(gpu.name));
                     } catch (gpuErr) {
                         console.warn('GPU 無法使用，改用 CPU：', gpuErr);
                         poseLandmarker = await createPoseLandmarker(fileset, 'CPU');
-                        computeLabel = 'CPU（此裝置無法使用 GPU）';
+                        setCompute('CPU', '此裝置無法使用 GPU');
                     }
                 }
                 drawingUtils = new vision.DrawingUtils(ctx);
@@ -216,10 +229,37 @@
             return { name: name, software: /swiftshader|llvmpipe|software/i.test(name) };
         }
 
-        // 控制列顯示：運算方式與每秒偵測次數（FPS）
+        // 瀏覽器回報的名稱常包含驅動資訊，只留下一般人看得懂的晶片名稱
+        // 例：ANGLE (Intel, Intel(R) UHD Graphics (0x00004688) Direct3D11 vs_5_0 ps_5_0, D3D11) → Intel UHD Graphics
+        function shortGpuName(raw) {
+            let name = raw;
+            const angle = name.match(/^ANGLE \((.*)\)$/);
+            if (angle) {
+                const parts = angle[1].split(', ');
+                name = parts[1] || parts[0];
+            }
+            name = name
+                .replace('ANGLE Metal Renderer: ', '')
+                .replace(/\(0x[0-9a-f]+\)/gi, '')
+                .replace(/Direct3D.*$/i, '')
+                .replace(/\((R|TM)\)/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return name || raw;
+        }
+
+        function setCompute(mode, detail) {
+            computeMode = mode;
+            computeDetail = detail;
+        }
+
+        // 控制列的小標籤：平常只顯示「GPU · 30 FPS」，點一下展開成「GPU：晶片名稱 · 30 FPS」
         function updatePerfInfo() {
-            if (!computeLabel) return;
-            perfInfo.textContent = '｜運算：' + computeLabel + (currentStream ? '｜FPS ' + (fps || '計算中') : '');
+            if (!computeMode) return;
+            const parts = [perfExpanded ? computeMode + '：' + computeDetail : computeMode];
+            if (currentStream) parts.push(fps ? fps + ' FPS' : 'FPS 計算中');
+            perfBtn.textContent = parts.join(' · ');
+            perfBtn.hidden = false;
         }
 
         // 在每個點旁邊標上編號與名稱
@@ -399,6 +439,10 @@
         startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
         stopBtn.addEventListener('click', closeCamera);
         fullscreenBtn.addEventListener('click', toggleFullscreen);
+        perfBtn.addEventListener('click', () => {
+            perfExpanded = !perfExpanded;
+            updatePerfInfo();
+        });
         labelBtn.addEventListener('click', () => {
             showLabels = !showLabels;
             updateLabelBtn();
