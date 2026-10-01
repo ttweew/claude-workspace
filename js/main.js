@@ -7,6 +7,7 @@ import { getDerivedPoints } from './landmarks.js';
 import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
+import { PoseSmoother } from './smooth.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -39,13 +40,34 @@ let perfExpanded = false;   // 運算資訊標籤是否展開顯示詳細資訊
 let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面時用來找最近的點
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
+const smoother = new PoseSmoother();  // 讓骨架點不抖動
 
 // ---------- AI 模型 ----------
 
 // 首頁與鏡頭畫面同時顯示 AI 模型的載入狀態
 function setModelStatus(text) {
     modelStatus.textContent = text;
+    setPoseStatus(text);
+}
+
+// 鏡頭畫面左上角的狀態標籤；kind 決定顏色：'ok' 綠、'warn' 橘、'error' 紅，沒有則為預設深藍
+function setPoseStatus(text, kind) {
     poseStatus.textContent = text;
+    poseStatus.dataset.kind = kind || '';
+}
+
+// 畫布大小 = 影像實際顯示的大小 × 螢幕像素密度
+// 手機螢幕一個點有 2～3 個實體像素，畫布太小會被放大而變模糊；回傳像素密度，畫線時用來換算粗細
+function fitOverlay() {
+    const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (overlay.width !== w || overlay.height !== h) {
+        overlay.width = w;
+        overlay.height = h;
+    }
+    return dpr;
 }
 
 // 進度條長度：下載佔前 85%，後面的啟動與暖機無法算出進度，給固定位置
@@ -114,11 +136,8 @@ function detectPose() {
     if (!currentStream) return;
     if (pose && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
-        // 畫布大小跟鏡頭原始解析度一致，座標才會對齊
-        if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-            overlay.width = video.videoWidth;
-            overlay.height = video.videoHeight;
-        }
+        // 畫布和影像的長寬比例相同，座標才會對齊
+        const dpr = fitOverlay();
         try {
             const now = performance.now();
             const result = pose.landmarker.detectForVideo(video, now);
@@ -126,20 +145,22 @@ function detectPose() {
             ctx.clearRect(0, 0, overlay.width, overlay.height);
             if (result.landmarks.length > 0) {
                 // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
-                const landmarks = result.landmarks[0];
+                // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
+                const raw = result.landmarks[0];
+                const landmarks = smoother.smooth(raw, now);
                 const derived = getDerivedPoints(landmarks);
-                drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived);
-                lastPose = { landmarks, derived };
+                drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
+                lastPose = { landmarks, raw, derived };
                 showPoseLabels();
-                poseStatus.textContent = '已偵測到人體';
+                setPoseStatus('已偵測到人體', 'ok');
             } else {
                 lastPose = null;
                 hideLabels();
-                poseStatus.textContent = '未偵測到人體，請站進畫面';
+                setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
         } catch (err) {
             console.error(err);
-            poseStatus.textContent = '骨架偵測發生錯誤';
+            setPoseStatus('骨架偵測發生錯誤', 'error');
         }
     }
     animationId = requestAnimationFrame(detectPose);
@@ -225,6 +246,7 @@ function stopStream() {
     video.srcObject = null;
     cancelAnimationFrame(animationId);
     fps.reset();
+    smoother.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
     lastPose = null;

@@ -232,6 +232,16 @@ footer {
     color: #FFFFFF;
     pointer-events: auto;
 }
+/* 偵測狀態用顏色區分，不用讀字也知道現在好不好（白字對比都在 4.5:1 以上） */
+#poseStatus[data-kind="ok"] {
+    background: rgba(25, 110, 60, 0.9);
+}
+#poseStatus[data-kind="warn"] {
+    background: rgba(150, 85, 0, 0.92);
+}
+#poseStatus[data-kind="error"] {
+    background: rgba(180, 35, 30, 0.92);
+}
 /* 運算方式與 FPS：點一下可展開或收合詳細資訊 */
 #perfBtn {
     font: inherit;
