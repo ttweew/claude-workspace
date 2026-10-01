@@ -18,6 +18,7 @@ js/draw.js          在畫布上畫骨架
 js/labels.js        關鍵點的編號標籤、點選查看某個點
 js/gpu.js           查詢 GPU 名稱並整理成看得懂的名稱
 js/fps.js           計算每秒偵測次數（FPS）
+js/smooth.js        骨架點平滑（One Euro Filter），讓點不抖動、動作快時仍跟得上
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 ```
 
