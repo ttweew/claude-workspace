@@ -7,7 +7,26 @@ const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠
 const FORMAT_VERSION = 1;
 
 // 小數位數：比例座標到小數第 5 位（640 像素寬時約 0.006 像素），公尺到 0.1 公釐
-const round = (v, digits) => (v === undefined || v === null ? '' : Number(v.toFixed(digits)));
+const round = (v, digits) => (v === undefined || v === null || Number.isNaN(v) ? '' : Number(v.toFixed(digits)));
+
+// 錄製中每一格只存成一整塊數字陣列（Float64Array），不是 66 個小陣列：
+// 記憶體少一半以上，手機也不用一直回收大量小物件，錄製時畫面比較不會偶爾卡一下
+// 匯出時才轉成小數位數固定的格式，匯出的檔案內容和以前完全一樣
+const POINTS = LANDMARKS.length;
+function pack(points, fields) {
+    const data = new Float64Array(POINTS * fields.length);
+    points.forEach((p, i) => fields.forEach((f, j) => {
+        data[i * fields.length + j] = p[f] === undefined || p[f] === null ? NaN : p[f];
+    }));
+    return data;
+}
+function unpack(data, digits) {
+    const points = [];
+    for (let i = 0; i < data.length; i += digits.length) points.push(digits.map((d, j) => round(data[i + j], d)));
+    return points;
+}
+const LANDMARK_DIGITS = [5, 5, 5, 3];  // x、y、z、visibility
+const WORLD_DIGITS = [4, 4, 4];        // 公尺座標 x、y、z
 
 export class PoseRecorder {
     constructor() {
@@ -41,8 +60,8 @@ export class PoseRecorder {
         }
         this.frames.push({
             t: Math.round(t),
-            landmarks: landmarks ? landmarks.map(p => [round(p.x, 5), round(p.y, 5), round(p.z, 5), round(p.visibility, 3)]) : null,
-            world: world ? world.map(p => [round(p.x, 4), round(p.y, 4), round(p.z, 4)]) : null
+            landmarks: landmarks ? pack(landmarks, ['x', 'y', 'z', 'visibility']) : null,
+            world: world ? pack(world, ['x', 'y', 'z']) : null
         });
         return true;
     }
@@ -56,13 +75,22 @@ export class PoseRecorder {
     }
 
     // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，最後是公尺座標
+    // 匯出用的每一格：{ t, landmarks: [[x, y, z, visibility], …], world: [[x, y, z], …] }
+    exportFrames() {
+        return this.frames.map(f => ({
+            t: f.t,
+            landmarks: f.landmarks ? unpack(f.landmarks, LANDMARK_DIGITS) : null,
+            world: f.world ? unpack(f.world, WORLD_DIGITS) : null
+        }));
+    }
+
     toCSV() {
         const names = LANDMARKS.map(([key]) => key.toLowerCase());
         const header = ['frame', 'time_ms', 'detected']
             .concat(...names.map(n => [n + '_x', n + '_y', n + '_z', n + '_vis']))
             .concat(...names.map(n => [n + '_wx', n + '_wy', n + '_wz']));
         const empty = n => new Array(n).fill('');
-        const rows = this.frames.map((f, i) => [i, f.t, f.landmarks ? 1 : 0]
+        const rows = this.exportFrames().map((f, i) => [i, f.t, f.landmarks ? 1 : 0]
             .concat(f.landmarks ? f.landmarks.flat() : empty(33 * 4))
             .concat(f.world ? f.world.flat() : empty(33 * 3))
             .join(','));
@@ -78,7 +106,7 @@ export class PoseRecorder {
             meta: this.meta,
             landmarkNames: LANDMARKS.map(([key]) => key),
             fields: { landmarks: ['x', 'y', 'z', 'visibility'], world: ['x', 'y', 'z'] },
-            frames: this.frames
+            frames: this.exportFrames()
         });
     }
 }
