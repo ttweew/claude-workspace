@@ -630,15 +630,6 @@ footer {
         transform: translateY(-50%);
     }
 }
-.hud-side {
-    padding: 0.3em 0.7em;
-    border-radius: 999px;
-    background: var(--glass);
-    color: var(--text);
-    font-size: clamp(12px, 2.2vmin, 22px);
-    font-weight: 700;
-    white-space: nowrap;
-}
 .metric {
     display: flex;
     flex-direction: column;
@@ -649,12 +640,15 @@ footer {
     border-radius: 18px;
     background: var(--glass);
     box-shadow: var(--shadow);
-    /* 筆電（1366×768）數字約 63px 高，站在 2～3 公尺外也看得清楚 */
-    font-size: clamp(16px, 3.4vmin, 34px);
+    /* 字體隨螢幕短邊放大：手機約 21px（數字 52px）、筆電 34px（數字 82px），站在 2～3 公尺外也看得清楚 */
+    font-size: clamp(18px, 5.5vmin, 34px);
 }
+/* 名稱用白色特粗字：「膝」「髖」筆畫多，字小或顏色淡時站遠看會糊成一團 */
 .metric-label {
-    color: var(--muted);
-    font-weight: 700;
+    color: #FFFFFF;
+    font-size: 1.15em;
+    font-weight: 800;
+    line-height: 1.2;
     white-space: nowrap;
 }
 .metric-value {

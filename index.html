@@ -128,9 +128,9 @@
         <div id="banner" role="status" hidden></div>
         <!-- 大字儀表板：站遠也看得清楚的關節角度 -->
         <div id="hud" hidden>
-            <span id="hudSide" class="hud-side">左側</span>
-            <div class="metric"><span class="metric-label">膝蓋</span><span id="hudKnee" class="metric-value">—</span></div>
-            <div class="metric"><span class="metric-label">髖部</span><span id="hudHip" class="metric-value">—</span></div>
+            <!-- 名稱直接寫左右（左膝、左髖），不另外用小字標示是哪一側 -->
+            <div class="metric"><span id="hudKneeName" class="metric-label">左膝</span><span id="hudKnee" class="metric-value">—</span></div>
+            <div class="metric"><span id="hudHipName" class="metric-label">左髖</span><span id="hudHip" class="metric-value">—</span></div>
         </div>
         <div id="toolbar">
             <button id="stopBtn" class="primary">關閉鏡頭</button>

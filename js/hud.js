@@ -11,7 +11,7 @@ function sideScore(landmarks, side) {
 }
 
 export class Hud {
-    // els：{ root, side, knee, hip } 畫面元素；兩個角度都算不出來時（例如太近、看不到腳）整個收起來
+    // els：{ root, kneeName, knee, hipName, hip } 畫面元素；兩個角度都算不出來時（例如太近、看不到腳）整個收起來
     constructor(els) {
         this.els = els;
         this.side = 'LEFT';
@@ -35,7 +35,10 @@ export class Hud {
 
     show(angles) {
         const text = key => (angles && angles[key] !== null ? Math.round(angles[key]) + '°' : '—');
-        setText(this.els.side, this.side === 'LEFT' ? '左側' : '右側');
+        // 名稱直接帶左右（左膝、右髖），比另外一個「左側」小標籤好認
+        const side = this.side === 'LEFT' ? '左' : '右';
+        setText(this.els.kneeName, side + '膝');
+        setText(this.els.hipName, side + '髖');
         setText(this.els.knee, text(this.side + '_KNEE'));
         setText(this.els.hip, text(this.side + '_HIP'));
         const empty = !angles || (angles[this.side + '_KNEE'] === null && angles[this.side + '_HIP'] === null);
