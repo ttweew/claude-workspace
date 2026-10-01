@@ -140,12 +140,42 @@ function finishLoading(success) {
 }
 
 // 網頁一打開就在背景載入骨架模型，按下開啟鏡頭時通常已經準備好；失敗時鏡頭仍可正常使用
+// 網路一時不穩（例如學校 Wi-Fi 斷一下）時自動重試，不用使用者重新整理頁面
+const RETRY_DELAYS = [2, 5];  // 第 1、2 次重試前等幾秒
+let loadingPose = false;
+let loadCount = 0;  // 總共載入過幾次；每次都用新的次數，瀏覽器才不會沿用上次失敗的結果
 async function initPose() {
+    if (pose || loadingPose) return;
+    loadingPose = true;
+    for (let attempt = 0; ; attempt++) {
+        if (await tryLoadPose(loadCount++)) break;
+        if (attempt >= RETRY_DELAYS.length) {
+            setModelStatus('AI 模型載入失敗，請檢查網路（鏡頭仍可使用）');
+            finishLoading(false);
+            break;
+        }
+        const wait = RETRY_DELAYS[attempt];
+        setModelStatus('AI 載入失敗，' + wait + ' 秒後自動重試…');
+        modelProgress.firstElementChild.style.width = '0%';
+        await new Promise(resolve => setTimeout(resolve, wait * 1000));
+    }
+    loadingPose = false;
+}
+// 全部重試都失敗後，網路恢復時再自動試一次
+window.addEventListener('online', () => {
+    if (pose || loadingPose) return;
+    modelProgress.hidden = false;
+    modelHint.hidden = false;
+    initPose();
+});
+
+// 載入一次；成功回傳 true
+async function tryLoadPose(attempt) {
     const startTime = performance.now();
     try {
         const result = await loadPoseModel(progress => {
             if (!pose) showLoadingStage(progress);
-        });
+        }, attempt);
         drawingUtils = new result.vision.DrawingUtils(ctx);
         if (result.gpuName) perfBtn.title = '瀏覽器回報的 GPU：' + result.gpuName;
         pose = result;
@@ -153,10 +183,10 @@ async function initPose() {
         setModelStatus('AI 模型已就緒（載入 ' + seconds + ' 秒）');
         finishLoading(true);
         updatePerfInfo();
+        return true;
     } catch (err) {
         console.error(err);
-        setModelStatus('AI 模型載入失敗（鏡頭仍可使用）');
-        finishLoading(false);
+        return false;
     }
 }
 
@@ -223,7 +253,7 @@ async function restartPose(reason) {
 
 function giveUpPose() {
     poseBroken = true;
-    setPoseStatus('AI 偵測無法使用，請關閉鏡頭再開一次，或重新整理頁面', 'error');
+    setPoseStatus('AI 無法使用，請關閉鏡頭重開，或重新整理頁面', 'error');
 }
 
 // 清掉畫面上的骨架、標籤與儀表板
@@ -236,12 +266,15 @@ function clearPose() {
 }
 
 // 每一格新畫面做一次骨架偵測，並把關鍵點、連線（與編號）畫出來
-function detectPose() {
+// frame：requestVideoFrameCallback 提供的畫面資訊；用「第幾格」判斷是不是新畫面，
+// 不用影像時間（有些瀏覽器的鏡頭影像時間不會每格都變，會漏掉畫面）
+function detectPose(time, frame) {
     frameRequest = null;
     if (!currentStream) return;
     if (pose && !restarting && pose.gpuLost()) restartPose('GPU 被系統收回');
-    if (pose && !restarting && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-        lastVideoTime = video.currentTime;
+    const frameId = frame ? 'f' + frame.presentedFrames : video.currentTime;
+    if (pose && !restarting && video.readyState >= 2 && frameId !== lastVideoTime) {
+        lastVideoTime = frameId;
         // 畫布和影像的長寬比例相同，座標才會對齊
         const dpr = fitOverlay();
         try {
@@ -347,7 +380,7 @@ async function startCamera(deviceId) {
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});
     statusText.textContent = '鏡頭已開啟';
-    stage.hidden = false;
+    showStage(true);
     hudRoot.hidden = !dataPanel.hidden;
     const mirror = shouldMirror(stream);
     video.classList.toggle('mirrored', mirror);
@@ -398,13 +431,26 @@ function stopStream() {
     setPoseStatus(pose ? '等待鏡頭畫面…' : poseStatus.textContent);
 }
 
+// 切換鏡頭畫面與首頁
+// 鏡頭畫面蓋住首頁時，首頁的按鈕設為 inert（不能點、鍵盤 Tab 也不會跳過去），
+// 鍵盤焦點移到「關閉鏡頭」；回到首頁時焦點回到「開啟鏡頭」
+const page = document.querySelector('.page');
+function showStage(on) {
+    if (stage.hidden !== on) return;
+    stage.hidden = !on;
+    page.inert = on;
+    const focused = document.activeElement;
+    if (on && (focused === startBtn || focused === document.body)) stopBtn.focus();
+    if (!on && (stage.contains(focused) || focused === document.body)) startBtn.focus();
+}
+
 // 關閉鏡頭並回到首頁
 function closeCamera() {
     cameraRequest++;
     stopStream();
     allowScreenOff();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    stage.hidden = true;
+    showStage(false);
     statusText.textContent = '鏡頭已關閉';
 }
 

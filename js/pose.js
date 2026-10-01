@@ -88,11 +88,12 @@ function countEngineDownload(url, onBytes) {
 }
 
 // 下載 MediaPipe 程式：依序嘗試每個下載來源，回傳成功的那一個 { base, vision }
-async function importMediaPipe() {
+// attempt：第幾次重試。瀏覽器會記住「這個網址下載失敗」，重試時網址後面加上次數，才會真的重新下載
+async function importMediaPipe(attempt) {
     let lastErr;
     for (const base of MEDIAPIPE_URLS) {
         try {
-            return { base: base, vision: await import(base + '/vision_bundle.mjs') };
+            return { base: base, vision: await import(base + '/vision_bundle.mjs' + (attempt ? '?retry=' + attempt : '')) };
         } catch (err) {
             lastErr = err;
             console.warn('MediaPipe 下載失敗，改用下一個來源：', base, err);
@@ -141,17 +142,18 @@ function warmUp(landmarker) {
 }
 
 // 載入 MediaPipe 與骨架模型，回傳準備好的偵測器
+// attempt：第幾次重試（第一次為 0）
 // onProgress({ stage, fraction, delegate })：目前進行到哪個階段
 //   stage：'download' 下載檔案（fraction 為 0～1 的整體下載進度）、'start' 啟動 AI、'warmup' 暖機
 // 回傳 { vision, landmarker, computeMode, computeDetail, gpuName, timings, gpuLost(), restart() }
 //   computeMode：'GPU' 或 'CPU'；computeDetail：GPU 時為晶片名稱，CPU 時為原因
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
-export async function loadPoseModel(onProgress) {
+export async function loadPoseModel(onProgress, attempt = 0) {
     const t0 = performance.now();
     const tracker = downloadTracker(fraction => onProgress({ stage: 'download', fraction: fraction }));
     const download = startModelDownload(tracker.bytes('model'));
     download.finished.then(tracker.done('model'), () => {});
-    const { base, vision } = await importMediaPipe();
+    const { base, vision } = await importMediaPipe(attempt);
     const fileset = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
 
     // AI 引擎由 MediaPipe 自己下載；在它下載時順便計算下載了多少（不會多下載一次）
