@@ -20,7 +20,10 @@ js/gpu.js           查詢 GPU 名稱並整理成看得懂的名稱
 js/fps.js           計算每秒偵測次數（FPS）
 js/smooth.js        骨架點平滑（One Euro Filter），讓點不抖動、動作快時仍跟得上
 js/framing.js       入鏡提示：依拍到的部位提示往後退、往前、站到中間
+js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可信度
+js/recorder.js      錄製關鍵點，匯出 CSV / JSON
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
+docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。

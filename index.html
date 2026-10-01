@@ -40,11 +40,28 @@
             <!-- 有兩顆以上鏡頭時才顯示 -->
             <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
             <button id="labelBtn" title="也可以直接點畫面上的點，查看它的編號與名稱">顯示編號</button>
+            <button id="dataBtn" title="顯示關鍵點的 x、y、z 數值，並可錄製匯出">數據</button>
             <button id="fullscreenBtn">全螢幕</button>
         </div>
         <div id="infobar">
             <span id="poseStatus">AI 準備中…</span>
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
+        </div>
+        <!-- 數據面板：主要關節的原始數值，以及錄製、下載 -->
+        <div id="dataPanel" hidden>
+            <div class="panel-head">
+                <button id="recordBtn">● 開始錄製</button>
+                <span id="recordInfo"></span>
+                <button id="csvBtn" hidden>下載 CSV</button>
+                <button id="jsonBtn" hidden>下載 JSON</button>
+            </div>
+            <div class="panel-body">
+                <table>
+                    <thead><tr><th>關節</th><th>x</th><th>y</th><th>z</th><th>可信度</th></tr></thead>
+                    <tbody id="dataRows"></tbody>
+                </table>
+                <p class="panel-note">原始資料（未經平滑）。x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點</p>
+            </div>
         </div>
     </div>
 

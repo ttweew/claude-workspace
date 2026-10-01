@@ -209,6 +209,15 @@ footer {
     font-size: 16px;
     text-overflow: ellipsis;
 }
+/* 小螢幕（例如 iPhone SE）按鈕縮小左右留白，一行才放得下 */
+@media (max-width: 360px) {
+    #toolbar {
+        gap: 4px;
+    }
+    #toolbar button, #toolbar select {
+        padding: 0 8px;
+    }
+}
 #toolbar select option {
     color: #1B2536;
 }
@@ -241,6 +250,93 @@ footer {
 }
 #poseStatus[data-kind="error"] {
     background: rgba(180, 35, 30, 0.92);
+}
+/* 數據面板：貼在畫面下方，最多佔 45% 高度，內容多時可以捲動 */
+#dataPanel {
+    position: absolute;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    max-width: 520px;
+    max-height: 45%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+    background: rgba(12, 20, 36, 0.88);
+    color: #FFFFFF;
+    font-size: 12px;
+}
+#dataPanel[hidden] {
+    display: none;
+}
+/* 手機橫拿時畫面很矮：面板改放右側，少擋住身體 */
+@media (orientation: landscape) and (max-height: 500px) {
+    #dataPanel {
+        top: calc(max(8px, env(safe-area-inset-top)) + 52px);
+        left: auto;
+        width: 340px;
+        max-height: none;
+    }
+}
+.panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.panel-head button {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+#recordBtn.recording {
+    border-color: #FF6B6B;
+    background: rgba(200, 40, 40, 0.85);
+}
+#recordInfo {
+    font-variant-numeric: tabular-nums;
+}
+.panel-body {
+    overflow: auto;
+    padding: 4px 8px 8px;
+}
+#dataPanel table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+#dataPanel th, #dataPanel td {
+    padding: 2px 4px;
+    text-align: right;
+    white-space: nowrap;
+}
+#dataPanel tbody th {
+    text-align: left;
+    font-weight: normal;
+}
+#dataPanel thead th {
+    color: #BFE4FF;
+    font-weight: 600;
+}
+#dataPanel thead th:first-child {
+    text-align: left;
+}
+#dataPanel tr.unseen {
+    opacity: 0.45;
+}
+.panel-note {
+    margin: 6px 0 0;
+    color: #C9D2DE;
+    line-height: 1.4;
 }
 /* 運算方式與 FPS：點一下可展開或收合詳細資訊 */
 #perfBtn {
