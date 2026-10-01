@@ -50,6 +50,53 @@ h1 {
     color: #5A6474;
     font-size: 15px;
 }
+/* AI 載入進度條：條內的亮光持續流動，就算進度暫時沒變，也看得出網頁還在運作 */
+#modelProgress {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    height: 8px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #DDE1E6;
+}
+#modelProgress .fill {
+    position: relative;
+    width: 0;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+    background: #15233F;
+    transition: width 0.4s ease;
+}
+#modelProgress .fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+/* 載入完成：進度條變綠色後淡出 */
+#modelProgress.done .fill {
+    background: #2E8B57;
+}
+#modelProgress.done .fill::after {
+    animation: none;
+}
+#modelProgress.hide {
+    opacity: 0;
+    transition: opacity 0.6s ease 0.6s;
+}
+#modelHint {
+    margin: 6px 0 0;
+    color: #5A6474;
+    font-size: 13px;
+}
 footer {
     margin-top: auto;
     padding-top: 24px;
