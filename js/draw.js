@@ -11,10 +11,10 @@ export function drawSkeleton(drawingUtils, connections, landmarks, derived, scal
     const visible = landmarks.map(isVisible);
     const shown = connections.filter(c => visible[c.start] && visible[c.end]);
     const isBody = c => isMainJoint(c.start) && isMainJoint(c.end);
-    drawingUtils.drawConnectors(landmarks, shown.filter(c => !isBody(c)), { color: '#00FF00', lineWidth: 1.5 * scale });
+    drawingUtils.drawConnectors(landmarks, shown.filter(c => !isBody(c)), { color: '#00FF00', lineWidth: 2 * scale });
     drawingUtils.drawConnectors(landmarks, shown.filter(isBody), { color: '#00FF00', lineWidth: 3 * scale });
     drawingUtils.drawLandmarks(landmarks.filter((p, i) => visible[i] && !isMainJoint(i)),
-        { color: '#FF0000', fillColor: '#FF0000', lineWidth: 1, radius: 2 * scale });
+        { color: '#FF0000', fillColor: '#FF0000', lineWidth: 1, radius: 3 * scale });
     drawingUtils.drawLandmarks(landmarks.filter((p, i) => visible[i] && isMainJoint(i)),
         { color: '#FF0000', fillColor: '#FF0000', lineWidth: 1, radius: 4 * scale });
     const trunk = [derived.SHOULDER_CENTER, derived.HIP_CENTER];
