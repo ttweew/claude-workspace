@@ -17,5 +17,6 @@ export const FORCE_CPU = params.has('cpu');
 const RESOLUTIONS = { 480: [640, 480], 720: [1280, 720], 1080: [1920, 1080] };
 export const CAMERA_RESOLUTION = RESOLUTIONS[params.get('res')] || RESOLUTIONS[480];
 
-// 網址加上 ?debug：一打開就顯示每個點的編號與名稱
-export const SHOW_LABELS_AT_START = params.has('debug');
+// 網址加上 ?debug（測試模式）：一打開就顯示每個點的編號與名稱，運算標籤展開時也顯示各階段載入秒數
+export const DEBUG = params.has('debug');
+export const SHOW_LABELS_AT_START = DEBUG;

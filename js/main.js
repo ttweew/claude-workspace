@@ -1,6 +1,6 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START } from './config.js';
+import { SHOW_LABELS_AT_START, DEBUG } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { getDerivedPoints } from './landmarks.js';
@@ -91,7 +91,8 @@ async function initPose() {
 }
 
 // 運算資訊標籤：平常只顯示「GPU · 30 FPS」
-// 點一下展開成「GPU：晶片名稱 · 30 FPS · 螢幕保持亮著 · 載入花費：下載 X 秒、啟動 Y 秒、暖機 Z 秒」
+// 點一下展開成「GPU：晶片名稱 · 30 FPS · 螢幕保持亮著」
+// 測試模式（網址加 ?debug）另外顯示「載入花費：下載 X 秒、啟動 Y 秒、暖機 Z 秒」，給開發團隊找出載入慢在哪裡
 function updatePerfInfo() {
     if (!pose) return;
     const parts = [perfExpanded ? pose.computeMode + '：' + pose.computeDetail : pose.computeMode];
@@ -100,7 +101,7 @@ function updatePerfInfo() {
         parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
             : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗');
     }
-    if (perfExpanded) {
+    if (perfExpanded && DEBUG) {
         const t = pose.timings;
         parts.push('載入花費：下載 ' + t.download + ' 秒、啟動 ' + t.start + ' 秒、暖機 ' + t.warmup + ' 秒');
     }
