@@ -108,6 +108,11 @@ footer {
     position: fixed;
     inset: 0;
     background: #000;
+    /* 手機上點畫面查看關鍵點時：不閃灰色點擊框、連點兩下不放大畫面、長按不會選取到文字 */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 /* contain：完整顯示整個畫面、不裁切，才看得到全身
    骨架畫布與影像用相同設定，兩者會完全重疊 */
@@ -233,13 +238,22 @@ footer {
         padding: 0 8px;
     }
 }
+/* 手機、平板（用手指操作）：按鈕加高到 40px，比較好按 */
+@media (pointer: coarse) {
+    #toolbar button, #toolbar select {
+        min-height: 40px;
+    }
+    .panel-head button {
+        min-height: 36px;
+    }
+}
 #toolbar select option {
     color: #1B2536;
 }
 /* 狀態小標籤：浮在控制列下方，不佔整條寬度，也不會擋住腳的位置 */
 #infobar {
     position: absolute;
-    top: calc(max(8px, env(safe-area-inset-top)) + 60px);
+    top: calc(max(8px, env(safe-area-inset-top)) + 62px);
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
     display: flex;
@@ -288,7 +302,7 @@ footer {
 /* 手機橫拿時畫面很矮：面板改放右側，少擋住身體 */
 @media (orientation: landscape) and (max-height: 500px) {
     #dataPanel {
-        top: calc(max(8px, env(safe-area-inset-top)) + 52px);
+        top: calc(max(8px, env(safe-area-inset-top)) + 56px);
         left: auto;
         width: 340px;
         max-height: none;
@@ -357,4 +371,13 @@ footer {
 #perfBtn {
     font: inherit;
     cursor: pointer;
+}
+/* 系統設定「減少動態效果」的使用者：關掉進度條的流動亮光與動畫 */
+@media (prefers-reduced-motion: reduce) {
+    #modelProgress .fill::after {
+        animation: none;
+    }
+    #modelProgress .fill, #modelProgress.hide {
+        transition: none;
+    }
 }

@@ -1,7 +1,7 @@
 // AI 骨架偵測：下載 MediaPipe 與骨架模型、選擇 GPU 或 CPU、暖機
 // 這裡只負責準備好偵測器，畫面上的文字由 main.js 負責
 
-import { MEDIAPIPE_URL, POSE_MODEL_URL, FORCE_CPU } from './config.js';
+import { MEDIAPIPE_URLS, POSE_MODEL_URL, FORCE_CPU } from './config.js';
 import { getGpuInfo, shortGpuName } from './gpu.js';
 
 // 兩個要下載的大檔案（解壓縮後的大小），用來計算整體下載進度
@@ -87,6 +87,20 @@ function countEngineDownload(url, onBytes) {
     return { finished: finished, restore: () => { window.fetch = realFetch; } };
 }
 
+// 下載 MediaPipe 程式：依序嘗試每個下載來源，回傳成功的那一個 { base, vision }
+async function importMediaPipe() {
+    let lastErr;
+    for (const base of MEDIAPIPE_URLS) {
+        try {
+            return { base: base, vision: await import(base + '/vision_bundle.mjs') };
+        } catch (err) {
+            lastErr = err;
+            console.warn('MediaPipe 下載失敗，改用下一個來源：', base, err);
+        }
+    }
+    throw lastErr;
+}
+
 // 讓瀏覽器有機會先把畫面上的文字更新出來，再做會卡住畫面的工作
 function letScreenUpdate() {
     return new Promise(resolve => setTimeout(resolve, 50));
@@ -127,8 +141,8 @@ export async function loadPoseModel(onProgress) {
     const tracker = downloadTracker(fraction => onProgress({ stage: 'download', fraction: fraction }));
     const download = startModelDownload(tracker.bytes('model'));
     download.finished.then(tracker.done('model'), () => {});
-    const vision = await import(MEDIAPIPE_URL + '/vision_bundle.mjs');
-    const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_URL + '/wasm');
+    const { base, vision } = await importMediaPipe();
+    const fileset = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
 
     // AI 引擎由 MediaPipe 自己下載；在它下載時順便計算下載了多少（不會多下載一次）
     const engine = countEngineDownload(fileset.wasmBinaryPath, tracker.bytes('engine'));
@@ -138,7 +152,9 @@ export async function loadPoseModel(onProgress) {
     const gpu = getGpuInfo();
     const useGpu = !FORCE_CPU && gpu && !gpu.software;
     let downloadedAt = 0;
+    let createdAt = 0;
     Promise.all([engine.finished, download.finished]).then(() => {
+        if (createdAt) return;  // 偵測器已經建好（進入暖機），不要再把畫面退回「啟動」階段
         downloadedAt = performance.now();
         onProgress({ stage: 'start', delegate: useGpu ? 'GPU' : 'CPU' });
     }, () => {});
@@ -165,7 +181,7 @@ export async function loadPoseModel(onProgress) {
     } finally {
         engine.restore();
     }
-    const createdAt = performance.now();
+    createdAt = performance.now();
 
     onProgress({ stage: 'warmup' });
     await letScreenUpdate();
@@ -176,7 +192,7 @@ export async function loadPoseModel(onProgress) {
     const seconds = ms => Math.round(ms / 100) / 10;
     const timings = {
         download: seconds((downloadedAt || createdAt) - t0),
-        start: seconds(createdAt - (downloadedAt || createdAt)),
+        start: seconds(Math.max(0, createdAt - (downloadedAt || createdAt))),
         warmup: seconds(end - warmStart)
     };
     console.info('AI 載入各階段秒數：', timings);

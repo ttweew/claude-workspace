@@ -7,18 +7,20 @@ const HOLD_MS = 600;  // 同一個提示要持續這麼久才換上去，避免�
 
 // 依照這一格的關鍵點，判斷入鏡狀況；回傳 { text, kind }，kind：'ok' 綠色、'warn' 橘色
 export function framingAdvice(landmarks) {
+    // 左右任一邊看得到就算：從側面拍時，遠離鏡頭的那一側會被身體擋住，這是正常的
     const seen = keys => keys.every(k => isVisible(landmarks[P[k]]));
-    const shoulders = seen(['LEFT_SHOULDER', 'RIGHT_SHOULDER']);
-    const hips = seen(['LEFT_HIP', 'RIGHT_HIP']);
-    const legs = seen(['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_ANKLE', 'RIGHT_ANKLE']);
+    const either = keys => seen(keys.map(k => 'LEFT_' + k)) || seen(keys.map(k => 'RIGHT_' + k));
+    const shoulders = either(['SHOULDER']);
+    const hips = either(['HIP']);
+    const legs = either(['KNEE', 'ANKLE']);
 
     if (!hips) return { text: '太近了，請往後退，讓全身入鏡', kind: 'warn' };
     if (!legs) return { text: '看不到腳，請再往後退一點', kind: 'warn' };
     if (!shoulders) return { text: '看不到肩膀，請調整鏡頭角度', kind: 'warn' };
 
-    // 全身都看得到：再看人在畫面裡的大小與位置
+    // 全身都看得到：再看人在畫面裡的大小與位置（只用看得到的點）
     const main = ['NOSE', 'LEFT_SHOULDER', 'RIGHT_SHOULDER', 'LEFT_HIP', 'RIGHT_HIP',
-        'LEFT_ANKLE', 'RIGHT_ANKLE'].map(k => landmarks[P[k]]);
+        'LEFT_ANKLE', 'RIGHT_ANKLE'].map(k => landmarks[P[k]]).filter(isVisible);
     const xs = main.map(p => p.x);
     const ys = main.map(p => p.y);
     // 取寬或高較大的一邊：站著時看高度，伏地挺身、棒式躺平時看寬度

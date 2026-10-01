@@ -78,14 +78,15 @@ let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每
 
 // 首頁與鏡頭畫面同時顯示 AI 模型的載入狀態
 function setModelStatus(text) {
-    modelStatus.textContent = text;
+    if (modelStatus.textContent !== text) modelStatus.textContent = text;
     setPoseStatus(text);
 }
 
 // 鏡頭畫面左上角的狀態標籤；kind 決定顏色：'ok' 綠、'warn' 橘、'error' 紅，沒有則為預設深藍
+// 每一格都會呼叫，內容沒變就不動畫面，比較省電
 function setPoseStatus(text, kind) {
-    poseStatus.textContent = text;
-    poseStatus.dataset.kind = kind || '';
+    if (poseStatus.textContent !== text) poseStatus.textContent = text;
+    if (poseStatus.dataset.kind !== (kind || '')) poseStatus.dataset.kind = kind || '';
 }
 
 // 畫布大小 = 影像實際顯示的大小 × 螢幕像素密度
@@ -293,7 +294,9 @@ async function startCamera(deviceId) {
 }
 
 // 只停止鏡頭串流（切換鏡頭時使用，畫面維持全螢幕）
+// 錄製中也一併停止：換了鏡頭，解析度與角度都不同，不能接在同一份資料裡
 function stopStream() {
+    if (recorder.recording) stopRecording();
     if (currentStream) {
         stopCamera(currentStream);
         currentStream = null;
@@ -312,7 +315,6 @@ function stopStream() {
 
 // 關閉鏡頭並回到首頁
 function closeCamera() {
-    if (recorder.recording) stopRecording();
     cameraRequest++;
     stopStream();
     allowScreenOff();
