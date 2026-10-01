@@ -41,7 +41,11 @@ const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
-const hud = new Hud({ root: hudRoot, side: document.getElementById('hudSide'), knee: document.getElementById('hudKnee'), hip: document.getElementById('hudHip') });
+const hud = new Hud({
+    root: hudRoot,
+    kneeName: document.getElementById('hudKneeName'), knee: document.getElementById('hudKnee'),
+    hipName: document.getElementById('hudHipName'), hip: document.getElementById('hudHip')
+});
 
 // ---------- 狀態 ----------
 let currentStream = null;
