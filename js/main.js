@@ -9,6 +9,8 @@ import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 import { PoseSmoother } from './smooth.js';
 import { framingAdvice, FramingHint } from './framing.js';
+import { PoseRecorder, downloadText, recordingName } from './recorder.js';
+import { updateDataPanel } from './datapanel.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -28,6 +30,13 @@ const modelProgress = document.getElementById('modelProgress');
 const modelHint = document.getElementById('modelHint');
 const perfBtn = document.getElementById('perfBtn');
 const labelLayer = document.getElementById('labels');
+const dataBtn = document.getElementById('dataBtn');
+const dataPanel = document.getElementById('dataPanel');
+const dataRows = document.getElementById('dataRows');
+const recordBtn = document.getElementById('recordBtn');
+const recordInfo = document.getElementById('recordInfo');
+const csvBtn = document.getElementById('csvBtn');
+const jsonBtn = document.getElementById('jsonBtn');
 
 // ---------- 狀態 ----------
 let currentStream = null;
@@ -43,6 +52,8 @@ let picked = null;          // 使用者點選要查看的點與顯示期限 { i
 const fps = new FpsCounter();
 const smoother = new PoseSmoother();  // 讓骨架點不抖動
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
+const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
+let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
 
 // ---------- AI 模型 ----------
 
@@ -163,6 +174,16 @@ function detectPose() {
                 framing.reset();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
+            // 錄製與數據面板都用原始資料；worldLandmarks 是以公尺為單位的 3D 座標（髖部中心為原點）
+            const world = result.worldLandmarks && result.worldLandmarks[0];
+            if (recorder.recording && !recorder.add(now, lastPose && lastPose.raw, lastPose && world)) {
+                stopRecording();
+            }
+            if (now - lastPanelUpdate > 200) {
+                lastPanelUpdate = now;
+                if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
+                if (recorder.recording) showRecordInfo();
+            }
         } catch (err) {
             console.error(err);
             setPoseStatus('骨架偵測發生錯誤', 'error');
@@ -182,7 +203,7 @@ function showPoseLabels() {
 
 // 點畫面上任何一個點（包括臉、手指），顯示它的編號與名稱
 function pickPoint(event) {
-    if (!lastPose || event.target.closest('#toolbar, #infobar')) return;
+    if (!lastPose || event.target.closest('#toolbar, #infobar, #dataPanel')) return;
     const bounds = stage.getBoundingClientRect();
     const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
     const id = nearestPoint(event.clientX - bounds.left, event.clientY - bounds.top,
@@ -262,6 +283,7 @@ function stopStream() {
 
 // 關閉鏡頭並回到首頁
 function closeCamera() {
+    if (recorder.recording) stopRecording();
     cameraRequest++;
     stopStream();
     allowScreenOff();
@@ -283,6 +305,52 @@ async function fillCameraSelect() {
         cameraSelect.appendChild(option);
     });
     cameraSelect.hidden = cameras.length <= 1;
+}
+
+// ---------- 數據面板與錄製 ----------
+
+// 錄製中時按鈕加上紅點提醒（面板收起來也看得到）
+function updateDataBtn() {
+    dataBtn.textContent = (dataPanel.hidden ? '數據' : '隱藏數據') + (recorder.recording ? ' ●' : '');
+}
+
+function showRecordInfo() {
+    recordInfo.textContent = (recorder.recording ? '錄製中 ' : '已錄 ') + recorder.seconds.toFixed(1)
+        + ' 秒 · ' + recorder.frameCount + ' 格';
+}
+
+function startRecording() {
+    recorder.start({
+        app: 'AI 智慧運動分析系統',
+        model: 'pose_landmarker_lite',
+        computeMode: pose ? pose.computeMode : '',
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
+        displayMirrored: video.classList.contains('mirrored'),
+        userAgent: navigator.userAgent
+    });
+    recordBtn.textContent = '■ 停止錄製';
+    recordBtn.classList.add('recording');
+    updateDataBtn();
+    csvBtn.hidden = true;
+    jsonBtn.hidden = true;
+    showRecordInfo();
+}
+
+function stopRecording() {
+    recorder.stop();
+    recordBtn.textContent = '● 重新錄製';
+    recordBtn.classList.remove('recording');
+    updateDataBtn();
+    showRecordInfo();
+    csvBtn.hidden = jsonBtn.hidden = recorder.frameCount === 0;
+}
+
+function toggleDataPanel() {
+    dataPanel.hidden = !dataPanel.hidden;
+    updateDataBtn();
+    if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
 }
 
 // ---------- 按鈕 ----------
@@ -317,6 +385,10 @@ labelBtn.addEventListener('click', () => {
     showPoseLabels();
 });
 stage.addEventListener('click', pickPoint);
+dataBtn.addEventListener('click', toggleDataPanel);
+recordBtn.addEventListener('click', () => (recorder.recording ? stopRecording() : startRecording()));
+csvBtn.addEventListener('click', () => downloadText(recordingName(recorder.meta) + '.csv', recorder.toCSV(), 'text/csv'));
+jsonBtn.addEventListener('click', () => downloadText(recordingName(recorder.meta) + '.json', recorder.toJSON(), 'application/json'));
 perfBtn.addEventListener('click', () => {
     perfExpanded = !perfExpanded;
     updatePerfInfo();
