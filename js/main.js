@@ -8,6 +8,7 @@ import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 import { PoseSmoother } from './smooth.js';
+import { framingAdvice, FramingHint } from './framing.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -41,6 +42,7 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const smoother = new PoseSmoother();  // 讓骨架點不抖動
+const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 
 // ---------- AI 模型 ----------
 
@@ -152,10 +154,13 @@ function detectPose() {
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
                 lastPose = { landmarks, raw, derived };
                 showPoseLabels();
-                setPoseStatus('已偵測到人體', 'ok');
+                // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
+                const hint = framing.update(framingAdvice(landmarks), now);
+                setPoseStatus(hint.text, hint.kind);
             } else {
                 lastPose = null;
                 hideLabels();
+                framing.reset();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
         } catch (err) {
@@ -247,6 +252,7 @@ function stopStream() {
     cancelAnimationFrame(animationId);
     fps.reset();
     smoother.reset();
+    framing.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
     lastPose = null;
