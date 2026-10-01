@@ -18,7 +18,10 @@
     <main>
         <button id="startBtn">開啟鏡頭</button>
         <p id="status">尚未開啟鏡頭</p>
-        <p id="modelStatus">AI 模型準備中…</p>
+        <p id="modelStatus">AI 準備中…</p>
+        <!-- AI 載入進度條：不顯示百分比，用文字說明目前在做什麼 -->
+        <div id="modelProgress" role="progressbar" aria-label="AI 載入進度"><div class="fill"></div></div>
+        <p id="modelHint">第一次使用需下載約 18 MB，之後開啟會快很多</p>
     </main>
 
     <footer>
@@ -40,7 +43,7 @@
             <button id="fullscreenBtn">全螢幕</button>
         </div>
         <div id="infobar">
-            <span id="poseStatus">AI 模型準備中…</span>
+            <span id="poseStatus">AI 準備中…</span>
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
         </div>
     </div>

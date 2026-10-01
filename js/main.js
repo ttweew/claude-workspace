@@ -22,6 +22,8 @@ const cameraSelect = document.getElementById('cameraSelect');
 const statusText = document.getElementById('status');
 const poseStatus = document.getElementById('poseStatus');
 const modelStatus = document.getElementById('modelStatus');
+const modelProgress = document.getElementById('modelProgress');
+const modelHint = document.getElementById('modelHint');
 const perfBtn = document.getElementById('perfBtn');
 const labelLayer = document.getElementById('labels');
 
@@ -46,26 +48,50 @@ function setModelStatus(text) {
     poseStatus.textContent = text;
 }
 
+// 進度條長度：下載佔前 85%，後面的啟動與暖機無法算出進度，給固定位置
+// 不顯示百分比，避免使用者看到「96%」就以為快好了
+const STAGE_TEXT = { download: '下載 AI 檔案…', start: '啟動 AI 運算…', warmup: '最後準備中…' };
+function showLoadingStage(progress) {
+    const text = progress.stage === 'start' && progress.delegate === 'GPU' ? '啟動 GPU 加速…' : STAGE_TEXT[progress.stage];
+    const width = progress.stage === 'download' ? progress.fraction * 85 : progress.stage === 'start' ? 90 : 96;
+    setModelStatus('AI 準備中：' + text);
+    modelProgress.firstElementChild.style.width = width + '%';
+}
+
+// 載入結束：成功時進度條補滿、變綠後淡出；失敗時直接收起
+function finishLoading(success) {
+    modelHint.hidden = true;
+    if (success) {
+        modelProgress.firstElementChild.style.width = '100%';
+        modelProgress.classList.add('done', 'hide');
+    } else {
+        modelProgress.hidden = true;
+    }
+}
+
 // 網頁一打開就在背景載入骨架模型，按下開啟鏡頭時通常已經準備好；失敗時鏡頭仍可正常使用
 async function initPose() {
     const startTime = performance.now();
     try {
-        const result = await loadPoseModel(p => {
-            if (!pose) setModelStatus('AI 模型下載中 ' + Math.round(p * 100) + '%');
+        const result = await loadPoseModel(progress => {
+            if (!pose) showLoadingStage(progress);
         });
         drawingUtils = new result.vision.DrawingUtils(ctx);
         if (result.gpuName) perfBtn.title = '瀏覽器回報的 GPU：' + result.gpuName;
         pose = result;
         const seconds = ((performance.now() - startTime) / 1000).toFixed(1);
         setModelStatus('AI 模型已就緒（載入 ' + seconds + ' 秒）');
+        finishLoading(true);
         updatePerfInfo();
     } catch (err) {
         console.error(err);
         setModelStatus('AI 模型載入失敗（鏡頭仍可使用）');
+        finishLoading(false);
     }
 }
 
-// 運算資訊標籤：平常只顯示「GPU · 30 FPS」，點一下展開成「GPU：晶片名稱 · 30 FPS · 螢幕保持亮著」
+// 運算資訊標籤：平常只顯示「GPU · 30 FPS」
+// 點一下展開成「GPU：晶片名稱 · 30 FPS · 螢幕保持亮著 · 載入花費：下載 X 秒、啟動 Y 秒、暖機 Z 秒」
 function updatePerfInfo() {
     if (!pose) return;
     const parts = [perfExpanded ? pose.computeMode + '：' + pose.computeDetail : pose.computeMode];
@@ -73,6 +99,10 @@ function updatePerfInfo() {
     if (currentStream && perfExpanded) {
         parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
             : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗');
+    }
+    if (perfExpanded) {
+        const t = pose.timings;
+        parts.push('載入花費：下載 ' + t.download + ' 秒、啟動 ' + t.start + ' 秒、暖機 ' + t.warmup + ' 秒');
     }
     perfBtn.textContent = parts.join(' · ');
     perfBtn.hidden = false;
