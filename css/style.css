@@ -168,6 +168,21 @@ footer {
     padding-left: 8px;
     color: #BFE4FF;
 }
+/* 關節角度：白底深色粗體，和編號標籤（深底白字）一眼就分得出來 */
+.joint-label.angle {
+    padding: 1px 7px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #15233F;
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+/* 編號標籤後面接的角度 */
+.joint-label .val {
+    margin-left: 2px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
 /* 使用者點選查看的點：橘色外框，比較顯眼 */
 .joint-label.picked {
     border: 2px solid #F39237;

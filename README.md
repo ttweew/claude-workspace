@@ -20,6 +20,7 @@ js/gpu.js           查詢 GPU 名稱並整理成看得懂的名稱
 js/fps.js           計算每秒偵測次數（FPS）
 js/smooth.js        骨架點平滑（One Euro Filter），讓點不抖動、動作快時仍跟得上
 js/framing.js       入鏡提示：依拍到的部位提示往後退、往前、站到中間
+js/angles.js        關節角度計算（膝、髖、肘），在畫面上一直顯示
 js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可信度
 js/recorder.js      錄製關鍵點，匯出 CSV / JSON
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
