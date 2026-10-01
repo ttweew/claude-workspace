@@ -12,6 +12,7 @@ import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel } from './datapanel.js';
 import { computeAngles } from './angles.js';
+import { Hud } from './hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -38,6 +39,9 @@ const recordBtn = document.getElementById('recordBtn');
 const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
+const banner = document.getElementById('banner');
+const hudRoot = document.getElementById('hud');
+const hud = new Hud({ root: hudRoot, side: document.getElementById('hudSide'), knee: document.getElementById('hudKnee'), hip: document.getElementById('hudHip') });
 
 // ---------- 狀態 ----------
 let currentStream = null;
@@ -83,10 +87,15 @@ function setModelStatus(text) {
 }
 
 // 鏡頭畫面左上角的狀態標籤；kind 決定顏色：'ok' 綠、'warn' 橘、'error' 紅，沒有則為預設深藍
+// 需要使用者調整站位的提示（warn）改用畫面中央的大字橫幅，站遠也看得到；這時左上角的小標籤先收起來，不重複顯示
 // 每一格都會呼叫，內容沒變就不動畫面，比較省電
 function setPoseStatus(text, kind) {
     if (poseStatus.textContent !== text) poseStatus.textContent = text;
     if (poseStatus.dataset.kind !== (kind || '')) poseStatus.dataset.kind = kind || '';
+    const warn = kind === 'warn';
+    if (warn && banner.textContent !== text) banner.textContent = text;
+    if (banner.hidden === warn) banner.hidden = !warn;
+    if (poseStatus.hidden !== warn) poseStatus.hidden = warn;
 }
 
 // 畫布大小 = 影像實際顯示的大小 × 螢幕像素密度
@@ -119,6 +128,8 @@ function finishLoading(success) {
     if (success) {
         modelProgress.firstElementChild.style.width = '100%';
         modelProgress.classList.add('done', 'hide');
+        // 淡出後收起來，不留一塊空白
+        setTimeout(() => { modelProgress.hidden = true; }, 1400);
     } else {
         modelProgress.hidden = true;
     }
@@ -189,12 +200,14 @@ function detectPose() {
                 const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
                 lastPose = { landmarks, raw, rawWorld, derived, angles };
                 showPoseLabels();
+                hud.update(landmarks, angles);
                 // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
                 const hint = framing.update(framingAdvice(landmarks), now);
                 setPoseStatus(hint.text, hint.kind);
             } else {
                 lastPose = null;
                 hideLabels();
+                hud.update(null);
                 framing.reset();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
@@ -273,6 +286,7 @@ async function startCamera(deviceId) {
     video.play().catch(() => {});
     statusText.textContent = '鏡頭已開啟';
     stage.hidden = false;
+    hudRoot.hidden = !dataPanel.hidden;
     const mirror = shouldMirror(stream);
     video.classList.toggle('mirrored', mirror);
     overlay.classList.toggle('mirrored', mirror);
@@ -311,6 +325,9 @@ function stopStream() {
     lastPose = null;
     picked = null;
     hideLabels();
+    hud.reset();
+    // 清掉上一次的偵測狀態（綠色「已偵測到全身」或大字提示），等新的畫面進來再更新；AI 還在載入時保留載入進度文字
+    setPoseStatus(pose ? '等待鏡頭畫面…' : poseStatus.textContent);
 }
 
 // 關閉鏡頭並回到首頁
@@ -378,8 +395,10 @@ function stopRecording() {
     csvBtn.hidden = jsonBtn.hidden = recorder.frameCount === 0;
 }
 
+// 數據面板是近距離分析用的，打開時收起大字儀表板，兩者不會疊在一起
 function toggleDataPanel() {
     dataPanel.hidden = !dataPanel.hidden;
+    hudRoot.hidden = !dataPanel.hidden;
     updateDataBtn();
     if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
 }
