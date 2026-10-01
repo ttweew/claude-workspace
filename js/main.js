@@ -45,7 +45,23 @@ let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入
 let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
 let lastVideoTime = -1;
 let animationId = null;
-let showLabels = SHOW_LABELS_AT_START;  // 是否在每個點旁邊標出編號與名稱
+// 「顯示編號」的開關會記在瀏覽器裡，下次打開網站維持上次的選擇；網址加 ?debug 則一律顯示
+const LABELS_KEY = 'showLabels';
+function loadLabelSetting() {
+    try {
+        return localStorage.getItem(LABELS_KEY) === '1';
+    } catch (err) {
+        return false;  // 無痕模式等情況可能無法讀取，就用預設的不顯示
+    }
+}
+function saveLabelSetting(on) {
+    try {
+        localStorage.setItem(LABELS_KEY, on ? '1' : '0');
+    } catch (err) {
+        // 無法儲存也不影響使用，只是下次不會記得
+    }
+}
+let showLabels = SHOW_LABELS_AT_START || loadLabelSetting();  // 是否在主要關節旁邊標出編號與名稱
 let perfExpanded = false;   // 運算資訊標籤是否展開顯示詳細資訊
 let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面時用來找最近的點
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
@@ -381,6 +397,7 @@ document.addEventListener('fullscreenchange', () => {
 });
 labelBtn.addEventListener('click', () => {
     showLabels = !showLabels;
+    saveLabelSetting(showLabels);
     updateLabelBtn();
     showPoseLabels();
 });
