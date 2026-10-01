@@ -23,6 +23,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # 在每個 CSS、JS 檔名後面加上這次的版本號（commit 編號前 8 碼），例如 js/main.js?v=1a2b3c4d
+      # 瀏覽器會把不同版本當成不同檔案，就不會發生「新版 main.js 配舊版 labels.js」而出錯
+      # 只改發布出去的檔案，不影響 GitHub 上的原始碼
+      - name: Add version to file links
+        run: |
+          v="${GITHUB_SHA::8}"
+          sed -i "s#href=\"css/style\.css\"#href=\"css/style.css?v=$v\"#; s#src=\"js/main\.js\"#src=\"js/main.js?v=$v\"#" index.html
+          sed -i "s#\(from '\./[A-Za-z]*\.js\)'#\1?v=$v'#g" js/*.js
+          grep -c "?v=$v" index.html js/*.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -2,6 +2,7 @@
 // 使用瀏覽器內建的 Screen Wake Lock 功能；不支援的瀏覽器就維持原本行為
 
 let wakeLock = null;
+let wanted = false;  // 目前是否需要保持亮著（申請要等一下才會成功，期間可能已經關閉鏡頭）
 
 // 瀏覽器是否支援
 export function isWakeLockSupported() {
@@ -15,9 +16,16 @@ export function isScreenKeptOn() {
 
 // 開始保持螢幕亮著；onChange：狀態改變時通知（例如切到別的 App 時瀏覽器會自動解除）
 export async function keepScreenOn(onChange) {
+    wanted = true;
     if (!isWakeLockSupported() || isScreenKeptOn()) return;
     try {
-        wakeLock = await navigator.wakeLock.request('screen');
+        const lock = await navigator.wakeLock.request('screen');
+        // 等待期間已經關閉鏡頭（或已經有另一個申請成功了）：這個直接還回去
+        if (!wanted || isScreenKeptOn()) {
+            lock.release().catch(() => {});
+            return;
+        }
+        wakeLock = lock;
         wakeLock.addEventListener('release', () => onChange && onChange());
         if (onChange) onChange();
     } catch (err) {
@@ -28,6 +36,7 @@ export async function keepScreenOn(onChange) {
 
 // 解除，讓螢幕恢復正常的自動變暗
 export function allowScreenOff() {
+    wanted = false;
     if (wakeLock) {
         wakeLock.release().catch(() => {});
         wakeLock = null;

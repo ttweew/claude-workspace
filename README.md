@@ -27,7 +27,7 @@ js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
 ```
 
-外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。
+外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
 
 ## 測試用網址參數
 
@@ -48,4 +48,6 @@ docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
 
 ## 更新網站
 
-合併到 `main` 分支後，GitHub Actions 會自動發布到 GitHub Pages，約 1 分鐘生效。瀏覽器可能暫存舊檔案最多 10 分鐘，看到舊畫面時按 Ctrl + F5（手機可用無痕模式）。
+合併到 `main` 分支後，GitHub Actions 會自動發布到 GitHub Pages，約 1 分鐘生效。
+
+發布時會在每個 CSS、JS 檔名後面加上版本號（例如 `js/main.js?v=1a2b3c4d`），瀏覽器一定拿到同一個版本的全部檔案，不會新舊混在一起而出錯。首頁本身仍可能被暫存最多 10 分鐘，看到舊畫面時按 Ctrl + F5（手機可用無痕模式）。

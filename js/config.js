@@ -1,7 +1,11 @@
 // 全站設定：外部套件版本、模型檔位置、測試用的網址參數
 
 // MediaPipe 版本：固定版本號，避免官方更新造成網站壞掉
-export const MEDIAPIPE_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+// 兩個下載來源內容完全相同：第一個連不上（網路封鎖、服務中斷）時自動改用第二個
+export const MEDIAPIPE_URLS = [
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1',
+    'https://unpkg.com/@mediapipe/tasks-vision@1.0.1'
+];
 
 // 骨架模型（lite：最輕量、手機也跑得動）
 export const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';

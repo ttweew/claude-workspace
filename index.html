@@ -17,8 +17,10 @@
 
     <main>
         <button id="startBtn">開啟鏡頭</button>
-        <p id="status">尚未開啟鏡頭</p>
-        <p id="modelStatus">AI 準備中…</p>
+        <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
+        <p id="status" aria-live="polite">尚未開啟鏡頭</p>
+        <p id="modelStatus" aria-live="polite">AI 準備中…</p>
+        <noscript><p>請開啟瀏覽器的 JavaScript 功能，才能使用本網站。</p></noscript>
         <!-- AI 載入進度條：不顯示百分比，用文字說明目前在做什麼 -->
         <div id="modelProgress" role="progressbar" aria-label="AI 載入進度"><div class="fill"></div></div>
         <p id="modelHint">第一次使用需下載約 18 MB，之後開啟會快很多</p>
@@ -67,5 +69,10 @@
 
     <!-- 程式從 js/main.js 開始，各功能分在 js/ 資料夾的不同檔案 -->
     <script type="module" src="js/main.js"></script>
+    <!-- 太舊的瀏覽器不支援上面的寫法，改顯示提示，不會只是按了沒反應 -->
+    <script nomodule>
+        document.getElementById('status').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
+        document.getElementById('startBtn').disabled = true;
+    </script>
 </body>
 </html>
