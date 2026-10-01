@@ -106,14 +106,24 @@ function letScreenUpdate() {
     return new Promise(resolve => setTimeout(resolve, 50));
 }
 
-// 建立骨架偵測器
+// 建立骨架偵測器，回傳 { landmarker, lost() }
 // model：下載中的模型（reader）或已下載完成的模型檔（Uint8Array）
-function createPoseLandmarker(vision, fileset, delegate, model) {
-    return vision.PoseLandmarker.createFromOptions(fileset, {
+// GPU 模式由我們自己準備畫布交給 MediaPipe，才能隨時檢查 GPU 還在不在：
+// 手機切到背景、螢幕鎖定或記憶體不足時，系統可能收回 GPU，之後偵測不會報錯，只會一直找不到人
+// lost() 為 true 代表這個偵測器已經不能用，要重新建立
+async function createPoseLandmarker(vision, fileset, delegate, model) {
+    const canvas = delegate === 'GPU'
+        ? (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(1, 1) : document.createElement('canvas'))
+        : null;
+    const landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetBuffer: model, delegate: delegate },
+        ...(canvas ? { canvas: canvas } : {}),
         runningMode: 'VIDEO',
         numPoses: 1
     });
+    // 建好之後再向同一張畫布要 WebGL，拿到的就是 MediaPipe 正在用的那一個
+    const gl = canvas && (canvas.getContext('webgl2') || canvas.getContext('webgl'));
+    return { landmarker: landmarker, lost: () => !!gl && gl.isContextLost() };
 }
 
 // 暖機：先用一張空白小圖跑一次偵測。第一次偵測特別慢，提早在首頁把這段時間花掉，
@@ -133,7 +143,7 @@ function warmUp(landmarker) {
 // 載入 MediaPipe 與骨架模型，回傳準備好的偵測器
 // onProgress({ stage, fraction, delegate })：目前進行到哪個階段
 //   stage：'download' 下載檔案（fraction 為 0～1 的整體下載進度）、'start' 啟動 AI、'warmup' 暖機
-// 回傳 { vision, landmarker, computeMode, computeDetail, gpuName, timings }
+// 回傳 { vision, landmarker, computeMode, computeDetail, gpuName, timings, gpuLost(), restart() }
 //   computeMode：'GPU' 或 'CPU'；computeDetail：GPU 時為晶片名稱，CPU 時為原因
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
 export async function loadPoseModel(onProgress) {
@@ -159,22 +169,22 @@ export async function loadPoseModel(onProgress) {
         onProgress({ stage: 'start', delegate: useGpu ? 'GPU' : 'CPU' });
     }, () => {});
 
-    let landmarker, computeMode, computeDetail;
+    let created, computeMode, computeDetail;
     try {
         if (FORCE_CPU) {
-            landmarker = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
+            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
             [computeMode, computeDetail] = ['CPU', '測試模式'];
         } else if (!useGpu) {
             // 沒有實體 GPU（例如軟體模擬）時，直接用 CPU 反而比較快
-            landmarker = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
+            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
             [computeMode, computeDetail] = ['CPU', '未偵測到可用的 GPU'];
         } else {
             try {
-                landmarker = await createPoseLandmarker(vision, fileset, 'GPU', download.reader);
+                created = await createPoseLandmarker(vision, fileset, 'GPU', download.reader);
                 [computeMode, computeDetail] = ['GPU', shortGpuName(gpu.name)];
             } catch (gpuErr) {
                 console.warn('GPU 無法使用，改用 CPU：', gpuErr);
-                landmarker = await createPoseLandmarker(vision, fileset, 'CPU', await download.finished);
+                created = await createPoseLandmarker(vision, fileset, 'CPU', await download.finished);
                 [computeMode, computeDetail] = ['CPU', '此裝置無法使用 GPU'];
             }
         }
@@ -186,7 +196,7 @@ export async function loadPoseModel(onProgress) {
     onProgress({ stage: 'warmup' });
     await letScreenUpdate();
     const warmStart = performance.now();
-    warmUp(landmarker);
+    warmUp(created.landmarker);
     const end = performance.now();
 
     const seconds = ms => Math.round(ms / 100) / 10;
@@ -196,5 +206,36 @@ export async function loadPoseModel(onProgress) {
         warmup: seconds(end - warmStart)
     };
     console.info('AI 載入各階段秒數：', timings);
-    return { vision, landmarker, computeMode, computeDetail, gpuName: gpu ? gpu.name : '', timings };
+
+    const pose = {
+        vision, landmarker: created.landmarker, computeMode, computeDetail, gpuName: gpu ? gpu.name : '', timings,
+        // GPU 是否被系統收回（CPU 模式一律為 false）
+        gpuLost: created.lost,
+        // 偵測器壞掉時重新建立：原本用 GPU 就先再試一次 GPU（回到前景後通常就能用），還是不行再改用 CPU
+        // 模型檔已經下載好留在記憶體裡，不用再下載，通常 1 秒內完成
+        async restart() {
+            try {
+                pose.landmarker.close();
+            } catch (err) {
+                // 舊的偵測器可能已經壞了，關不掉也沒關係
+            }
+            const model = await download.finished;
+            let next = null;
+            if (pose.computeMode === 'GPU') {
+                try {
+                    next = await createPoseLandmarker(vision, fileset, 'GPU', model);
+                } catch (err) {
+                    console.warn('GPU 無法重新啟動，改用 CPU：', err);
+                }
+            }
+            if (!next) {
+                next = await createPoseLandmarker(vision, fileset, 'CPU', model);
+                if (pose.computeMode === 'GPU') [pose.computeMode, pose.computeDetail] = ['CPU', 'GPU 失效，改用 CPU'];
+            }
+            warmUp(next.landmarker);
+            pose.landmarker = next.landmarker;
+            pose.gpuLost = next.lost;
+        }
+    };
+    return pose;
 }

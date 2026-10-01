@@ -49,7 +49,11 @@ let cameraRequest = 0;      // 每次開啟或關閉鏡頭就加 1，用來丟�
 let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
 let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
 let lastVideoTime = -1;
-let animationId = null;
+let frameRequest = null;    // 下一次偵測的排程，關閉鏡頭時取消
+let failures = 0;           // 連續偵測出錯的次數
+let restarting = false;     // AI 正在重新啟動（或已經放棄），這段時間不偵測
+let lastRestart = -Infinity;
+let poseBroken = false;     // 重新啟動也救不回來；使用者重新開啟鏡頭時再試一次
 // 「顯示編號」的開關會記在瀏覽器裡，下次打開網站維持上次的選擇；網址加 ?debug 則一律顯示
 const LABELS_KEY = 'showLabels';
 function loadLabelSetting() {
@@ -175,10 +179,68 @@ function updatePerfInfo() {
     perfBtn.hidden = false;
 }
 
-// 每一個畫面都做一次骨架偵測，並把關鍵點、連線（與編號）畫出來
+// 排下一次偵測：鏡頭每送來一格新畫面，就偵測一次
+// 支援的瀏覽器用 requestVideoFrameCallback，新畫面到了才叫醒程式；
+// 舊瀏覽器用 requestAnimationFrame，跟著螢幕更新（60～120 次／秒）檢查有沒有新畫面
+// 鏡頭通常每秒 30 格，在 120Hz 螢幕的手機上，前者被叫醒的次數只有後者的 1/4，比較省電、不發燙
+const VIDEO_FRAMES = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+function scheduleDetect() {
+    frameRequest = VIDEO_FRAMES ? video.requestVideoFrameCallback(detectPose) : requestAnimationFrame(detectPose);
+}
+function cancelDetect() {
+    if (frameRequest === null) return;
+    if (VIDEO_FRAMES) video.cancelVideoFrameCallback(frameRequest);
+    else cancelAnimationFrame(frameRequest);
+    frameRequest = null;
+}
+
+// 偵測器壞掉時自動重新啟動，不用使用者重新整理頁面
+// 常見情況：手機切到背景或鎖定螢幕，系統收回 GPU，回來後骨架就再也不出現
+const MAX_FAILURES = 10;  // 連續出錯這麼多格（約 0.3 秒）才重新啟動，偶爾一格出錯不用大動作
+async function restartPose(reason) {
+    restarting = true;
+    console.warn('AI 重新啟動：' + reason);
+    clearPose();
+    // 5 秒內又壞掉，代表重新啟動也救不回來，不要一直重試
+    if (performance.now() - lastRestart < 5000) {
+        giveUpPose();
+        return;
+    }
+    setPoseStatus('AI 重新啟動中…');
+    try {
+        await pose.restart();
+    } catch (err) {
+        console.error(err);
+        giveUpPose();
+        return;
+    }
+    lastRestart = performance.now();
+    failures = 0;
+    smoother.reset();
+    updatePerfInfo();
+    restarting = false;
+}
+
+function giveUpPose() {
+    poseBroken = true;
+    setPoseStatus('AI 偵測無法使用，請關閉鏡頭再開一次，或重新整理頁面', 'error');
+}
+
+// 清掉畫面上的骨架、標籤與儀表板
+function clearPose() {
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    lastPose = null;
+    hideLabels();
+    hud.update(null);
+    framing.reset();
+}
+
+// 每一格新畫面做一次骨架偵測，並把關鍵點、連線（與編號）畫出來
 function detectPose() {
+    frameRequest = null;
     if (!currentStream) return;
-    if (pose && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    if (pose && !restarting && pose.gpuLost()) restartPose('GPU 被系統收回');
+    if (pose && !restarting && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
         // 畫布和影像的長寬比例相同，座標才會對齊
         const dpr = fitOverlay();
@@ -205,10 +267,7 @@ function detectPose() {
                 const hint = framing.update(framingAdvice(landmarks), now);
                 setPoseStatus(hint.text, hint.kind);
             } else {
-                lastPose = null;
-                hideLabels();
-                hud.update(null);
-                framing.reset();
+                clearPose();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
             // 錄製與數據面板都用原始資料（未平滑）
@@ -220,12 +279,15 @@ function detectPose() {
                 if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
                 if (recorder.recording) showRecordInfo();
             }
+            failures = 0;
         } catch (err) {
-            console.error(err);
-            setPoseStatus('骨架偵測發生錯誤', 'error');
+            // 同樣的錯誤每一格都印，會塞爆主控台、拖慢速度，只印第一次
+            if (failures === 0) console.error(err);
+            failures++;
+            if (failures >= MAX_FAILURES) restartPose('連續 ' + failures + ' 格偵測出錯');
         }
     }
-    animationId = requestAnimationFrame(detectPose);
+    scheduleDetect();
 }
 
 // 顯示標籤：關節角度一直顯示；「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
@@ -296,6 +358,12 @@ async function startCamera(deviceId) {
         closeCamera();
         statusText.textContent = '鏡頭連線中斷（可能被拔除或被其他程式使用），請重新開啟鏡頭';
     });
+    // 上次 AI 壞掉沒救回來：重新開啟鏡頭時再試一次
+    if (poseBroken) {
+        poseBroken = false;
+        lastRestart = -Infinity;
+        restartPose('重新開啟鏡頭');
+    }
     detectPose();
     updatePerfInfo();
     // 運動時手機不會因為沒碰螢幕而變暗、鎖定
@@ -316,7 +384,7 @@ function stopStream() {
         currentStream = null;
     }
     video.srcObject = null;
-    cancelAnimationFrame(animationId);
+    cancelDetect();
     fps.reset();
     smoother.reset();
     framing.reset();
@@ -423,8 +491,11 @@ stopBtn.addEventListener('click', closeCamera);
 cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
 fullscreenBtn.addEventListener('click', toggleFullscreen);
 // 切到別的 App 再回來時，瀏覽器會自動解除螢幕常亮，這裡重新開啟
+// iPhone 切回來時影像可能停在最後一格，主動繼續播放
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && currentStream) keepScreenOn(updatePerfInfo);
+    if (document.visibilityState !== 'visible' || !currentStream) return;
+    keepScreenOn(updatePerfInfo);
+    if (video.paused) video.play().catch(() => {});
 });
 document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement ? '離開全螢幕' : '全螢幕';

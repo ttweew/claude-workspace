@@ -12,7 +12,7 @@ css/style.css       所有外觀樣式
 js/main.js          程式起點：取得畫面元素、串接鏡頭與 AI 偵測、處理按鈕
 js/config.js        設定：MediaPipe 版本、模型檔網址、測試用網址參數
 js/camera.js        鏡頭：開啟、關閉、判斷前後鏡頭、列出所有鏡頭
-js/pose.js          AI 骨架偵測：下載 AI 檔案與計算進度、選擇 GPU 或 CPU、暖機、記錄各階段載入秒數
+js/pose.js          AI 骨架偵測：下載 AI 檔案與計算進度、選擇 GPU 或 CPU、暖機、記錄各階段載入秒數、壞掉時重新建立
 js/landmarks.js     33 個關鍵點的名稱對照表，以及算出新的點（例如髖部中心）
 js/draw.js          在畫布上畫骨架
 js/labels.js        關鍵點的編號標籤、點選查看某個點
