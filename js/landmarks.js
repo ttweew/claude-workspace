@@ -46,6 +46,18 @@ export function isMainJoint(id) {
     return (id >= 11 && id <= 16) || (id >= 23 && id <= 28);
 }
 
+// MediaPipe 一定會回傳全部 33 點，就算那個部位不在畫面裡，也會「猜」一個位置
+// （例如只拍到頭時，會猜出手腕落在畫面下方）。visibility 是模型認為這個點真的看得到的機率（0～1）
+// 實測只拍到頭時，猜出來的手腕約 0.5～0.6，真的拍到的點幾乎都在 0.8 以上，所以門檻設 0.65
+export const MIN_VISIBILITY = 0.65;
+
+// 這個點是否真的看得到：可信度夠高，而且在畫面範圍內
+// 只用來決定畫面上要不要畫出來；原始資料仍保留全部 33 點，之後分析時可以自己判斷
+export function isVisible(point) {
+    return point.visibility >= MIN_VISIBILITY
+        && point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1;
+}
+
 // 兩點的中點：用來算出模型沒有提供的新點
 export function midpoint(a, b) {
     return {

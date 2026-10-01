@@ -1,7 +1,7 @@
 // 在畫面上標出關鍵點的編號與名稱
 // 用網頁文字（不是畫在畫布上），字會跟按鈕一樣清楚；標籤重疊時自動上下錯開
 
-import { LANDMARKS, isMainJoint } from './landmarks.js';
+import { LANDMARKS, isMainJoint, isVisible } from './landmarks.js';
 
 const CENTER_NAMES = { SHOULDER_CENTER: '肩膀中心', HIP_CENTER: '髖部中心' };
 
@@ -47,7 +47,10 @@ export function toScreen(point, rect, mirrored) {
 // showAll：是否顯示主要關節與中心點；pickedId：使用者點選的點（編號或 'SHOULDER_CENTER' 等），沒有則為 null
 export function updateLabels(container, landmarks, derived, rect, mirrored, showAll, pickedId) {
     const wanted = [];
-    const add = (key, point, number, name, variant, outward) => wanted.push({ key, point, number, name, variant, outward });
+    // 看不到的點（不在畫面裡、或是模型猜的）不顯示標籤
+    const add = (key, point, number, name, variant, outward) => {
+        if (isVisible(point)) wanted.push({ key, point, number, name, variant, outward });
+    };
     if (showAll) {
         LANDMARKS.forEach(([code, name], id) => {
             if (isMainJoint(id)) add(id, landmarks[id], id, name, 'joint', code.includes('RIGHT') ? -1 : 1);
@@ -112,6 +115,7 @@ export function nearestPoint(x, y, landmarks, derived, rect, mirrored, maxDist) 
     let best = null;
     let bestDist = maxDist;
     const check = (id, point) => {
+        if (!isVisible(point)) return;
         const p = toScreen(point, rect, mirrored);
         const d = Math.hypot(p.x - x, p.y - y);
         if (d < bestDist) {
