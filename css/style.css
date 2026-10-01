@@ -678,7 +678,8 @@ footer {
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: var(--radius);
-    background: rgba(11, 18, 32, 0.92);
+    /* 不透明：底下的編號標籤不會透出來和表格數字疊在一起 */
+    background: #0B1220;
     color: #FFFFFF;
     font-size: 12px;
     box-shadow: var(--shadow);
@@ -689,7 +690,8 @@ footer {
 /* 手機橫拿時畫面很矮：面板改放右側，少擋住身體 */
 @media (orientation: landscape) and (max-height: 500px) {
     #dataPanel {
-        top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+        /* 放在狀態小標籤下方，不蓋住 FPS */
+        top: calc(max(8px, env(safe-area-inset-top)) + 104px);
         left: auto;
         width: 340px;
         max-height: none;
