@@ -7,10 +7,20 @@ export const MEDIAPIPE_URLS = [
     'https://unpkg.com/@mediapipe/tasks-vision@1.0.1'
 ];
 
-// 骨架模型（lite：最輕量、手機也跑得動）
-export const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
-
 const params = new URLSearchParams(location.search);
+
+// 骨架模型：預設 lite（最輕量、手機也跑得動）
+// 測試用：網址加上 ?model=full 改用較大的 full 模型。模擬測試中鬼點更少，但運算約慢 1.5 倍、多下載 3.6 MB，
+// 請用實際手機比較 FPS 再決定要不要換
+const MODELS = {
+    lite: { name: 'pose_landmarker_lite', size: 5.8e6 },
+    full: { name: 'pose_landmarker_full', size: 9.4e6 }
+};
+const model = MODELS[params.get('model')] || MODELS.lite;
+export const POSE_MODEL_NAME = model.name;
+export const POSE_MODEL_SIZE = model.size;  // 檔案大小，用來計算下載進度
+export const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/'
+    + model.name + '/float16/1/' + model.name + '.task';
 
 // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
 export const FORCE_CPU = params.has('cpu');

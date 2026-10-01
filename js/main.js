@@ -1,6 +1,6 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG } from './config.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { getDerivedPoints } from './landmarks.js';
@@ -8,6 +8,7 @@ import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 import { PoseSmoother } from './smooth.js';
+import { GhostFilter } from './ghost.js';
 import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel } from './datapanel.js';
@@ -80,6 +81,7 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const smoother = new PoseSmoother();  // 讓骨架點不抖動
+const ghosts = new GhostFilter();     // 擋掉模型腦補出來的點與鬼骨架
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
 const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -251,6 +253,7 @@ async function restartPose(reason) {
     lastRestart = performance.now();
     failures = 0;
     smoother.reset();
+    ghosts.reset();
     updatePerfInfo();
     restarting = false;
 }
@@ -286,17 +289,18 @@ function detectPose(time, frame) {
             const result = pose.landmarker.detectForVideo(video, now);
             if (fps.tick(now)) updatePerfInfo();
             ctx.clearRect(0, 0, overlay.width, overlay.height);
-            if (result.landmarks.length > 0) {
-                // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
-                // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
-                const raw = result.landmarks[0];
-                const landmarks = smoother.smooth(raw, now);
+            // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
+            // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
+            const raw = result.landmarks[0];
+            // worldLandmarks：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
+            const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
+            const landmarks = raw ? smoother.smooth(raw, now) : null;
+            // 鬼骨架（人已經離開畫面，模型還在追一副越縮越小的骨架）當作沒有人
+            if (landmarks && ghosts.update(landmarks, now, video.videoWidth, video.videoHeight)) {
                 const derived = getDerivedPoints(landmarks);
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
                 // 關節角度用平滑後的畫面座標計算，數字才不會跳
                 const angles = computeAngles(landmarks, video.videoWidth, video.videoHeight);
-                // worldLandmarks：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
-                const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
                 lastPose = { landmarks, raw, rawWorld, derived, angles };
                 showPoseLabels();
                 hud.update(landmarks, angles);
@@ -304,11 +308,12 @@ function detectPose(time, frame) {
                 const hint = framing.update(framingAdvice(landmarks), now);
                 setPoseStatus(hint.text, hint.kind);
             } else {
+                if (!landmarks) ghosts.reset();
                 clearPose();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
-            // 錄製與數據面板都用原始資料（未平滑）
-            if (recorder.recording && !recorder.add(now, lastPose && lastPose.raw, lastPose && lastPose.rawWorld)) {
+            // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
+            if (recorder.recording && !recorder.add(now, raw, rawWorld)) {
                 stopRecording();
             }
             if (now - lastPanelUpdate > 200) {
@@ -424,6 +429,7 @@ function stopStream() {
     cancelDetect();
     fps.reset();
     smoother.reset();
+    ghosts.reset();
     framing.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
@@ -488,7 +494,7 @@ function showRecordInfo() {
 function startRecording() {
     recorder.start({
         app: 'AI 智慧運動分析系統',
-        model: 'pose_landmarker_lite',
+        model: POSE_MODEL_NAME,
         computeMode: pose ? pose.computeMode : '',
         videoWidth: video.videoWidth,
         videoHeight: video.videoHeight,

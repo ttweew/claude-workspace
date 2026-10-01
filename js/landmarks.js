@@ -53,7 +53,9 @@ export const MIN_VISIBILITY = 0.65;
 
 // 這個點是否真的看得到：可信度夠高，而且在畫面範圍內
 // 只用來決定畫面上要不要畫出來；原始資料仍保留全部 33 點，之後分析時可以自己判斷
+// 畫面上的點經過 ghost.js 檢查後會帶有 visible 欄位，以它為準（擋掉模型腦補出來的點）
 export function isVisible(point) {
+    if (point.visible !== undefined) return point.visible;
     return point.visibility >= MIN_VISIBILITY
         && point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1;
 }
@@ -64,7 +66,9 @@ export function midpoint(a, b) {
         x: (a.x + b.x) / 2,
         y: (a.y + b.y) / 2,
         z: (a.z + b.z) / 2,
-        visibility: Math.min(a.visibility, b.visibility)
+        visibility: Math.min(a.visibility, b.visibility),
+        // 兩個點都經過鬼點檢查時，中點也要兩點都看得到才算
+        ...(a.visible !== undefined && b.visible !== undefined ? { visible: a.visible && b.visible } : {})
     };
 }
 
