@@ -4,31 +4,118 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
+    <!-- 手機瀏覽器網址列的顏色，和網頁背景一致 -->
+    <meta name="theme-color" content="#0B1220">
     <title>AI 智慧運動分析系統</title>
-    <!-- 目前沒有網站圖示；宣告空白圖示，瀏覽器就不會去找 favicon.ico 而產生錯誤 -->
-    <link rel="icon" href="data:,">
+    <!-- 網站圖示：一個簡單的人形，直接寫在網頁裡，不用另外的圖檔 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header>
-        <h1>AI 智慧運動分析系統</h1>
-        <p class="intro">用一支鏡頭，即時看見你的運動姿勢</p>
-    </header>
+    <div class="page">
+        <header class="hero">
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <rect width="32" height="32" rx="9"/>
+                    <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+                </svg>
+                <span>即時 · 免安裝 · 影像不上傳</span>
+            </div>
+            <h1>AI 智慧<span class="accent">運動分析</span>系統</h1>
+            <p class="intro">用一支鏡頭，即時看見你的運動姿勢。不用穿戴裝置、不用安裝 App，打開網頁就能開始。</p>
 
-    <main>
-        <button id="startBtn">開啟鏡頭</button>
-        <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
-        <p id="status" aria-live="polite">尚未開啟鏡頭</p>
-        <p id="modelStatus" aria-live="polite">AI 準備中…</p>
-        <noscript><p>請開啟瀏覽器的 JavaScript 功能，才能使用本網站。</p></noscript>
-        <!-- AI 載入進度條：不顯示百分比，用文字說明目前在做什麼 -->
-        <div id="modelProgress" role="progressbar" aria-label="AI 載入進度"><div class="fill"></div></div>
-        <p id="modelHint">第一次使用需下載約 18 MB，之後開啟會快很多</p>
-    </main>
+            <!-- 示意圖：側面深蹲的骨架與膝蓋角度（只在寬螢幕顯示） -->
+            <svg class="hero-art" viewBox="0 0 360 360" role="img" aria-label="示意圖：側面深蹲時，骨架與膝蓋角度 95 度">
+                <rect class="art-bg" x="10" y="10" width="340" height="340" rx="28"/>
+                <path class="art-frame" d="M40 80V40h40M280 40h40v40M320 280v40h-40"/>
+                <g class="art-bones">
+                    <path d="M176 112L150 186L222 214L200 290"/>
+                    <path d="M170 128L222 146L270 146"/>
+                    <path d="M200 290h34"/>
+                </g>
+                <path class="art-arc" d="M199.6 205.3A24 24 0 0 0 215.3 237.1"/>
+                <circle class="art-head" cx="186" cy="84" r="20"/>
+                <g class="art-joints">
+                    <circle cx="176" cy="112" r="7"/><circle cx="150" cy="186" r="7"/><circle cx="222" cy="214" r="9"/>
+                    <circle cx="200" cy="290" r="7"/><circle cx="222" cy="146" r="6"/><circle cx="270" cy="146" r="6"/>
+                </g>
+                <g class="art-chip">
+                    <rect x="236" y="226" width="86" height="40" rx="20"/>
+                    <text x="279" y="253">95°</text>
+                </g>
+                <g class="art-status">
+                    <rect x="40" y="300" width="132" height="30" rx="15"/>
+                    <text x="106" y="320">已偵測到全身</text>
+                </g>
+            </svg>
 
-    <footer>
-        <p>&copy; 2026 AI 智慧運動分析系統</p>
-    </footer>
+            <div class="start-card">
+                <button id="startBtn">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
+                    開啟鏡頭
+                </button>
+                <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
+                <p id="status" aria-live="polite">尚未開啟鏡頭</p>
+                <p id="modelStatus" aria-live="polite">AI 準備中…</p>
+                <!-- AI 載入進度條：不顯示百分比，用文字說明目前在做什麼 -->
+                <div id="modelProgress" role="progressbar" aria-label="AI 載入進度"><div class="fill"></div></div>
+                <p id="modelHint">第一次使用需下載約 18 MB，之後開啟會快很多</p>
+                <noscript><p>請開啟瀏覽器的 JavaScript 功能，才能使用本網站。</p></noscript>
+            </div>
+        </header>
+
+        <main>
+            <section aria-labelledby="featuresTitle">
+                <h2 id="featuresTitle">可以做什麼</h2>
+                <div class="features">
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7M6 10l6-2 6 2M12 14l-4 6M12 14l4 6"/></svg>
+                        <h3>即時骨架偵測</h3>
+                        <p>Google MediaPipe 在你的裝置上即時找出 33 個身體關鍵點，影像不會上傳。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L12 5l7 14"/><path d="M8.5 12.5a4 4 0 0 1 7 0"/></svg>
+                        <h3>關節角度</h3>
+                        <p>膝蓋、髖部的彎曲角度即時顯示，站遠也有大字儀表板看得清楚。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>
+                        <h3>入鏡提示</h3>
+                        <p>告訴你該往前、往後或站到中間，全身入鏡時提示會變成綠色。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M7 16V9M12 16V5M17 16v-4"/></svg>
+                        <h3>數據錄製</h3>
+                        <p>錄下每個關鍵點的座標，匯出 CSV 或 JSON，給 Excel 或後端 AI 分析。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section aria-labelledby="stepsTitle">
+                <h2 id="stepsTitle">開始前的準備</h2>
+                <ol class="steps">
+                    <li><strong>擺好裝置</strong>把手機或筆電放在 2～3 公尺外，高度約在腰部</li>
+                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，角度最準</li>
+                    <li><strong>全身入鏡</strong>畫面上的提示變成綠色「已偵測到全身」就可以開始</li>
+                </ol>
+            </section>
+
+            <section aria-labelledby="exercisesTitle">
+                <h2 id="exercisesTitle">支援的運動</h2>
+                <ul class="exercises">
+                    <li>深蹲</li>
+                    <li>伏地挺身</li>
+                    <li>棒式</li>
+                    <li>弓箭步</li>
+                </ul>
+                <p class="note">動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品</p>
+        </footer>
+    </div>
 
     <div id="stage" hidden>
         <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
@@ -37,8 +124,16 @@
         <canvas id="overlay"></canvas>
         <!-- 關鍵點的編號標籤（網頁文字，比畫在畫布上清楚） -->
         <div id="labels"></div>
+        <!-- 入鏡提示的大字橫幅：站遠也看得到（例如「請往後退」） -->
+        <div id="banner" role="status" hidden></div>
+        <!-- 大字儀表板：站遠也看得清楚的關節角度 -->
+        <div id="hud" hidden>
+            <span id="hudSide" class="hud-side">左側</span>
+            <div class="metric"><span class="metric-label">膝蓋</span><span id="hudKnee" class="metric-value">—</span></div>
+            <div class="metric"><span class="metric-label">髖部</span><span id="hudHip" class="metric-value">—</span></div>
+        </div>
         <div id="toolbar">
-            <button id="stopBtn">關閉鏡頭</button>
+            <button id="stopBtn" class="primary">關閉鏡頭</button>
             <!-- 有兩顆以上鏡頭時才顯示 -->
             <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
             <button id="labelBtn" title="也可以直接點畫面上的點，查看它的編號與名稱">顯示編號</button>
