@@ -11,6 +11,7 @@ import { PoseSmoother } from './smooth.js';
 import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel } from './datapanel.js';
+import { computeAngles } from './angles.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -67,6 +68,8 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const smoother = new PoseSmoother();  // 讓骨架點不抖動
+// 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
+const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
@@ -179,7 +182,11 @@ function detectPose() {
                 const landmarks = smoother.smooth(raw, now);
                 const derived = getDerivedPoints(landmarks);
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
-                lastPose = { landmarks, raw, derived };
+                // 關節角度用平滑後的畫面座標計算，數字才不會跳
+                const angles = computeAngles(landmarks, video.videoWidth, video.videoHeight);
+                // worldLandmarks：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
+                const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
+                lastPose = { landmarks, raw, rawWorld, derived, angles };
                 showPoseLabels();
                 // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
                 const hint = framing.update(framingAdvice(landmarks), now);
@@ -190,9 +197,8 @@ function detectPose() {
                 framing.reset();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
-            // 錄製與數據面板都用原始資料；worldLandmarks 是以公尺為單位的 3D 座標（髖部中心為原點）
-            const world = result.worldLandmarks && result.worldLandmarks[0];
-            if (recorder.recording && !recorder.add(now, lastPose && lastPose.raw, lastPose && world)) {
+            // 錄製與數據面板都用原始資料（未平滑）
+            if (recorder.recording && !recorder.add(now, lastPose && lastPose.raw, lastPose && lastPose.rawWorld)) {
                 stopRecording();
             }
             if (now - lastPanelUpdate > 200) {
@@ -208,13 +214,20 @@ function detectPose() {
     animationId = requestAnimationFrame(detectPose);
 }
 
-// 顯示編號標籤：「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
+// 顯示標籤：關節角度一直顯示；「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
 function showPoseLabels() {
     if (!lastPose) return;
     if (picked && performance.now() > picked.until) picked = null;
     const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
     updateLabels(labelLayer, lastPose.landmarks, lastPose.derived, rect, video.classList.contains('mirrored'),
-        showLabels, picked ? picked.id : null);
+        showLabels, picked ? picked.id : null, shownAngles());
+}
+
+// 要一直顯示的關節角度
+function shownAngles() {
+    const angles = {};
+    for (const key of SHOWN_ANGLES) angles[key] = lastPose.angles[key];
+    return angles;
 }
 
 // 點畫面上任何一個點（包括臉、手指），顯示它的編號與名稱
