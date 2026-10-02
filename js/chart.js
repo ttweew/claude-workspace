@@ -26,6 +26,11 @@ export function xToTime(canvas, x, tMax) {
     return Math.max(0, Math.min(tMax, t));
 }
 
+// 畫圖很花時間（5 分鐘的錄製有將近 9000 格），所以：
+//   1. 曲線、格線、色條（底圖）畫好一次就存起來，選時間時只重畫游標線
+//   2. 格子比畫布像素多很多時，每一個像素寬只畫這段時間的最大、最小值，尖峰不會不見
+// opts.key：底圖的內容代號（資料或顯示的關節改變時換一個），一樣就沿用存起來的底圖
+//
 // opts：
 //   times：每一格的時間（秒）
 //   series：[{ values（和 times 一樣長，沒有值的格子是 null）, color, width, dash, alpha }]
@@ -35,8 +40,38 @@ export function xToTime(canvas, x, tMax) {
 //   yMin、yMax、yStep：縱軸範圍與格線間距
 export function drawChart(canvas, opts) {
     const { ctx, w, h } = fit(canvas);
-    const { times, series, bands = [], markers = [], cursor = null, yMin = 0, yMax = 200, yStep = 30 } = opts;
+    const { times, cursor = null } = opts;
     const tMax = times.length ? Math.max(times[times.length - 1], 0.001) : 1;
+    const dpr = window.devicePixelRatio || 1;
+    const key = opts.key + '|' + canvas.width + 'x' + canvas.height;
+    if (!canvas._base || canvas._baseKey !== key) {
+        canvas._base = canvas._base || document.createElement('canvas');
+        canvas._base.width = canvas.width;
+        canvas._base.height = canvas.height;
+        const bctx = canvas._base.getContext('2d');
+        bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawBase(canvas, bctx, w, h, tMax, opts);
+        canvas._baseKey = key;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(canvas._base, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 目前選到的時間
+    if (cursor !== null) {
+        const x = timeToX(canvas, cursor, tMax);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.top);
+        ctx.lineTo(x, h - PAD.bottom);
+        ctx.stroke();
+    }
+}
+
+function drawBase(canvas, ctx, w, h, tMax, opts) {
+    const { times, series, bands = [], markers = [], yMin = 0, yMax = 200, yStep = 30 } = opts;
     const plotTop = PAD.top + BAND_H + 4, plotBottom = h - PAD.bottom;
     const X = t => timeToX(canvas, t, tMax);
     const Y = v => plotBottom - (v - yMin) / (yMax - yMin) * (plotBottom - plotTop);
@@ -104,30 +139,52 @@ export function drawChart(canvas, opts) {
         ctx.lineJoin = 'round';
         ctx.setLineDash(s.dash || []);
         ctx.beginPath();
+        const dense = times.length > (w - PAD.left - PAD.right) * 2;
         let drawing = false;
-        s.values.forEach((v, i) => {
-            if (v === null || v === undefined) {
-                drawing = false;
-                return;
-            }
-            const x = X(times[i]), y = Y(v);
-            if (drawing) ctx.lineTo(x, y);
-            else ctx.moveTo(x, y);
-            drawing = true;
-        });
+        if (!dense) {
+            s.values.forEach((v, i) => {
+                if (v === null || v === undefined) {
+                    drawing = false;
+                    return;
+                }
+                const x = X(times[i]), y = Y(v);
+                if (drawing) ctx.lineTo(x, y);
+                else ctx.moveTo(x, y);
+                drawing = true;
+            });
+        } else {
+            // 每一個像素寬：連到這段時間的最大值、最小值；中間沒有值就斷開
+            let col = null, lo = 0, hi = 0, gap = false;
+            const flush = () => {
+                if (col === null) return;
+                if (drawing && !gap) ctx.lineTo(col + 0.5, Y(hi));
+                else ctx.moveTo(col + 0.5, Y(hi));
+                ctx.lineTo(col + 0.5, Y(lo));
+                drawing = true;
+                gap = false;
+            };
+            s.values.forEach((v, i) => {
+                if (v === null || v === undefined) {
+                    if (col !== null) flush();
+                    col = null;
+                    gap = true;
+                    return;
+                }
+                const c = Math.floor(X(times[i]));
+                if (c !== col) {
+                    flush();
+                    col = c;
+                    lo = hi = v;
+                } else {
+                    lo = Math.min(lo, v);
+                    hi = Math.max(hi, v);
+                }
+            });
+            flush();
+        }
         ctx.stroke();
     }
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
-
-    // 目前選到的時間
-    if (cursor !== null) {
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(X(cursor), PAD.top);
-        ctx.lineTo(X(cursor), plotBottom);
-        ctx.stroke();
-    }
 }

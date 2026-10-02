@@ -33,6 +33,7 @@ let analysis = null;   // 重算的結果
 let cursor = 0;        // 目前選到第幾格
 let mirrored = false;
 let playing = null;    // 播放中：{ start（真實時間）, from（從第幾秒開始） }
+let analysisCount = 0;  // 每次重算加 1，曲線圖用來判斷底圖要不要重畫
 
 // ---------- 讀檔 ----------
 
@@ -120,7 +121,7 @@ function analyze() {
             rawAngles: f.raw ? computeAngles(f.raw, width, height) : null
         };
     });
-    analysis = { rows, width, height, times: rows.map(r => r.t), reps: LAB_SQUAT ? countSquats(rows) : [] };
+    analysis = { id: ++analysisCount, rows, width, height, times: rows.map(r => r.t), reps: LAB_SQUAT ? countSquats(rows) : [] };
     // 一開始選在第一個有角度的格子（最前面幾格點還沒穩定，角度都是「—」）
     cursor = Math.max(0, rows.findIndex(r => r.pose && Object.values(r.pose.angles).some(a => a !== null)));
     result.hidden = false;
@@ -306,6 +307,17 @@ function viewBands() {
     return bands;
 }
 
+// 拖曳時一秒可能有上百次移動事件，合併成每個畫面更新一次
+let redrawPending = false;
+function scheduleRedraw() {
+    if (redrawPending) return;
+    redrawPending = true;
+    requestAnimationFrame(() => {
+        redrawPending = false;
+        redraw();
+    });
+}
+
 function redraw() {
     if (!analysis) return;
     const { rows, times } = analysis;
@@ -318,7 +330,9 @@ function redraw() {
         series.push({ values: rows.map(r => (r.pose ? r.pose.angles[key] : null)), color, width: 2, dash });
     }
     const markers = analysis.reps.map(r => ({ t: r.bottom, label: String(r.n) }));
-    drawChart(chart, { times, series, bands: viewBands(), markers, cursor: rows[cursor].t, yMin: 0, yMax: 200, yStep: 30 });
+    // 底圖代號：檔案、顯示的關節、是否顯示原始資料；只換游標時沿用底圖
+    const key = analysis.id + '|' + [...shown].join(',') + '|' + showRaw;
+    drawChart(chart, { key, times, series, bands: viewBands(), markers, cursor: rows[cursor].t, yMin: 0, yMax: 200, yStep: 30 });
     drawSkeleton();
     showReadout();
 }
@@ -413,8 +427,9 @@ function selectTime(t) {
         else hi = mid;
     }
     if (lo > 0 && t - times[lo - 1] < times[lo] - t) lo--;
+    if (lo === cursor) return;
     cursor = lo;
-    redraw();
+    scheduleRedraw();
 }
 
 // ---------- 播放 ----------
@@ -512,7 +527,7 @@ chart.addEventListener('keydown', e => {
     stopPlaying();
     const stepSize = e.shiftKey ? 10 : 1;
     cursor = Math.max(0, Math.min(analysis.rows.length - 1, cursor + (e.key === 'ArrowRight' ? stepSize : -stepSize)));
-    redraw();
+    scheduleRedraw();
 });
 playBtn.addEventListener('click', togglePlay);
 mirrorBtn.addEventListener('click', () => {
@@ -522,7 +537,7 @@ mirrorBtn.addEventListener('click', () => {
     redraw();
 });
 csvOut.addEventListener('click', exportCSV);
-window.addEventListener('resize', redraw);
+window.addEventListener('resize', scheduleRedraw);
 
 buildToggles();
 // 網址加上 ?demo 直接載入側面示範（方便展示）

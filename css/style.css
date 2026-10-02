@@ -662,6 +662,41 @@ footer a, .panel-note a {
     font-variant-numeric: tabular-nums;
 }
 
+/* 深蹲實驗功能（?lab=squat）：每完成一下，短暫顯示這一下的深度 */
+#hudRepsBox[hidden], #repToast[hidden] {
+    display: none;
+}
+/* 放在入鏡提示橫幅的位置：完成一下時站位一定沒問題，橫幅是收起來的，不會擋到身體 */
+#repToast {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    left: 50%;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 0.3em 0.9em;
+    transform: translateX(-50%);
+    border: 2px solid currentColor;
+    border-radius: 18px;
+    background: var(--glass);
+    font-size: clamp(20px, 5vmin, 44px);
+    font-weight: 800;
+    line-height: 1.3;
+    text-align: center;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+}
+#repToast.good { color: var(--accent); }
+#repToast.close { color: #FFC857; }
+#repToast.shallow { color: var(--danger); }
+/* 多了「深蹲」次數，直式手機上三格要排得下：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到） */
+@media (orientation: portrait) {
+    #hud.lab .metric {
+        min-width: 3.4em;
+        padding: 0.3em 0.55em 0.25em;
+        font-size: min(clamp(18px, 5.5vmin, 34px), 4.5vw);
+    }
+}
+
 /* ---------- 數據面板 ---------- */
 /* 貼在畫面下方，最多佔 45% 高度，內容多時可以捲動 */
 #dataPanel {

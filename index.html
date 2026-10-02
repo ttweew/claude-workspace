@@ -131,7 +131,11 @@
             <!-- 名稱直接寫左右（左膝、左髖），不另外用小字標示是哪一側 -->
             <div class="metric"><span id="hudKneeName" class="metric-label">左膝</span><span id="hudKnee" class="metric-value">—</span></div>
             <div class="metric"><span id="hudHipName" class="metric-label">左髖</span><span id="hudHip" class="metric-value">—</span></div>
+            <!-- 深蹲次數：實驗中，網址加 ?lab=squat 才顯示 -->
+            <div class="metric" id="hudRepsBox" hidden><span class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
         </div>
+        <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
+        <div id="repToast" role="status" hidden></div>
         <div id="toolbar">
             <button id="stopBtn" class="primary">關閉鏡頭</button>
             <!-- 有兩顆以上鏡頭時才顯示 -->
@@ -159,7 +163,7 @@
                     <thead><tr><th>關節</th><th>x</th><th>y</th><th>z</th><th>可信度</th></tr></thead>
                     <tbody id="dataRows"></tbody>
                 </table>
-                <p class="panel-note">原始資料（未經平滑）。x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點。下載的檔案可以用<a href="replay.html" target="_blank" rel="noopener">重播分析</a>畫出角度曲線</p>
+                <p class="panel-note">原始資料（未經平滑）。x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點。下載的檔案可以用<a id="replayLink" href="replay.html" target="_blank" rel="noopener">重播分析</a>畫出角度曲線</p>
             </div>
         </div>
     </div>

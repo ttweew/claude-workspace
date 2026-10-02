@@ -1,6 +1,6 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME } from './config.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { drawSkeleton } from './draw.js';
@@ -12,6 +12,7 @@ import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel, updateViewInfo } from './datapanel.js';
 import { Hud } from './hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
+import { SquatCounter, DEPTH_TEXT } from './squat.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -40,6 +41,9 @@ const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
+const hudRepsBox = document.getElementById('hudRepsBox');  // 深蹲次數（?lab=squat 才顯示）
+const hudReps = document.getElementById('hudReps');
+const repToast = document.getElementById('repToast');
 const hud = new Hud({
     root: hudRoot,
     kneeName: document.getElementById('hudKneeName'), knee: document.getElementById('hudKnee'),
@@ -79,6 +83,8 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
+// 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
+const squat = LAB === 'squat' ? new SquatCounter() : null;
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
 const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -101,6 +107,8 @@ function setPoseStatus(text, kind) {
     if (poseStatus.dataset.kind !== (kind || '')) poseStatus.dataset.kind = kind || '';
     const warn = kind === 'warn';
     if (warn && banner.textContent !== text) banner.textContent = text;
+    // 深蹲實驗：每一下的提示和橫幅在同一個位置，橫幅（要使用者調整站位）比較重要
+    if (warn && !repToast.hidden) repToast.hidden = true;
     if (banner.hidden === warn) banner.hidden = !warn;
     if (poseStatus.hidden !== warn) poseStatus.hidden = warn;
 }
@@ -301,9 +309,13 @@ function detectPose(time, frame) {
                 hud.update(landmarks, angles);
                 // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
                 const hint = framing.update(framingAdvice(landmarks), now);
-                setPoseStatus(hint.text, hint.kind);
+                // 深蹲實驗：站位沒問題、但是正面拍時，改提示側身
+                const prompt = updateSquat(processed, now);
+                if (prompt && hint.kind === 'ok') setPoseStatus(prompt, 'warn');
+                else setPoseStatus(hint.text, hint.kind);
             } else {
                 clearPose();
+                updateSquat(null, now);
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
             // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
@@ -324,6 +336,36 @@ function detectPose(time, frame) {
         }
     }
     scheduleDetect();
+}
+
+// ---------- 深蹲實驗功能（?lab=squat） ----------
+
+let toastTimer = null;
+
+// 每一格更新次數；完成一下時顯示這一下的深度。回傳要提醒使用者的話（例如請側身），沒有則為 null
+function updateSquat(processed, now) {
+    if (!squat) return null;
+    const result = squat.update(processed, now);
+    const text = String(result.reps);
+    if (hudReps.textContent !== text) hudReps.textContent = text;
+    if (result.rep) showRepToast(result.rep);
+    return result.prompt;
+}
+
+function showRepToast(rep) {
+    repToast.textContent = '第 ' + rep.n + ' 下 · ' + Math.round(rep.minKnee) + '° ' + DEPTH_TEXT[rep.depth];
+    repToast.className = rep.depth;
+    repToast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { repToast.hidden = true; }, 2500);
+}
+
+function resetSquat() {
+    if (!squat) return;
+    squat.reset();
+    hudReps.textContent = '0';
+    clearTimeout(toastTimer);
+    repToast.hidden = true;
 }
 
 // 顯示標籤：關節角度一直顯示；「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
@@ -424,6 +466,7 @@ function stopStream() {
     fps.reset();
     pipeline.reset();
     framing.reset();
+    resetSquat();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
     lastPose = null;
@@ -583,6 +626,13 @@ if (!document.fullscreenEnabled) {
 if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
     startBtn.disabled = true;
+}
+
+// 深蹲實驗：顯示次數，重播分析的連結也帶上 ?lab=squat
+if (squat) {
+    hudRepsBox.hidden = false;
+    hudRoot.classList.add('lab');
+    document.getElementById('replayLink').href = 'replay.html?lab=squat';
 }
 
 initPose();
