@@ -71,13 +71,13 @@ export class ViewTracker {
         this.ratio = null;
         this.view = null;
         this.facing = 0;
-        this.lastTime = 0;
+        this.lastTime = null;  // 上一格的時間；null 代表還沒有上一格（時間 0 也是正常的一格，重播檔就是從 0 開始）
     }
 
     update(landmarks, timeMs, width, height) {
-        if (!landmarks || timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime) this.reset();
+        if (!landmarks || (this.lastTime !== null && (timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime))) this.reset();
         if (!landmarks) return this.state();
-        const dt = this.lastTime ? timeMs - this.lastTime : 0;
+        const dt = this.lastTime !== null ? timeMs - this.lastTime : 0;
         this.lastTime = timeMs;
         const r = viewRatio(landmarks, width, height);
         if (r !== null) {

@@ -287,6 +287,14 @@
     font-size: 18px;
     font-weight: 700;
 }
+.jump-row {
+    cursor: pointer;
+}
+.jump-row:hover, .jump-row:focus-visible {
+    background: var(--surface-2);
+    outline: 2px solid var(--info);
+    outline-offset: -2px;
+}
 .depth-good { color: var(--accent); }
 .depth-close { color: #FFC857; }
 .depth-shallow { color: var(--danger); }

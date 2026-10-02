@@ -40,7 +40,7 @@ let analysisCount = 0;  // 每次重算加 1，曲線圖用來判斷底圖要不
 // JSON：網站「下載 JSON」的格式
 function parseJSON(text) {
     const json = JSON.parse(text);
-    if (json.format !== 'ai-sport-pose' || !Array.isArray(json.frames)) throw new Error('這不是本網站錄製的 JSON 檔');
+    if (json.format !== 'ai-sport-pose' || !Array.isArray(json.frames)) throw new Error('這不是本網站「數據」面板下載的 JSON 或 CSV 檔');
     const names = json.landmarkNames || LANDMARKS.map(([k]) => k);
     if (names.length !== LANDMARKS.length) throw new Error('點的數量不同（' + names.length + ' 點），目前只支援 33 點');
     return {
@@ -57,7 +57,7 @@ function parseCSV(text) {
     const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
     const header = lines[0].split(',');
     const col = name => header.indexOf(name);
-    if (col('time_ms') < 0 || col('detected') < 0) throw new Error('這不是本網站錄製的 CSV 檔');
+    if (col('time_ms') < 0 || col('detected') < 0) throw new Error('這不是本網站「數據」面板下載的 JSON 或 CSV 檔');
     const cols = LANDMARKS.map(([key]) => ['x', 'y', 'z', 'vis'].map(f => col(key.toLowerCase() + '_' + f)));
     if (cols.some(c => c.some(i => i < 0))) throw new Error('CSV 缺少部分點的欄位');
     const frames = lines.slice(1).map(line => {
@@ -74,7 +74,8 @@ function parseCSV(text) {
 function load(name, text) {
     stopPlaying();
     try {
-        const parsed = name.toLowerCase().endsWith('.csv') ? parseCSV(text) : parseJSON(text);
+        // 看內容判斷格式，不看副檔名：有些手機下載時會把檔名改成 xxx.json.txt
+        const parsed = text.replace(/^\uFEFF/, '').trimStart().startsWith('{') ? parseJSON(text) : parseCSV(text);
         if (!parsed.frames.length) throw new Error('檔案裡沒有任何一格資料');
         data = { name, ...parsed };
     } catch (err) {
@@ -82,10 +83,10 @@ function load(name, text) {
         // 收起上一個檔案的結果，避免誤以為是這個檔案的
         data = analysis = null;
         result.hidden = true;
-        setStatus('讀取失敗：' + (err instanceof SyntaxError ? '檔案格式不正確' : err.message), true);
+        setStatus('讀取失敗：' + (err instanceof SyntaxError ? '檔案內容不完整或格式不正確' : err.message), true);
         return;
     }
-    aspectRow.hidden = !data.meta.csv;
+    aspectRow.hidden = !needsFrameSize();
     // 預設和錄製時畫面上看到的一樣（前鏡頭是鏡像）
     mirrored = !!data.meta.displayMirrored;
     mirrorBtn.setAttribute('aria-pressed', mirrored);
@@ -99,9 +100,12 @@ function setStatus(text, error) {
 
 // ---------- 重算 ----------
 
-// 鏡頭畫面大小：JSON 有記錄；CSV 沒有，用使用者選的
+// 鏡頭畫面大小：JSON 有記錄；CSV（或沒記錄的檔案）用使用者選的
+function needsFrameSize() {
+    return !!data.meta.csv || !(data.meta.videoWidth > 0 && data.meta.videoHeight > 0);
+}
 function frameSize() {
-    if (!data.meta.csv && data.meta.videoWidth && data.meta.videoHeight) return [data.meta.videoWidth, data.meta.videoHeight];
+    if (!needsFrameSize()) return [data.meta.videoWidth, data.meta.videoHeight];
     return aspectSelect.value.split('x').map(Number);
 }
 
@@ -165,9 +169,18 @@ function showSquats() {
             if (i === 4) td.className = 'depth-' + r.depth;
             tr.appendChild(td);
         });
-        // 點一列跳到那一下最低的時間
-        tr.addEventListener('click', () => { stopPlaying(); selectTime(r.bottom); });
-        tr.style.cursor = 'pointer';
+        // 點一列（或用鍵盤選到後按 Enter）跳到那一下最低的時間
+        const jump = () => { stopPlaying(); selectTime(r.bottom); };
+        tr.addEventListener('click', jump);
+        tr.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        tr.tabIndex = 0;
+        tr.title = '跳到第 ' + r.n + ' 下最低的時間點';
+        tr.className = 'jump-row';
         tbody.appendChild(tr);
     }
     squatTable.replaceChildren(thead, tbody);
@@ -193,7 +206,7 @@ function showSummary() {
         ['偵測到人', Math.round(detected / rows.length * 100) + '% 的格子'],
         ['拍攝方向', '側面 ' + pct(views.side) + ' · 斜側 ' + pct(views.oblique) + ' · 正面 ' + pct(views.front)],
         ['面向（畫面上）', facingText(facing)],
-        ['鏡頭畫面', width + '×' + height + (m.csv ? '（手動選擇）' : '')],
+        ['鏡頭畫面', width + '×' + height + (needsFrameSize() ? '（手動選擇）' : '')],
         ['模型 · 運算', (m.model || '—') + ' · ' + (m.computeMode || '—')],
         ['錄製時間', m.startedAt && !m.synthetic ? new Date(m.startedAt).toLocaleString('zh-TW') : '—']
     ];
