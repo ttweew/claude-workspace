@@ -27,6 +27,7 @@ js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可�
 js/recorder.js      錄製關鍵點，匯出 CSV / JSON
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
+docs/roadmap.md     日後改進清單與接下來的階段
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
