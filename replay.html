@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="把錄製的關鍵點資料重新處理一次，畫出關節角度曲線">
+    <meta name="theme-color" content="#0B1220">
+    <title>錄製資料重播分析 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/replay.css">
+</head>
+<body>
+    <div class="page replay">
+        <header class="replay-head">
+            <a class="back" href="./">← 回首頁</a>
+            <h1>錄製資料重播分析</h1>
+            <p class="intro">選擇「數據」面板下載的 JSON 或 CSV 檔，用和鏡頭畫面<strong>完全相同</strong>的處理（平滑、擋鬼點、角度、拍攝方向）重算一次，畫出角度曲線。檔案只在這個瀏覽器裡處理，不會上傳。</p>
+        </header>
+
+        <section class="card" aria-labelledby="loadTitle">
+            <h2 id="loadTitle">選擇資料</h2>
+            <label class="drop" id="drop">
+                <input type="file" id="fileInput" accept=".json,.csv,application/json,text/csv">
+                <span class="drop-main">選擇檔案</span>
+                <span class="drop-sub">或把 JSON、CSV 檔拖到這裡</span>
+            </label>
+            <div class="demo-row">
+                <span>還沒有錄影？先看合成示範資料（不是真人）：</span>
+                <button id="demoSide" type="button">側面拍深蹲</button>
+                <button id="demoFront" type="button">正面拍深蹲</button>
+            </div>
+            <!-- CSV 沒有記錄鏡頭畫面大小，角度計算需要（畫面不是正方形） -->
+            <div id="aspectRow" class="aspect-row" hidden>
+                <label for="aspect">CSV 檔沒有記錄畫面大小，請選擇錄製時的鏡頭畫面：</label>
+                <select id="aspect">
+                    <option value="640x480">橫式 640×480（網站預設）</option>
+                    <option value="480x640">直式 480×640</option>
+                    <option value="1280x720">橫式 1280×720</option>
+                    <option value="720x1280">直式 720×1280</option>
+                    <option value="1920x1080">橫式 1920×1080</option>
+                    <option value="1080x1920">直式 1080×1920</option>
+                </select>
+            </div>
+            <p id="loadStatus" class="load-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <div id="result" hidden>
+            <section class="card" aria-labelledby="summaryTitle">
+                <h2 id="summaryTitle">摘要</h2>
+                <p id="synthNote" class="synth-note" hidden></p>
+                <dl id="summary" class="summary"></dl>
+            </section>
+
+            <section class="card" aria-labelledby="chartTitle">
+                <div class="chart-head">
+                    <h2 id="chartTitle">角度曲線</h2>
+                    <div id="toggles" class="toggles" role="group" aria-label="要顯示的關節"></div>
+                </div>
+                <div class="chart-wrap">
+                    <div class="chart-main">
+                        <canvas id="chart" tabindex="0" aria-label="關節角度隨時間變化的折線圖。點圖或用左右鍵選擇時間"></canvas>
+                        <p class="legend">
+                            上方色條＝拍攝方向：<span class="sw sw-side"></span>側面 <span class="sw sw-oblique"></span>斜側面 <span class="sw sw-front"></span>正面 <span class="sw sw-none"></span>沒有人
+                        </p>
+                    </div>
+                    <div class="chart-side">
+                        <canvas id="skeleton" aria-label="選到的時間點的骨架"></canvas>
+                        <div class="player">
+                            <button id="playBtn" type="button">▶ 播放</button>
+                            <button id="mirrorBtn" type="button" aria-pressed="false">鏡像</button>
+                        </div>
+                    </div>
+                </div>
+                <p id="readout" class="readout" aria-live="off"></p>
+            </section>
+
+            <!-- 深蹲分析：實驗中，網址加 ?lab=squat 才顯示 -->
+            <section id="squatCard" class="card" aria-labelledby="squatTitle" hidden>
+                <h2 id="squatTitle">深蹲分析 <span class="badge">實驗中</span></h2>
+                <p id="squatSummary" class="squat-summary"></p>
+                <div class="table-wrap">
+                    <table id="squatTable" class="stats"></table>
+                </div>
+                <p class="note">怎麼算一下：先站直（膝蓋 ≥ 160°）→ 蹲到膝蓋 ≤ 140° → 再站直。深度看最低的膝蓋角度：≤ 90° 蹲到位、90～110° 再低一點、超過 110° 太淺（門檻還要和老師討論）。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低的時間點。</p>
+            </section>
+
+            <section class="card" aria-labelledby="statsTitle">
+                <h2 id="statsTitle">統計</h2>
+                <div class="table-wrap">
+                    <table id="stats" class="stats"></table>
+                </div>
+                <p class="note">「抖動」＝相鄰兩格角度平均差幾度，越小越穩。「原始」是 MediaPipe 直接輸出、沒經過平滑的點算出來的，用來和畫面上的（平滑後）比較。</p>
+            </section>
+
+            <section class="card" aria-labelledby="exportTitle">
+                <h2 id="exportTitle">匯出</h2>
+                <p class="note">每一格的角度、拍攝方向，可用 Excel 打開畫圖。</p>
+                <button id="csvOut" type="button" class="primary-btn">下載角度 CSV</button>
+            </section>
+        </div>
+    </div>
+
+    <script type="module" src="js/replay.js"></script>
+    <script nomodule>
+        document.getElementById('loadStatus').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
+    </script>
+</body>
+</html>

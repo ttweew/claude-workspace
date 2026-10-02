@@ -1,0 +1,292 @@
+/* 錄製資料重播分析頁（replay.html）；顏色等基礎設定沿用 style.css */
+
+/* minmax(0, 1fr)：內容（例如很寬的統計表）不會把整頁撐寬，手機上才不會被縮小顯示 */
+.replay, #result {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+#result[hidden] {
+    display: none;
+}
+.replay-head h1 {
+    margin: 4px 0 8px;
+    font-size: clamp(26px, 6vw, 36px);
+    line-height: 1.2;
+}
+.replay-head .intro {
+    margin: 0;
+    color: var(--muted);
+}
+.back {
+    color: var(--info);
+    text-decoration: none;
+}
+.back:hover, .back:focus-visible {
+    text-decoration: underline;
+}
+
+.card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.card h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+}
+
+/* 選擇檔案：整塊都可以點，也可以把檔案拖進來 */
+.drop {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 22px 12px;
+    border: 2px dashed rgba(255, 255, 255, 0.22);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: center;
+}
+.drop:hover, .drop.over, .drop:focus-within {
+    border-color: var(--accent);
+    background: rgba(46, 230, 166, 0.06);
+}
+.drop input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.drop-main {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+}
+.drop-sub {
+    color: var(--muted);
+    font-size: 14px;
+}
+/* 有設定 display 的元素，hidden 要另外寫才會真的藏起來 */
+.aspect-row[hidden] {
+    display: none;
+}
+.demo-row, .aspect-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.replay button, .replay select {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.replay button:hover, .replay select:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+.replay button:focus-visible, .replay select:focus-visible, #chart:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+}
+.replay .primary-btn {
+    border-color: transparent;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+}
+.load-status {
+    margin: 10px 0 0;
+    color: var(--muted);
+}
+.load-status.error {
+    color: var(--danger);
+}
+
+.synth-note {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(255, 200, 87, 0.12);
+    color: #FFC857;
+}
+.summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 0;
+}
+.summary div {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-2);
+}
+.summary dt {
+    color: var(--muted);
+    font-size: 13px;
+}
+.summary dd {
+    margin: 2px 0 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.chart-head h2 {
+    margin: 0;
+}
+.toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.replay .toggle {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    opacity: 0.5;
+}
+.replay .toggle[aria-pressed="true"] {
+    opacity: 1;
+    border-color: currentColor;
+}
+.chart-wrap {
+    display: grid;
+    gap: 12px;
+}
+@media (min-width: 760px) {
+    .chart-wrap {
+        grid-template-columns: minmax(0, 1fr) 220px;
+        align-items: start;
+    }
+}
+.chart-main {
+    min-width: 0;
+}
+#chart {
+    display: block;
+    width: 100%;
+    height: 280px;
+    border-radius: 10px;
+    background: #0E1626;
+    cursor: crosshair;
+    touch-action: pan-y;
+}
+.legend {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+.sw {
+    display: inline-block;
+    width: 12px;
+    height: 8px;
+    margin: 0 3px 0 8px;
+    border-radius: 2px;
+    vertical-align: middle;
+}
+.sw-side { background: #2EE6A6; }
+.sw-oblique { background: #FFC857; }
+.sw-front { background: #FF5C5C; }
+.sw-none { background: rgba(255, 255, 255, 0.18); }
+.chart-side {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+}
+#skeleton {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    border-radius: 10px;
+    background: #0E1626;
+}
+.player {
+    display: flex;
+    gap: 8px;
+}
+.readout {
+    min-height: 3em;
+    white-space: pre-line;
+    margin: 10px 0 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+.stats {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.stats th, .stats td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+}
+.stats th:first-child, .stats td:first-child {
+    text-align: left;
+}
+.stats thead th {
+    color: var(--info);
+    font-weight: 600;
+}
+.note {
+    margin: 8px 0 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* 手機：統計表縮小一點，盡量不用左右捲動 */
+@media (max-width: 480px) {
+    .card {
+        padding: 12px;
+    }
+    .stats {
+        font-size: 13px;
+    }
+    .stats th, .stats td {
+        padding: 6px 4px;
+    }
+}
+
+/* 深蹲分析（實驗中） */
+.badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(255, 200, 87, 0.16);
+    color: #FFC857;
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+.squat-summary {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+}
+.depth-good { color: var(--accent); }
+.depth-close { color: #FFC857; }
+.depth-shallow { color: var(--danger); }

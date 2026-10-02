@@ -375,6 +375,9 @@ footer {
     color: var(--muted);
     font-size: 13px;
 }
+footer a, .panel-note a {
+    color: var(--info);
+}
 
 /* ---------- 鏡頭畫面 ---------- */
 /* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */

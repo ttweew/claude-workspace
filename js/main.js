@@ -3,18 +3,14 @@
 import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
-import { getDerivedPoints } from './landmarks.js';
 import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
-import { PoseSmoother } from './smooth.js';
-import { GhostFilter } from './ghost.js';
+import { PosePipeline } from './pipeline.js';
 import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel, updateViewInfo } from './datapanel.js';
-import { computeAngles } from './angles.js';
 import { Hud } from './hud.js';
-import { ViewTracker } from './view.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -82,9 +78,7 @@ let perfExpanded = false;   // 運算資訊標籤是否展開顯示詳細資訊
 let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面時用來找最近的點
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
-const smoother = new PoseSmoother();  // 讓骨架點不抖動
-const ghosts = new GhostFilter();     // 擋掉模型腦補出來的點與鬼骨架
-const views = new ViewTracker();      // 判斷側面還是正面拍
+const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
 const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -255,8 +249,7 @@ async function restartPose(reason) {
     }
     lastRestart = performance.now();
     failures = 0;
-    smoother.reset();
-    ghosts.reset();
+    pipeline.reset();
     updatePerfInfo();
     restarting = false;
 }
@@ -297,24 +290,19 @@ function detectPose(time, frame) {
             const raw = result.landmarks[0];
             // worldLandmarks：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
             const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
-            const landmarks = raw ? smoother.smooth(raw, now) : null;
-            // 鬼骨架（人已經離開畫面，模型還在追一副越縮越小的骨架）當作沒有人
-            if (landmarks && ghosts.update(landmarks, now, video.videoWidth, video.videoHeight)) {
-                const derived = getDerivedPoints(landmarks);
+            // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/pipeline.js）；沒有人或是鬼骨架時為 null
+            const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
+            if (processed) {
+                const { landmarks, derived, angles } = processed;
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
-                // 關節角度用平滑後的畫面座標計算，數字才不會跳
-                const angles = computeAngles(landmarks, video.videoWidth, video.videoHeight);
-                // 拍攝方向（側面／正面）與面向：之後做動作判斷時使用，目前顯示在數據面板
-                const view = views.update(landmarks, now, video.videoWidth, video.videoHeight);
-                lastPose = { landmarks, raw, rawWorld, derived, angles, view };
+                // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
+                lastPose = { ...processed, raw, rawWorld };
                 showPoseLabels();
                 hud.update(landmarks, angles);
                 // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
                 const hint = framing.update(framingAdvice(landmarks), now);
                 setPoseStatus(hint.text, hint.kind);
             } else {
-                if (!landmarks) ghosts.reset();
-                views.reset();
                 clearPose();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
@@ -434,9 +422,7 @@ function stopStream() {
     video.srcObject = null;
     cancelDetect();
     fps.reset();
-    smoother.reset();
-    ghosts.reset();
-    views.reset();
+    pipeline.reset();
     framing.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
