@@ -49,7 +49,8 @@ export class GhostFilter {
     // width、height：鏡頭畫面的像素大小
     // 回傳 false 代表這是鬼骨架，應當作畫面裡沒有人
     update(landmarks, timeMs, width, height) {
-        if (!this.shown || timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime) this.reset();
+        if (!this.shown || this.shown.length !== landmarks.length
+            || timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime) this.reset();
         if (!this.shown) {
             this.shown = landmarks.map(() => false);
             this.since = landmarks.map(() => null);
