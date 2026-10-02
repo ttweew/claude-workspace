@@ -34,3 +34,6 @@ export const CAMERA_RESOLUTION = RESOLUTIONS[params.get('res')] || RESOLUTIONS[4
 // 網址加上 ?debug（測試模式）：一打開就顯示每個點的編號與名稱，運算標籤展開時也顯示各階段載入秒數
 export const DEBUG = params.has('debug');
 export const SHOW_LABELS_AT_START = DEBUG;
+
+// 實驗中的功能：網址加上 ?lab=squat 才會出現（深蹲次數與深度），一般使用者看不到
+export const LAB = params.get('lab') || '';
