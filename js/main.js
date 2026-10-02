@@ -11,9 +11,10 @@ import { PoseSmoother } from './smooth.js';
 import { GhostFilter } from './ghost.js';
 import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
-import { updateDataPanel } from './datapanel.js';
+import { updateDataPanel, updateViewInfo } from './datapanel.js';
 import { computeAngles } from './angles.js';
 import { Hud } from './hud.js';
+import { ViewTracker } from './view.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 
 // ---------- 畫面元素 ----------
@@ -36,6 +37,7 @@ const labelLayer = document.getElementById('labels');
 const dataBtn = document.getElementById('dataBtn');
 const dataPanel = document.getElementById('dataPanel');
 const dataRows = document.getElementById('dataRows');
+const viewInfo = document.getElementById('viewInfo');
 const recordBtn = document.getElementById('recordBtn');
 const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
@@ -82,6 +84,7 @@ let picked = null;          // 使用者點選要查看的點與顯示期限 { i
 const fps = new FpsCounter();
 const smoother = new PoseSmoother();  // 讓骨架點不抖動
 const ghosts = new GhostFilter();     // 擋掉模型腦補出來的點與鬼骨架
+const views = new ViewTracker();      // 判斷側面還是正面拍
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
 const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -301,7 +304,9 @@ function detectPose(time, frame) {
                 drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
                 // 關節角度用平滑後的畫面座標計算，數字才不會跳
                 const angles = computeAngles(landmarks, video.videoWidth, video.videoHeight);
-                lastPose = { landmarks, raw, rawWorld, derived, angles };
+                // 拍攝方向（側面／正面）與面向：之後做動作判斷時使用，目前顯示在數據面板
+                const view = views.update(landmarks, now, video.videoWidth, video.videoHeight);
+                lastPose = { landmarks, raw, rawWorld, derived, angles, view };
                 showPoseLabels();
                 hud.update(landmarks, angles);
                 // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
@@ -309,6 +314,7 @@ function detectPose(time, frame) {
                 setPoseStatus(hint.text, hint.kind);
             } else {
                 if (!landmarks) ghosts.reset();
+                views.reset();
                 clearPose();
                 setPoseStatus('未偵測到人體，請站進畫面', 'warn');
             }
@@ -318,7 +324,7 @@ function detectPose(time, frame) {
             }
             if (now - lastPanelUpdate > 200) {
                 lastPanelUpdate = now;
-                if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
+                if (!dataPanel.hidden) updatePanel();
                 if (recorder.recording) showRecordInfo();
             }
             failures = 0;
@@ -430,6 +436,7 @@ function stopStream() {
     fps.reset();
     smoother.reset();
     ghosts.reset();
+    views.reset();
     framing.reset();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
@@ -519,12 +526,18 @@ function stopRecording() {
     csvBtn.hidden = jsonBtn.hidden = recorder.frameCount === 0;
 }
 
+// 數據面板：原始數值表格，以及動作判斷用的資訊
+function updatePanel() {
+    updateDataPanel(dataRows, lastPose && lastPose.raw);
+    updateViewInfo(viewInfo, lastPose, video.classList.contains('mirrored'), video.videoWidth, video.videoHeight);
+}
+
 // 數據面板是近距離分析用的，打開時收起大字儀表板，兩者不會疊在一起
 function toggleDataPanel() {
     dataPanel.hidden = !dataPanel.hidden;
     hudRoot.hidden = !dataPanel.hidden;
     updateDataBtn();
-    if (!dataPanel.hidden) updateDataPanel(dataRows, lastPose && lastPose.raw);
+    if (!dataPanel.hidden) updatePanel();
 }
 
 // ---------- 按鈕 ----------

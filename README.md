@@ -21,7 +21,8 @@ js/fps.js           計算每秒偵測次數（FPS）
 js/smooth.js        骨架點平滑（One Euro Filter），讓點不抖動、動作快時仍跟得上
 js/ghost.js         擋掉模型腦補出來的點與鬼骨架（出現要穩定、骨架鏈、塌縮保護）
 js/framing.js       入鏡提示：依拍到的部位提示往後退、往前、站到中間
-js/angles.js        關節角度計算（膝、髖、肘），在畫面上一直顯示
+js/angles.js        關節角度計算（膝、髖、肘），在畫面上一直顯示；肢體朝鏡頭太短時不給角度；判斷往哪邊彎
+js/view.js          判斷拍攝方向（側面／斜側面／正面）與人面向哪邊
 js/hud.js           大字儀表板：站遠也看得清楚的膝蓋、髖部角度
 js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可信度
 js/recorder.js      錄製關鍵點，匯出 CSV / JSON
