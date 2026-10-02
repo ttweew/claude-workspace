@@ -353,6 +353,8 @@ function updateSquat(processed, now) {
 }
 
 function showRepToast(rep) {
+    // 數據面板打開時，大字儀表板也是收起來的（近距離看數字用），提示也不顯示，避免疊在面板上
+    if (!dataPanel.hidden) return;
     repToast.textContent = '第 ' + rep.n + ' 下 · ' + Math.round(rep.minKnee) + '° ' + DEPTH_TEXT[rep.depth];
     repToast.className = rep.depth;
     repToast.hidden = false;
@@ -565,6 +567,7 @@ function updatePanel() {
 function toggleDataPanel() {
     dataPanel.hidden = !dataPanel.hidden;
     hudRoot.hidden = !dataPanel.hidden;
+    if (!dataPanel.hidden) repToast.hidden = true;
     updateDataBtn();
     if (!dataPanel.hidden) updatePanel();
 }

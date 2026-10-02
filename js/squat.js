@@ -55,6 +55,8 @@ export class SquatCounter {
             return out;
         }
         out.knee = knee;
+        // 中間隔太久沒看到人（例如手機切到背景、AI 重新啟動，這段時間完全沒有畫面進來）：那一下作廢
+        if (this.lastSeen !== null && timeMs - this.lastSeen > SQUAT.LOST_MS) this.abandon();
         const view = pose.view.view;
         if (view === 'front') {
             out.prompt = '請側身對著鏡頭，正面拍膝蓋角度不準';
