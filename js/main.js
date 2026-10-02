@@ -403,6 +403,8 @@ function pickPoint(event) {
 async function startCamera(deviceId) {
     const request = ++cameraRequest;
     stopStream();
+    // 第一次使用時瀏覽器會先問要不要允許相機，這段時間首頁要有回應，不要還寫著「尚未開啟鏡頭」
+    if (stage.hidden) statusText.textContent = '正在開啟鏡頭…（第一次使用請按「允許」使用相機）';
     let stream;
     try {
         stream = await openCamera(deviceId);
