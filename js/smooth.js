@@ -25,6 +25,9 @@ class OneEuro {
         this.speed = 0;
     }
     filter(raw, dt) {
+        // 壞掉的數字（NaN、無限大）不採用，沿用上一個值；不然一格壞掉，這個點之後就永遠壞掉
+        // 還沒有上一個值時原樣傳回 NaN，畫面判斷可見度時會把它當成看不到
+        if (!Number.isFinite(raw)) return this.value === null ? raw : this.value;
         if (this.value === null) {
             this.value = raw;
             return raw;
@@ -51,7 +54,9 @@ export class PoseSmoother {
     // landmarks：MediaPipe 這一格的 33 點；timeMs：這一格的時間（毫秒）
     // 回傳平滑後的 33 點（新的陣列，不會改到原始資料）
     smooth(landmarks, timeMs) {
-        if (!this.filters || timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime) {
+        // 點的數量變了（例如之後換模型、加入自訂點）也重新開始，每個點才會對到自己的濾波器
+        if (!this.filters || this.filters.length !== landmarks.length
+            || timeMs - this.lastTime > RESET_AFTER_MS || timeMs <= this.lastTime) {
             this.filters = landmarks.map(() => [new OneEuro(), new OneEuro(), new OneEuro()]);
             this.visibility = landmarks.map(p => p.visibility);
             this.lastTime = timeMs;
@@ -61,7 +66,8 @@ export class PoseSmoother {
         this.lastTime = timeMs;
         return landmarks.map((p, i) => {
             const [fx, fy, fz] = this.filters[i];
-            this.visibility[i] += 0.5 * (p.visibility - this.visibility[i]);
+            if (!Number.isFinite(this.visibility[i])) this.visibility[i] = p.visibility;
+            else if (Number.isFinite(p.visibility)) this.visibility[i] += 0.5 * (p.visibility - this.visibility[i]);
             return {
                 ...p,
                 x: fx.filter(p.x, dt),

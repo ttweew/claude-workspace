@@ -9,14 +9,47 @@ import { getGpuInfo, shortGpuName } from './gpu.js';
 const ENGINE_SIZE = 11.8e6;  // AI 引擎（WebAssembly）
 const MODEL_SIZE = POSE_MODEL_SIZE;  // 骨架模型
 
+// 下載卡住的判斷：網路斷斷續續時，下載可能停住卻不報錯，進度條就一直停在同一格
+const STALL_MS = 15000;          // 下載中超過 15 秒完全沒收到資料 → 放棄這次，交給 main.js 重試
+const IMPORT_TIMEOUT_MS = 20000; // MediaPipe 程式（約 150 KB）20 秒還沒下載完 → 改用下一個下載來源
+
+// 下載卡住偵測：每收到資料就呼叫 kick()；超過 STALL_MS 沒有 kick 就呼叫 onStall()
+// 網頁在背景時（切到別的 App、螢幕關掉）手機可能暫停網路，這段時間不算
+// hold(promise)：這件事有自己的時限（例如下載 MediaPipe 程式），等它的期間不算卡住
+function stallWatch(onStall) {
+    let last = performance.now();
+    let holding = 0;
+    const kick = () => { last = performance.now(); };
+    const timer = setInterval(() => {
+        if (document.hidden || holding) kick();
+        else if (performance.now() - last > STALL_MS) {
+            stop();
+            onStall();
+        }
+    }, 1000);
+    document.addEventListener('visibilitychange', kick);
+    function stop() {
+        clearInterval(timer);
+        document.removeEventListener('visibilitychange', kick);
+    }
+    function hold(promise) {
+        holding++;
+        promise.then(() => {}, () => {}).then(() => { holding--; kick(); });
+        return promise;
+    }
+    return { kick: kick, stop: stop, hold: hold };
+}
+
 // 自己下載骨架模型，才能邊下載邊回報進度；網頁一打開就開始下載，和 AI 引擎同時進行
 // onBytes(已下載位元組數)：每收到一段資料就通知一次
 // reader：一邊下載一邊交給 MediaPipe 讀取；finished：下載完成後的完整檔案（改用 CPU 重試時使用）
+// abort()：下載卡住時中止
 function startModelDownload(onBytes) {
     let controller;
     const stream = new ReadableStream({ start(c) { controller = c; } });
+    const aborter = new AbortController();
     const finished = (async () => {
-        const res = await fetch(POSE_MODEL_URL);
+        const res = await fetch(POSE_MODEL_URL, { signal: aborter.signal });
         if (!res.ok) throw new Error('骨架模型下載失敗（HTTP ' + res.status + '）');
         const reader = res.body.getReader();
         const chunks = [];
@@ -39,7 +72,7 @@ function startModelDownload(onBytes) {
         return data;
     })();
     finished.catch(err => controller.error(err));
-    return { reader: stream.getReader(), finished: finished };
+    return { reader: stream.getReader(), finished: finished, abort: () => aborter.abort() };
 }
 
 // 把兩個檔案的下載量合併成一個整體進度（0～1）；檔案下載完之前最多算到 99%，不會提早顯示完成
@@ -65,14 +98,20 @@ function downloadTracker(onChange) {
 }
 
 // 暫時接手瀏覽器的 fetch：MediaPipe 下載 AI 引擎時，每收到一段資料就回報 onBytes
-// 回傳 { finished：引擎下載完成, restore()：讓 fetch 恢復原狀 }
+// 回傳 { finished：引擎下載完成, abort()：下載卡住時中止, restore()：讓 fetch 恢復原狀 }
 function countEngineDownload(url, onBytes) {
     const realFetch = window.fetch;
+    const aborter = new AbortController();
+    let retired = false;
     let onDone;
     const finished = new Promise(resolve => { onDone = resolve; });
-    window.fetch = async (input, init) => {
-        const res = await realFetch(input, init);
-        if (String(input) !== url || !res.body) return res;
+    const counting = async (input, init) => {
+        if (retired || String(input) !== url) return realFetch(input, init);
+        // 加上我們自己的中止開關；MediaPipe 原本有傳中止開關的話也照樣有效
+        const signal = init && init.signal;
+        if (signal) signal.addEventListener('abort', () => aborter.abort(), { once: true });
+        const res = await realFetch(input, { ...init, signal: aborter.signal });
+        if (!res.body) return res;
         let received = 0;
         const counted = res.body.pipeThrough(new TransformStream({
             transform(chunk, controller) {
@@ -84,7 +123,23 @@ function countEngineDownload(url, onBytes) {
         }));
         return new Response(counted, { status: res.status, statusText: res.statusText, headers: res.headers });
     };
-    return { finished: finished, restore: () => { window.fetch = realFetch; } };
+    window.fetch = counting;
+    // 恢復原狀：只在 fetch 還是我們接手的那個時才換回來，不會蓋掉之後重試時新接手的 fetch；
+    // 換不回來（已經被新的接手蓋在上面）也沒關係，retired 之後一律直接交給原本的 fetch
+    function restore() {
+        retired = true;
+        if (window.fetch === counting) window.fetch = realFetch;
+    }
+    return {
+        finished: finished,
+        // 下載卡住時中止。MediaPipe 發現下載失敗會馬上換個方式再下載一次，
+        // 所以 1 秒後才恢復 fetch，讓那次也被擋下來，不會在背景多下載 12 MB、和重試搶網路
+        abort: () => {
+            aborter.abort();
+            setTimeout(restore, 1000);
+        },
+        restore: restore
+    };
 }
 
 // 下載 MediaPipe 程式：依序嘗試每個下載來源，回傳成功的那一個 { base, vision }
@@ -92,11 +147,19 @@ function countEngineDownload(url, onBytes) {
 async function importMediaPipe(attempt) {
     let lastErr;
     for (const base of MEDIAPIPE_URLS) {
+        let timer;
         try {
-            return { base: base, vision: await import(base + '/vision_bundle.mjs' + (attempt ? '?retry=' + attempt : '')) };
+            // 下載來源沒回應時，import 可能一直等下去，所以設定時限，超過就改用下一個來源
+            const timeout = new Promise((resolve, reject) => {
+                timer = setTimeout(() => reject(new Error('下載逾時（' + IMPORT_TIMEOUT_MS / 1000 + ' 秒）')), IMPORT_TIMEOUT_MS);
+            });
+            const vision = await Promise.race([import(base + '/vision_bundle.mjs' + (attempt ? '?retry=' + attempt : '')), timeout]);
+            return { base: base, vision: vision };
         } catch (err) {
             lastErr = err;
             console.warn('MediaPipe 下載失敗，改用下一個來源：', base, err);
+        } finally {
+            clearTimeout(timer);
         }
     }
     throw lastErr;
@@ -148,16 +211,49 @@ function warmUp(landmarker) {
 // 回傳 { vision, landmarker, computeMode, computeDetail, gpuName, timings, gpuLost(), restart() }
 //   computeMode：'GPU' 或 'CPU'；computeDetail：GPU 時為晶片名稱，CPU 時為原因
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
+// 下載卡住（STALL_MS 沒收到資料）時直接失敗，由 main.js 等幾秒後重試
 export async function loadPoseModel(onProgress, attempt = 0) {
+    const state = { abandoned: false, aborts: [] };
+    let stalled;
+    const stall = new Promise((resolve, reject) => { stalled = reject; });
+    const watch = stallWatch(() => {
+        state.abandoned = true;
+        state.aborts.forEach(abort => abort());
+        stalled(new Error('下載停住了：超過 ' + STALL_MS / 1000 + ' 秒沒有收到任何資料'));
+    });
+    const loading = load(onProgress, attempt, watch, state);
+    loading.catch(() => {});  // 卡住放棄之後，原本那次載入的失敗不用再處理
+    try {
+        return await Promise.race([loading, stall]);
+    } finally {
+        watch.stop();
+    }
+}
+
+// 這次載入已經因為下載卡住而放棄：停在這裡，不再往下做（避免在背景繼續下載、和重試搶網路）
+function checkAbandoned(state) {
+    if (state.abandoned) throw new Error('這次載入已放棄');
+}
+
+async function load(onProgress, attempt, watch, state) {
     const t0 = performance.now();
-    const tracker = downloadTracker(fraction => onProgress({ stage: 'download', fraction: fraction }));
+    const tracker = downloadTracker(fraction => {
+        watch.kick();
+        onProgress({ stage: 'download', fraction: fraction });
+    });
     const download = startModelDownload(tracker.bytes('model'));
+    state.aborts.push(download.abort);
     download.finished.then(tracker.done('model'), () => {});
-    const { base, vision } = await importMediaPipe(attempt);
+    const { base, vision } = await watch.hold(importMediaPipe(attempt));
+    checkAbandoned(state);
     const fileset = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
+    checkAbandoned(state);
+    // AI 引擎的啟動程式也一樣：上次卡住的下載還沒結束時，瀏覽器會沿用那一個（一直等下去），所以重試時換一個網址
+    if (attempt) fileset.wasmLoaderPath += '?retry=' + attempt;
 
     // AI 引擎由 MediaPipe 自己下載；在它下載時順便計算下載了多少（不會多下載一次）
     const engine = countEngineDownload(fileset.wasmBinaryPath, tracker.bytes('engine'));
+    state.aborts.push(engine.abort);
     engine.finished.then(tracker.done('engine'));
 
     // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
@@ -166,6 +262,7 @@ export async function loadPoseModel(onProgress, attempt = 0) {
     let downloadedAt = 0;
     let createdAt = 0;
     Promise.all([engine.finished, download.finished]).then(() => {
+        watch.stop();  // 都下載完了，接下來是運算，花再久也不是網路卡住
         if (createdAt) return;  // 偵測器已經建好（進入暖機），不要再把畫面退回「啟動」階段
         downloadedAt = performance.now();
         onProgress({ stage: 'start', delegate: useGpu ? 'GPU' : 'CPU' });
@@ -192,6 +289,15 @@ export async function loadPoseModel(onProgress, attempt = 0) {
         }
     } finally {
         engine.restore();
+    }
+    if (state.abandoned) {
+        // 放棄之後才建好：關掉，不佔用記憶體與 GPU
+        try {
+            created.landmarker.close();
+        } catch (err) {
+            // 關不掉也沒關係
+        }
+        checkAbandoned(state);
     }
     createdAt = performance.now();
 
