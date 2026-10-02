@@ -745,6 +745,12 @@ footer {
 #dataPanel tr.unseen {
     opacity: 0.45;
 }
+.panel-info {
+    margin: 4px 0 6px;
+    color: #FFFFFF;
+    line-height: 1.45;
+    white-space: pre-line;
+}
 .panel-note {
     margin: 6px 0 0;
     color: #C9D2DE;
