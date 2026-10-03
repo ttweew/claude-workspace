@@ -49,20 +49,21 @@
             <svg class="hero-art" viewBox="0 0 360 360" role="img" aria-label="示意圖：側面深蹲時，骨架與膝蓋角度 95 度">
                 <rect class="art-bg" x="10" y="10" width="340" height="340" rx="28"/>
                 <path class="art-frame" d="M40 80V40h40M280 40h40v40M320 280v40h-40"/>
+                <!-- 有 id 的部分會由 js/hero-art.js 做成深蹲動畫；這裡寫的是蹲到底的樣子（不支援動畫或設定減少動態效果時顯示） -->
                 <g class="art-bones">
-                    <path d="M176 112L150 186L222 214L200 290"/>
-                    <path d="M170 128L222 146L270 146"/>
-                    <path d="M200 290h34"/>
+                    <path id="artBody" d="M176 127L150 201L222 229L200 305"/>
+                    <path id="artArm" d="M170 143L222 161L270 161"/>
+                    <path d="M200 305h34"/>
                 </g>
-                <path class="art-arc" d="M199.6 205.3A24 24 0 0 0 215.3 237.1"/>
-                <circle class="art-head" cx="186" cy="84" r="20"/>
+                <path id="artArc" class="art-arc" d="M199.6 220.3A24 24 0 0 0 215.3 252.1"/>
+                <circle id="artHead" class="art-head" cx="186" cy="99" r="20"/>
                 <g class="art-joints">
-                    <circle cx="176" cy="112" r="7"/><circle cx="150" cy="186" r="7"/><circle cx="222" cy="214" r="9"/>
-                    <circle cx="200" cy="290" r="7"/><circle cx="222" cy="146" r="6"/><circle cx="270" cy="146" r="6"/>
+                    <circle id="artShoulder" cx="176" cy="127" r="7"/><circle id="artHip" cx="150" cy="201" r="7"/><circle id="artKnee" cx="222" cy="229" r="9"/>
+                    <circle cx="200" cy="305" r="7"/><circle id="artElbow" cx="222" cy="161" r="6"/><circle id="artWrist" cx="270" cy="161" r="6"/>
                 </g>
-                <g class="art-chip">
-                    <rect x="236" y="226" width="86" height="40" rx="20"/>
-                    <text x="279" y="253">95°</text>
+                <g class="art-chip" id="artChip">
+                    <rect id="artChipBox" x="232" y="241" width="86" height="40" rx="20"/>
+                    <text id="artAngle" x="275" y="268">95°</text>
                 </g>
                 <g class="art-status">
                     <rect x="40" y="300" width="132" height="30" rx="15"/>
@@ -195,6 +196,8 @@
 
     <!-- 程式從 js/main.js 開始，各功能分在 js/ 資料夾的不同檔案 -->
     <script type="module" src="js/main.js"></script>
+    <!-- 首頁示意圖的深蹲動畫（只在寬螢幕、看得到時才動） -->
+    <script type="module" src="js/hero-art.js"></script>
     <!-- 太舊的瀏覽器不支援上面的寫法，改顯示提示，不會只是按了沒反應 -->
     <script nomodule>
         document.getElementById('status').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
