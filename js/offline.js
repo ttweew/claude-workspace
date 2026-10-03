@@ -16,6 +16,18 @@ export function setupOffline() {
     else window.addEventListener('load', register, { once: true });
 }
 
+// AI 載入失敗、但有網路時呼叫：清掉存在手機裡的 AI 檔案，重試時重新下載
+// （萬一存到的檔案有問題，不會一直用壞掉的那份；沒網路時不清，才不會把離線能用的檔案刪掉）
+export async function forgetAiFiles() {
+    if (!navigator.onLine || !window.caches) return;
+    try {
+        const names = await caches.keys();
+        await Promise.all(names.filter(name => name.startsWith('ai-files-')).map(name => caches.delete(name)));
+    } catch (err) {
+        // 清不掉也沒關係，重試時照樣會試
+    }
+}
+
 async function deleteCaches() {
     if (!window.caches) return;
     const names = await caches.keys();

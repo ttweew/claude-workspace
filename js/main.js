@@ -10,12 +10,12 @@ import { PosePipeline } from './pipeline.js';
 import { predictPose } from './predict.js';
 import { getDerivedPoints } from './landmarks.js';
 import { framingAdvice, FramingHint } from './framing.js';
-import { PoseRecorder, downloadText, recordingName } from './recorder.js';
+import { PoseRecorder, buildFile, downloadBlob, recordingName } from './recorder.js';
 import { updateDataPanel, updateViewInfo } from './datapanel.js';
 import { Hud } from './hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 import { SquatCounter, DEPTH_TEXT } from './squat.js';
-import { setupOffline } from './offline.js';
+import { setupOffline, forgetAiFiles } from './offline.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -165,6 +165,7 @@ async function initPose() {
     loadingPose = true;
     for (let attempt = 0; ; attempt++) {
         if (await tryLoadPose(loadCount++)) break;
+        await forgetAiFiles();
         if (attempt >= RETRY_DELAYS.length) {
             setModelStatus('AI 模型載入失敗，請檢查網路（鏡頭仍可使用）');
             finishLoading(false);
@@ -666,8 +667,25 @@ labelBtn.addEventListener('click', () => {
 stage.addEventListener('click', pickPoint);
 dataBtn.addEventListener('click', toggleDataPanel);
 recordBtn.addEventListener('click', () => (recorder.recording ? stopRecording() : startRecording()));
-csvBtn.addEventListener('click', () => downloadText(recordingName(recorder.meta) + '.csv', recorder.toCSV(), 'text/csv'));
-jsonBtn.addEventListener('click', () => downloadText(recordingName(recorder.meta) + '.json', recorder.toJSON(), 'application/json'));
+// 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，避免重複按
+async function exportRecording(button, ext, chunks, mimeType) {
+    if (button.disabled) return;
+    const label = button.textContent;
+    const name = recordingName(recorder.meta) + ext;
+    csvBtn.disabled = jsonBtn.disabled = true;
+    button.textContent = '產生中…';
+    try {
+        downloadBlob(name, await buildFile(chunks, mimeType));
+    } catch (err) {
+        console.error(err);
+        alert('檔案產生失敗（可能是手機記憶體不夠），請改錄短一點再試');
+    } finally {
+        button.textContent = label;
+        csvBtn.disabled = jsonBtn.disabled = false;
+    }
+}
+csvBtn.addEventListener('click', () => exportRecording(csvBtn, '.csv', recorder.csvChunks(), 'text/csv'));
+jsonBtn.addEventListener('click', () => exportRecording(jsonBtn, '.json', recorder.jsonChunks(), 'application/json'));
 perfBtn.addEventListener('click', () => {
     perfExpanded = !perfExpanded;
     updatePerfInfo();

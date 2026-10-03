@@ -74,46 +74,97 @@ export class PoseRecorder {
         return this.frames.length ? this.frames[this.frames.length - 1].t / 1000 : 0;
     }
 
-    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，最後是公尺座標
     // 匯出用的每一格：{ t, landmarks: [[x, y, z, visibility], …], world: [[x, y, z], …] }
-    exportFrames() {
-        return this.frames.map(f => ({
+    exportFrame(f) {
+        return {
             t: f.t,
             landmarks: f.landmarks ? unpack(f.landmarks, LANDMARK_DIGITS) : null,
             world: f.world ? unpack(f.world, WORLD_DIGITS) : null
-        }));
+        };
     }
 
-    toCSV() {
+    exportFrames() {
+        return this.frames.map(f => this.exportFrame(f));
+    }
+
+    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，最後是公尺座標
+    // 一小段一小段產生（每段 CHUNK 格），匯出時中間可以讓畫面喘口氣
+    *csvChunks() {
+        const frames = this.frames;
         const names = LANDMARKS.map(([key]) => key.toLowerCase());
         const header = ['frame', 'time_ms', 'detected']
             .concat(...names.map(n => [n + '_x', n + '_y', n + '_z', n + '_vis']))
             .concat(...names.map(n => [n + '_wx', n + '_wy', n + '_wz']));
         const empty = n => new Array(n).fill('');
-        const rows = this.exportFrames().map((f, i) => [i, f.t, f.landmarks ? 1 : 0]
-            .concat(f.landmarks ? f.landmarks.flat() : empty(33 * 4))
-            .concat(f.world ? f.world.flat() : empty(33 * 3))
-            .join(','));
         // 開頭加 BOM，Excel 打開才不會亂碼
-        return '﻿' + [header.join(',')].concat(rows).join('\r\n') + '\r\n';
+        yield '\ufeff' + header.join(',') + '\r\n';
+        for (let start = 0; start < frames.length; start += CHUNK) {
+            let text = '';
+            for (let i = start; i < Math.min(frames.length, start + CHUNK); i++) {
+                const f = this.exportFrame(frames[i]);
+                text += [i, f.t, f.landmarks ? 1 : 0]
+                    .concat(f.landmarks ? f.landmarks.flat() : empty(33 * 4))
+                    .concat(f.world ? f.world.flat() : empty(33 * 3))
+                    .join(',') + '\r\n';
+            }
+            yield text;
+        }
     }
 
-    // JSON：之後上傳後端用的格式，包含裝置資訊與每一格的資料
-    toJSON() {
-        return JSON.stringify({
+    // JSON：之後上傳後端用的格式，包含裝置資訊與每一格的資料（內容和整個一起 JSON.stringify 完全相同）
+    *jsonChunks() {
+        const frames = this.frames;
+        const head = JSON.stringify({
             format: 'ai-sport-pose',
             version: FORMAT_VERSION,
             meta: this.meta,
             landmarkNames: LANDMARKS.map(([key]) => key),
             fields: { landmarks: ['x', 'y', 'z', 'visibility'], world: ['x', 'y', 'z'] },
-            frames: this.exportFrames()
+            frames: null
         });
+        yield head.slice(0, -'null}'.length) + '[';
+        for (let start = 0; start < frames.length; start += CHUNK) {
+            const part = [];
+            for (let i = start; i < Math.min(frames.length, start + CHUNK); i++) part.push(JSON.stringify(this.exportFrame(frames[i])));
+            yield (start ? ',' : '') + part.join(',');
+        }
+        yield ']}';
     }
+
+    toCSV() {
+        return [...this.csvChunks()].join('');
+    }
+
+    toJSON() {
+        return [...this.jsonChunks()].join('');
+    }
+}
+
+const CHUNK = 50;
+
+// 把一段一段的內容組成檔案；每算一小段（約 12 毫秒）就讓畫面喘口氣，
+// 5 分鐘的錄製在較慢的手機上要算 2～3 秒，一次算完畫面會整個停住（骨架、按鈕都不動）
+// 直接組成 Blob，不先接成一個十幾 MB 的大字串，也比較省記憶體
+export async function buildFile(chunks, mimeType) {
+    const parts = [];
+    let last = performance.now();
+    for (const part of chunks) {
+        parts.push(part);
+        if (performance.now() - last > 12) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            last = performance.now();
+        }
+    }
+    return new Blob(parts, { type: mimeType });
 }
 
 // 讓瀏覽器下載文字檔（手機上會出現「儲存到檔案」或分享選單）
 export function downloadText(filename, text, mimeType) {
-    const url = URL.createObjectURL(new Blob([text], { type: mimeType }));
+    downloadBlob(filename, new Blob([text], { type: mimeType }));
+}
+
+export function downloadBlob(filename, blob) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;

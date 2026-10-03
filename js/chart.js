@@ -39,6 +39,8 @@ export function xToTime(canvas, x, tMax) {
 //   cursor：目前選到的時間（秒），畫一條垂直線
 //   yMin、yMax、yStep：縱軸範圍與格線間距
 export function drawChart(canvas, opts) {
+    // 圖表沒有顯示出來（大小是 0）時不畫：0 大小的畫布複製到畫面上會出錯
+    if (!canvas.clientWidth || !canvas.clientHeight) return;
     const { ctx, w, h } = fit(canvas);
     const { times, cursor = null } = opts;
     const tMax = times.length ? Math.max(times[times.length - 1], 0.001) : 1;
