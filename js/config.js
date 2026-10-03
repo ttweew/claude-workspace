@@ -2,6 +2,7 @@
 
 // MediaPipe 版本：固定版本號，避免官方更新造成網站壞掉
 // 兩個下載來源內容完全相同：第一個連不上（網路封鎖、服務中斷）時自動改用第二個
+// 換版本時，sw.js 裡的版本號和 AI_CACHE 名稱也要一起改（離線功能才會存新版、清掉舊版）
 export const MEDIAPIPE_URLS = [
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1',
     'https://unpkg.com/@mediapipe/tasks-vision@1.0.1'

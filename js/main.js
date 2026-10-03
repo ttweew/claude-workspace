@@ -15,6 +15,7 @@ import { updateDataPanel, updateViewInfo } from './datapanel.js';
 import { Hud } from './hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 import { SquatCounter, DEPTH_TEXT } from './squat.js';
+import { setupOffline } from './offline.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -694,3 +695,6 @@ if (squat) {
 }
 
 initPose();
+
+// 把 AI 檔案存在手機裡：第二次打開不用再下載，沒有網路也能用
+setupOffline();

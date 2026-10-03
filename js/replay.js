@@ -10,6 +10,7 @@ import { makeDemoRecording } from './synth.js';
 import { downloadText } from './recorder.js';
 import { DEPTH_TEXT } from './squat.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES } from './replay-core.js';
+import { setupOffline } from './offline.js';
 
 const $ = id => document.getElementById(id);
 const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus');
@@ -645,3 +646,4 @@ window.addEventListener('resize', scheduleRedraw);
 buildToggles();
 // 網址加上 ?demo 直接載入側面示範（方便展示）
 if (new URLSearchParams(location.search).has('demo')) $('demoSide').click();
+setupOffline();
