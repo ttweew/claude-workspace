@@ -95,6 +95,7 @@ const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
+let videoSize = '';                   // 鏡頭畫面大小（例如 640x480）；手機轉向時會改變
 
 // ---------- AI 模型 ----------
 
@@ -345,6 +346,12 @@ function detectFailed(err) {
 // 畫出一格的偵測結果，更新角度、儀表板、提示、錄製與數據面板
 // result：{ landmarks（33 點原始比例座標，沒有人時為 null）, world（公尺座標） }；now：這一格送去偵測的時間
 function showResult(result, now) {
+    // 手機轉向（直拿改橫拿）時鏡頭畫面的寬高會對調，點的座標意義跟著變
+    const size = video.videoWidth + 'x' + video.videoHeight;
+    if (size !== videoSize) {
+        if (videoSize) videoResized();
+        videoSize = size;
+    }
     // 畫布和影像的長寬比例相同，座標才會對齊
     const dpr = fitOverlay();
     if (fps.tick(now)) updatePerfInfo();
@@ -388,6 +395,17 @@ function showResult(result, now) {
         lastPanelUpdate = now;
         if (!dataPanel.hidden) updatePanel();
         if (recorder.recording) showRecordInfo();
+    }
+}
+
+// 鏡頭畫面大小改變：平滑、提示重新開始，骨架才不會從轉向前的位置滑過來
+// 錄製中就自動停止：錄製檔記的是開始時的畫面大小，轉向後的資料混在同一份裡，重播時角度會算錯
+function videoResized() {
+    pipeline.reset();
+    framing.reset();
+    if (recorder.recording) {
+        stopRecording();
+        recordInfo.textContent += '（畫面方向改變，已自動停止）';
     }
 }
 
@@ -528,6 +546,7 @@ function stopStream() {
     resetSquat();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
+    videoSize = '';
     lastPose = null;
     picked = null;
     hideLabels();
@@ -667,12 +686,18 @@ labelBtn.addEventListener('click', () => {
 stage.addEventListener('click', pickPoint);
 dataBtn.addEventListener('click', toggleDataPanel);
 recordBtn.addEventListener('click', () => (recorder.recording ? stopRecording() : startRecording()));
-// 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，避免重複按
+// 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，重複按不會再產生一份
+// 不用 disabled 停用按鈕：停用會讓鍵盤焦點跑掉，用鍵盤操作的人產生完要重新找按鈕
+let exporting = false;
+function setExporting(on) {
+    exporting = on;
+    for (const b of [csvBtn, jsonBtn]) b.setAttribute('aria-disabled', on ? 'true' : 'false');
+}
 async function exportRecording(button, ext, chunks, mimeType) {
-    if (button.disabled) return;
+    if (exporting) return;
     const label = button.textContent;
     const name = recordingName(recorder.meta) + ext;
-    csvBtn.disabled = jsonBtn.disabled = true;
+    setExporting(true);
     button.textContent = '產生中…';
     try {
         downloadBlob(name, await buildFile(chunks, mimeType));
@@ -681,11 +706,11 @@ async function exportRecording(button, ext, chunks, mimeType) {
         alert('檔案產生失敗（可能是手機記憶體不夠），請改錄短一點再試');
     } finally {
         button.textContent = label;
-        csvBtn.disabled = jsonBtn.disabled = false;
+        setExporting(false);
     }
 }
-csvBtn.addEventListener('click', () => exportRecording(csvBtn, '.csv', recorder.csvChunks(), 'text/csv'));
-jsonBtn.addEventListener('click', () => exportRecording(jsonBtn, '.json', recorder.jsonChunks(), 'application/json'));
+csvBtn.addEventListener('click', () => { if (!exporting) exportRecording(csvBtn, '.csv', recorder.csvChunks(), 'text/csv'); });
+jsonBtn.addEventListener('click', () => { if (!exporting) exportRecording(jsonBtn, '.json', recorder.jsonChunks(), 'application/json'); });
 perfBtn.addEventListener('click', () => {
     perfExpanded = !perfExpanded;
     updatePerfInfo();
