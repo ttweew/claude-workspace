@@ -7,6 +7,8 @@ const HOLD_MS = 600;  // 同一個提示要持續這麼久才換上去，避免�
 
 // 剛偵測到人時：點要穩定一下才會畫出來（ghost.js），這段時間還看不出站位，先顯示這個
 const CHECKING = { text: '偵測中…', kind: '' };
+// 沒有偵測到人（main.js 也用這個，提示文字只寫在這裡）
+export const NO_PERSON = { text: '未偵測到人體，請站進畫面', kind: 'warn' };
 
 // 依照這一格的關鍵點，判斷入鏡狀況；回傳 { text, kind }，kind：'ok' 綠色、'warn' 橘色
 export function framingAdvice(landmarks) {
@@ -52,7 +54,8 @@ export class FramingHint {
     // 回傳目前要顯示的提示 { text, kind }
     update(advice, timeMs) {
         // 還沒顯示過提示，或一直在「偵測中…」（例如光線太暗，點遲遲畫不出來）：一切正常就馬上換上
-        if ((!this.shown || this.shown.text === CHECKING.text) && advice.kind === 'ok') {
+        // 原本沒有人、人走進來站好時也一樣，不用等
+        if ((!this.shown || this.shown.text === CHECKING.text || this.shown.text === NO_PERSON.text) && advice.kind === 'ok') {
             this.shown = advice;
             this.candidate = null;
             return this.shown;

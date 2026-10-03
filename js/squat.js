@@ -16,7 +16,8 @@ export const SQUAT = {
     GOOD: 90,         // 最低膝蓋角度 ≤ 這個：蹲到位
     CLOSE: 110,       // ≤ 這個：再低一點；再大：太淺
     MIN_REP_MS: 500,  // 一下至少要這麼久
-    LOST_MS: 1500     // 看不到人（或膝蓋）超過這麼久，這一下作廢，重新從站直開始
+    LOST_MS: 1500,    // 看不到人（或膝蓋）超過這麼久，這一下作廢，重新從站直開始
+    FRONT_MS: 700     // 判斷成正面拍持續這麼久，才作廢這一下、提示側身（短暫跳一下不算）
 };
 
 export const DEPTH_TEXT = { good: '蹲到位', close: '再低一點', shallow: '太淺' };
@@ -36,6 +37,7 @@ export class SquatCounter {
         this.side = 'LEFT';
         this.current = null;      // 進行中的這一下
         this.lastSeen = null;
+        this.frontSince = null;   // 從什麼時候開始判斷成正面拍
     }
 
     // pose：pipeline.process 的結果（沒有人時為 null）；timeMs：時間
@@ -53,12 +55,18 @@ export class SquatCounter {
         // 中間隔太久沒看到人（例如手機切到背景、AI 重新啟動，這段時間完全沒有畫面進來）：那一下作廢
         if (this.lastSeen !== null && timeMs - this.lastSeen > SQUAT.LOST_MS) this.abandon();
         const view = pose.view.view;
+        // 正面拍：膝蓋角度不準，不計算。要持續 FRONT_MS 才作廢這一下並提示側身：
+        // 斜側面（約 30°）在分界附近，偶爾一個關節跳一下就會短暫被判斷成正面，以前會把正在蹲的這一下整個作廢、漏算
         if (view === 'front') {
-            out.prompt = '請側身對著鏡頭，正面拍膝蓋角度不準';
-            this.abandon();
+            if (this.frontSince === null) this.frontSince = timeMs;
+            if (timeMs - this.frontSince >= SQUAT.FRONT_MS) {
+                out.prompt = '請側身對著鏡頭，正面拍膝蓋角度不準';
+                this.abandon();
+            }
             out.state = this.state;
             return out;
         }
+        this.frontSince = null;
         if (view === null) {
             out.state = this.state;
             return out;

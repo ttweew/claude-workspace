@@ -9,7 +9,7 @@ import { FpsCounter } from './fps.js';
 import { PosePipeline } from './pipeline.js';
 import { predictPose } from './predict.js';
 import { getDerivedPoints } from './landmarks.js';
-import { framingAdvice, FramingHint } from './framing.js';
+import { framingAdvice, FramingHint, NO_PERSON } from './framing.js';
 import { PoseRecorder, buildFile, downloadBlob, recordingName } from './recorder.js';
 import { updateDataPanel, updateViewInfo } from './datapanel.js';
 import { Hud } from './hud.js';
@@ -276,12 +276,17 @@ function giveUpPose() {
 
 // 清掉畫面上的骨架、標籤與儀表板
 function clearPose() {
+    hidePose();
+    framing.reset();
+}
+function hidePose() {
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastPose = null;
     hideLabels();
     hud.update(null);
-    framing.reset();
 }
+const KEEP_POSE_MS = 200;  // 偵測不到人時，上一格的骨架最多再留這麼久
+let lastSeen = 0;          // 最後一次偵測到人的時間
 
 // 每一格新畫面做一次骨架偵測，並把關鍵點、連線（與編號）畫出來
 // frame：requestVideoFrameCallback 提供的畫面資訊；用「第幾格」判斷是不是新畫面，
@@ -355,7 +360,6 @@ function showResult(result, now) {
     // 畫布和影像的長寬比例相同，座標才會對齊
     const dpr = fitOverlay();
     if (fps.tick(now)) updatePerfInfo();
-    ctx.clearRect(0, 0, overlay.width, overlay.height);
     // landmarks 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
     // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
     const raw = result.landmarks;
@@ -365,12 +369,14 @@ function showResult(result, now) {
     const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
     if (processed) {
         const { landmarks, angles } = processed;
+        lastSeen = now;
         // 畫出來的位置往前推到「現在」（從送去偵測到現在經過的時間），骨架才不會跟在身體後面
         // 角度、提示、錄製都用沒預測的 landmarks
         const shown = PREDICT
             ? predictPose(landmarks, pipeline.smoother.velocity(), performance.now() - now, video.videoWidth, video.videoHeight)
             : landmarks;
         const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
         drawSkeleton(ctx, shown, shownDerived, dpr);
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
         lastPose = { ...processed, raw, rawWorld, shown, shownDerived };
@@ -383,9 +389,12 @@ function showResult(result, now) {
         if (prompt && hint.kind === 'ok') setPoseStatus(prompt, 'warn');
         else setPoseStatus(hint.text, hint.kind);
     } else {
-        clearPose();
+        // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
+        // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
+        if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
         updateSquat(null, now);
-        setPoseStatus('未偵測到人體，請站進畫面', 'warn');
+        const hint = framing.update(NO_PERSON, now);
+        setPoseStatus(hint.text, hint.kind);
     }
     // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
     if (recorder.recording && !recorder.add(now, raw, rawWorld)) {
