@@ -303,7 +303,13 @@ function showSummary() {
         const dt = document.createElement('dt');
         const dd = document.createElement('dd');
         dt.textContent = k;
-        dd.textContent = v;
+        // 以「 · 」分段，每一段放在一起不拆開（例如「436 格」不會把「格」擠到下一行）
+        v.split(' · ').forEach((part, i) => {
+            if (i) dd.append(' · ');
+            const span = document.createElement('span');
+            span.textContent = part;
+            dd.append(span);
+        });
         div.append(dt, dd);
         return div;
     }));

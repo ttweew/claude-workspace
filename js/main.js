@@ -42,6 +42,8 @@ const recordBtn = document.getElementById('recordBtn');
 const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
+const panelToggle = document.getElementById('panelToggle');
+const panelBody = document.getElementById('panelBody');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
 const hudRepsBox = document.getElementById('hudRepsBox');  // 深蹲次數（?lab=squat 才顯示）
@@ -568,10 +570,12 @@ function stopStream() {
 // 鏡頭畫面蓋住首頁時，首頁的按鈕設為 inert（不能點、鍵盤 Tab 也不會跳過去），
 // 鍵盤焦點移到「關閉鏡頭」；回到首頁時焦點回到「開啟鏡頭」
 const page = document.querySelector('.page');
+const siteNav = document.querySelector('.site-nav');
 function showStage(on) {
     if (stage.hidden !== on) return;
     stage.hidden = !on;
     page.inert = on;
+    if (siteNav) siteNav.inert = on;
     const focused = document.activeElement;
     if (on && (focused === startBtn || focused === document.body)) stopBtn.focus();
     if (!on && (stage.contains(focused) || focused === document.body)) startBtn.focus();
@@ -606,7 +610,8 @@ async function fillCameraSelect() {
 
 // 錄製中時按鈕加上紅點提醒（面板收起來也看得到）
 function updateDataBtn() {
-    dataBtn.textContent = (dataPanel.hidden ? '數據' : '隱藏數據') + (recorder.recording ? ' ●' : '');
+    setBtnText(dataBtn, (dataPanel.hidden ? '數據' : '隱藏數據') + (recorder.recording ? ' ●' : ''));
+    dataBtn.setAttribute('aria-pressed', String(!dataPanel.hidden));
 }
 
 function showRecordInfo() {
@@ -668,8 +673,15 @@ function toggleFullscreen() {
     }
 }
 
+// 工具列按鈕：只換文字，保留前面的圖示
+function setBtnText(button, text) {
+    const span = button.querySelector('.btn-text');
+    if (span.textContent !== text) span.textContent = text;
+}
+
 function updateLabelBtn() {
-    labelBtn.textContent = showLabels ? '隱藏編號' : '顯示編號';
+    setBtnText(labelBtn, showLabels ? '隱藏編號' : '顯示編號');
+    labelBtn.setAttribute('aria-pressed', String(showLabels));
 }
 
 startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
@@ -684,7 +696,7 @@ document.addEventListener('visibilitychange', () => {
     if (video.paused) video.play().catch(() => {});
 });
 document.addEventListener('fullscreenchange', () => {
-    fullscreenBtn.textContent = document.fullscreenElement ? '離開全螢幕' : '全螢幕';
+    setBtnText(fullscreenBtn, document.fullscreenElement ? '離開全螢幕' : '全螢幕');
 });
 labelBtn.addEventListener('click', () => {
     showLabels = !showLabels;
@@ -694,6 +706,25 @@ labelBtn.addEventListener('click', () => {
 });
 stage.addEventListener('click', pickPoint);
 dataBtn.addEventListener('click', toggleDataPanel);
+// 數據面板的表格可以收合，只留錄製列；選擇會記在瀏覽器裡
+const PANEL_KEY = 'panelCollapsed';
+function setPanelCollapsed(collapsed) {
+    panelBody.hidden = collapsed;
+    dataPanel.classList.toggle('collapsed', collapsed);
+    panelToggle.setAttribute('aria-expanded', String(!collapsed));
+    panelToggle.textContent = collapsed ? '展開表格' : '收合表格';
+    try {
+        localStorage.setItem(PANEL_KEY, collapsed ? '1' : '0');
+    } catch (err) {
+        // 無法儲存也不影響使用
+    }
+}
+panelToggle.addEventListener('click', () => setPanelCollapsed(!panelBody.hidden));
+try {
+    if (localStorage.getItem(PANEL_KEY) === '1') setPanelCollapsed(true);
+} catch (err) {
+    // 無痕模式等情況可能無法讀取，就用預設的展開
+}
 recordBtn.addEventListener('click', () => (recorder.recording ? stopRecording() : startRecording()));
 // 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，重複按不會再產生一份
 // 不用 disabled 停用按鈕：停用會讓鍵盤焦點跑掉，用鍵盤操作的人產生完要重新找按鈕

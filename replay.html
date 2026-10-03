@@ -11,9 +11,29 @@
     <link rel="stylesheet" href="css/replay.css">
 </head>
 <body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
     <div class="page replay">
         <header class="replay-head">
-            <a class="back" href="./">← 回首頁</a>
             <h1>錄製資料重播分析</h1>
             <p class="intro">選擇「數據」面板下載的 JSON 或 CSV 檔，用和鏡頭畫面<strong>完全相同</strong>的處理（平滑、擋鬼點、角度、拍攝方向）重算一次，畫出角度曲線。檔案只在這個瀏覽器裡處理，不會上傳。</p>
         </header>

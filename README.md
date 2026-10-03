@@ -9,6 +9,7 @@
 ```
 index.html          畫面結構（按鈕、影像、畫布）
 replay.html         錄製資料重播分析：讀錄下來的檔案，畫出角度曲線（給組員做驗證實驗用）
+help.html           使用說明：怎麼擺手機、畫面上每個東西的意思、錄製與重播、常見問題、隱私
 css/style.css       所有外觀樣式
 css/replay.css      重播分析頁的樣式
 js/main.js          程式起點：取得畫面元素、串接鏡頭與 AI 偵測、處理按鈕
@@ -33,6 +34,7 @@ js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可�
 js/recorder.js      錄製關鍵點，匯出 CSV / JSON
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 js/offline.js       離線使用：註冊 sw.js，把 AI 檔案存在手機裡
+js/help.js          使用說明頁的程式（只啟用離線功能）
 sw.js               Service Worker：AI 檔案存起來重複使用；網站檔案有網路時一定抓最新的，斷網時用上次存的
 js/replay-core.js   重播分析的計算核心：讀檔、重算（背景執行緒和主畫面共用）
 js/replay-worker.js 重播分析的背景執行緒
@@ -42,6 +44,7 @@ js/squat.js         深蹲次數與深度判斷（實驗中，網址加 ?lab=squ
 js/synth.js         合成示範資料（3D 火柴人做的深蹲，不是真人），還沒有錄影時先用來試用、測試
 docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
 docs/roadmap.md     日後改進清單與接下來的階段
+docs/design-plan.md 網站版面與導覽的規劃、進度（含登入功能的需求紀錄）
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
