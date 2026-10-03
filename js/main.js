@@ -16,6 +16,7 @@ import { Hud } from './hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
 import { SquatCounter, DEPTH_TEXT } from './squat.js';
 import { setupOffline, forgetAiFiles } from './offline.js';
+import { unsupportedAdvice } from './support.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -167,7 +168,14 @@ async function initPose() {
     if (pose || loadingPose) return;
     loadingPose = true;
     for (let attempt = 0; ; attempt++) {
-        if (await tryLoadPose(loadCount++)) break;
+        const result = await tryLoadPose(loadCount++);
+        if (result === true) break;
+        // 這支手機的瀏覽器跑不了 AI：重試也沒用，直接說明原因與怎麼辦（鏡頭仍可開啟）
+        if (result === 'unsupported') {
+            setModelStatus('這支手機的瀏覽器無法執行 AI（不支援 WebGL2）。' + unsupportedAdvice());
+            finishLoading(false);
+            break;
+        }
         await forgetAiFiles();
         if (attempt >= RETRY_DELAYS.length) {
             setModelStatus('AI 模型載入失敗，請檢查網路（鏡頭仍可使用）');
@@ -189,7 +197,7 @@ window.addEventListener('online', () => {
     initPose();
 });
 
-// 載入一次；成功回傳 true
+// 載入一次；成功回傳 true，失敗回傳 false，這支手機根本跑不了 AI 時回傳 'unsupported'
 async function tryLoadPose(attempt) {
     const startTime = performance.now();
     try {
@@ -205,7 +213,7 @@ async function tryLoadPose(attempt) {
         return true;
     } catch (err) {
         console.error(err);
-        return false;
+        return err && err.unsupported ? 'unsupported' : false;
     }
 }
 

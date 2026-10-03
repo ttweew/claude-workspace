@@ -1,6 +1,7 @@
 // AI 骨架偵測：下載 MediaPipe 與骨架模型、選擇 GPU 或 CPU、暖機
 // 這裡只負責準備好偵測器，畫面上的文字由 main.js 負責
 
+import { hasWebGL2 } from './support.js';
 import { MEDIAPIPE_URLS, POSE_MODEL_URL, POSE_MODEL_SIZE, FORCE_CPU, USE_WORKER } from './config.js';
 import { getGpuInfo, shortGpuName } from './gpu.js';
 
@@ -233,6 +234,12 @@ function warmUp(landmarker) {
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
 // 下載卡住（STALL_MS 沒收到資料）時直接失敗，由 main.js 等幾秒後重試
 export async function loadPoseModel(onProgress, attempt = 0) {
+    // 沒有 WebGL2 的瀏覽器跑不了 MediaPipe（就算用 CPU 也一樣），開鏡頭後才會中止；一開始就說清楚，也不用重試
+    if (!hasWebGL2()) {
+        const err = new Error('這個瀏覽器不支援 WebGL2，無法執行 AI');
+        err.unsupported = true;
+        throw err;
+    }
     const state = { abandoned: false, aborts: [] };
     let stalled;
     const stall = new Promise((resolve, reject) => { stalled = reject; });

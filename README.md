@@ -34,7 +34,9 @@ js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可�
 js/recorder.js      錄製關鍵點，匯出 CSV / JSON
 js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
 js/offline.js       離線使用：註冊 sw.js，把 AI 檔案存在手機裡
-js/help.js          使用說明頁的程式（只啟用離線功能）
+js/help.js          使用說明頁的程式（離線功能、檢查這支手機）
+js/support.js       檢查這支手機能不能跑 AI（WebGL2 等）、辨識系統與瀏覽器版本
+js/hero-art.js      首頁示意圖的深蹲動畫（只在看得到時才動）
 sw.js               Service Worker：AI 檔案存起來重複使用；網站檔案有網路時一定抓最新的，斷網時用上次存的
 js/replay-core.js   重播分析的計算核心：讀檔、重算（背景執行緒和主畫面共用）
 js/replay-worker.js 重播分析的背景執行緒
@@ -61,6 +63,20 @@ docs/design-plan.md 網站版面與導覽的規劃、進度（含登入功能的
 | `?predict=0` | 關掉骨架往前預測，比較動作中骨架「跟手」的差別 |
 | `?sw=0` | 移除離線功能（Service Worker）和存在手機裡的檔案，萬一出問題時打開一次就好 |
 | `?res=720`、`?res=1080` | 改用較高的鏡頭解析度（預設 640×480），方便比較速度差距 |
+
+## 支援的裝置
+
+AI（MediaPipe）就算用 CPU 計算，處理影像時也需要瀏覽器支援 **WebGL2**，這是硬性門檻（實測：沒有 WebGL2 時開鏡頭後 AI 直接中止）。網站一開始就會檢查，不支援時馬上說明原因與怎麼辦。
+
+| 裝置 | 能不能用 | 說明 |
+|---|---|---|
+| iPhone、iOS 17 以上 | 可以，最順 | AI 在背景執行緒用 GPU 運算 |
+| iPhone、iOS 15～16 | 可以 | AI 在主畫面運算（按鈕反應會慢一點）；iOS 16.4 以前螢幕可能自動變暗 |
+| iPhone、iOS 14 以下 | 不行 | Safari 15 才預設開啟 WebGL2；iPhone 6 以前的機型無法更新到 iOS 15 |
+| Android、最新版 Chrome | 大部分可以 | 少數舊手機的 GPU 被 Chrome 停用時沒有 WebGL2 |
+| LINE、Instagram 等 App 內建瀏覽器 | 通常不行 | 不允許使用相機，請改用 Chrome 或 Safari |
+
+iPhone 上所有瀏覽器（包括 Chrome）都用 Safari 的核心，所以看的是 **iOS 版本**，不是瀏覽器。實際的速度（每秒分析幾格）要用真手機測：開啟鏡頭後左上角會顯示，例如「GPU · 30 FPS」。使用說明頁的「檢查這支手機」可以一鍵列出功能支援情況並複製結果。
 
 ## 背景運算（讓畫面不被 AI 卡住）
 

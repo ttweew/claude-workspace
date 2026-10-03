@@ -544,6 +544,89 @@ footer a, .panel-note a, .note a {
 .toc a:hover {
     border-color: var(--accent);
 }
+/* 檢查這支手機 */
+.check-card {
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.check-btn, #copyBtn {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+#copyBtn {
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text);
+}
+.check-btn:focus-visible, #copyBtn:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+.check-verdict {
+    margin: 16px 0 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+}
+.check-verdict[data-level="ok"] {
+    background: rgba(13, 110, 70, 0.9);
+}
+.check-verdict[data-level="warn"] {
+    background: rgba(150, 85, 0, 0.9);
+}
+.check-verdict[data-level="no"] {
+    background: rgba(180, 35, 30, 0.92);
+}
+.check-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+}
+.check-list div {
+    display: grid;
+    grid-template-columns: minmax(7em, 34%) 1fr;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+}
+.check-list dt {
+    color: var(--muted);
+}
+.check-list dd {
+    margin: 0;
+}
+.check-list dd.bad {
+    color: #FF8A80;
+    font-weight: 700;
+}
+.check-list dd.soft {
+    color: #FFC857;
+}
+.copy-fallback {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 12px;
+}
+#copyStatus {
+    display: inline-block;
+    margin-left: 10px;
+}
 /* 寬螢幕排成兩欄：項目數（4、7）排三欄時最後一列只剩一個，不整齊；兩欄每一項也比較寬、好讀 */
 @media (min-width: 760px) {
     .help .steps, .help .glossary {

@@ -36,6 +36,7 @@
             <h1>使用說明</h1>
             <p class="intro">第一次使用？照著「擺好手機」做，大約 1 分鐘就能開始。影像只在你自己的裝置上處理，不會上傳。</p>
             <ul class="toc" aria-label="這一頁的內容">
+                <li><a href="#check">檢查這支手機</a></li>
                 <li><a href="#setup">擺好手機</a></li>
                 <li><a href="#screen">畫面上的東西</a></li>
                 <li><a href="#record">錄製與重播</a></li>
@@ -45,6 +46,22 @@
         </header>
 
         <main>
+            <section id="check" aria-labelledby="checkTitle">
+                <h2 id="checkTitle">檢查這支手機</h2>
+                <p class="prose">不確定這支手機能不能用？按下面的按鈕，馬上列出系統、瀏覽器和各項功能支不支援（只在這支手機上檢查，不會傳出任何資料）。</p>
+                <div class="check-card">
+                    <button id="checkBtn" type="button" class="check-btn">檢查這支手機</button>
+                    <div id="checkResult" hidden>
+                        <p id="checkVerdict" class="check-verdict" role="status"></p>
+                        <dl id="checkList" class="check-list"></dl>
+                        <p id="checkAdvice" class="note" hidden></p>
+                        <p class="note">想知道實際速度：開啟鏡頭、站進畫面，左上角會顯示「GPU · 30 FPS」這種標籤（每秒分析幾格，15 以上就很順）。</p>
+                        <button id="copyBtn" type="button">複製檢查結果</button>
+                        <span id="copyStatus" class="note" role="status"></span>
+                    </div>
+                </div>
+            </section>
+
             <section id="setup" aria-labelledby="setupTitle">
                 <h2 id="setupTitle">擺好手機</h2>
                 <ol class="steps">
@@ -82,6 +99,10 @@
             <section id="faq" aria-labelledby="faqTitle">
                 <h2 id="faqTitle">常見問題</h2>
                 <div class="faq">
+                    <details>
+                        <summary>哪些手機可以用？</summary>
+                        <p>iPhone：iOS 15 以上（iPhone 6s 以後的機型都能更新到）；iOS 17 以上最順（AI 在背景運算）。Android：最新版 Chrome，大部分手機都可以。最準的方法是在這一頁最上面按「檢查這支手機」。</p>
+                    </details>
                     <details>
                         <summary>第一次打開很慢？</summary>
                         <p>第一次需要下載約 18 MB 的 AI 檔案。下載完會存在裝置裡，之後打開幾乎馬上就能用，沒有網路也可以用。</p>
