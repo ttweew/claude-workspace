@@ -21,6 +21,10 @@
 * {
     box-sizing: border-box;
 }
+/* 標記為隱藏（hidden）的元素一律不顯示：個別元件設定的 display（flex 等）會蓋掉瀏覽器預設的隱藏，統一在這裡擋住 */
+[hidden] {
+    display: none !important;
+}
 
 body {
     margin: 0;
@@ -315,6 +319,28 @@ h2 {
     color: var(--muted);
     font-size: 14px;
 }
+/* 手機：功能介紹排成 2×2 小格，不用滑那麼久才看到下面的內容 */
+@media (max-width: 560px) {
+    .features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .feature {
+        padding: 14px;
+    }
+    .feature svg {
+        width: 32px;
+        height: 32px;
+    }
+    .feature h3 {
+        margin: 10px 0 4px;
+        font-size: 15px;
+    }
+    .feature p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+}
 /* 準備步驟：數字圓圈＋說明 */
 .steps {
     display: grid;
@@ -380,8 +406,248 @@ footer {
     color: var(--muted);
     font-size: 13px;
 }
-footer a, .panel-note a {
+footer a, .panel-note a, .note a {
     color: var(--info);
+}
+
+/* ---------- 導覽列：首頁、重播分析、使用說明三頁共用 ----------
+   捲動時固定在最上方；左右留白和頁面內容對齊（內容最寬 1000px） */
+.site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: max(8px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right), calc((100% - 1000px) / 2)) 8px max(20px, env(safe-area-inset-left), calc((100% - 1000px) / 2));
+    border-bottom: 1px solid var(--line);
+    background: rgba(11, 18, 32, 0.82);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+.nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    color: var(--text);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.nav-links {
+    display: flex;
+    gap: 4px;
+}
+.nav-links a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.nav-links a:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+}
+.nav-links svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 目前所在的頁面：文字變亮、下面一條綠線 */
+.nav-links a[aria-current="page"] {
+    color: var(--text);
+}
+.nav-links a[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+.nav-brand:focus-visible, .nav-links a:focus-visible, .toc a:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+/* 有導覽列的頁面，內容不用再留那麼多上方空白 */
+.site-nav + .page {
+    padding-top: 28px;
+}
+/* 手機：名稱只留圖示，連結改成「圖示在上、字在下」的分頁樣式，三個都排得下 */
+@media (max-width: 560px) {
+    .nav-name {
+        display: none;
+    }
+    .nav-links a {
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        min-height: 48px;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+    .nav-links a[aria-current="page"]::after {
+        left: 10px;
+        right: 10px;
+        bottom: 0;
+    }
+}
+
+/* ---------- 使用說明頁 ---------- */
+.help-head h1 {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 6vw, 40px);
+}
+.help-head .intro {
+    margin: 0;
+    color: var(--muted);
+}
+/* 這一頁的內容：可以直接跳到某一段 */
+.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 8px;
+    padding: 0;
+    list-style: none;
+}
+.toc a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.toc a:hover {
+    border-color: var(--accent);
+}
+/* 寬螢幕排成兩欄：項目數（4、7）排三欄時最後一列只剩一個，不整齊；兩欄每一項也比較寬、好讀 */
+@media (min-width: 760px) {
+    .help .steps, .help .glossary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+/* 跳到某一段時，標題不要被固定在上方的導覽列擋住 */
+.help section {
+    scroll-margin-top: 80px;
+}
+.glossary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+.glossary > div {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.glossary dt {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-weight: 700;
+}
+.glossary dd {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+.swatch {
+    width: 22px;
+    height: 6px;
+    border-radius: 3px;
+}
+/* 說明用的小樣本：和鏡頭畫面上的標籤長得一樣 */
+.chip-demo {
+    display: inline-block;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--bg);
+    font-size: 13px;
+    font-weight: 800;
+}
+.chip-demo.big {
+    padding: 0 10px;
+    border-radius: 8px;
+    background: var(--glass);
+    border: 1px solid var(--line);
+    color: #FFFFFF;
+    font-size: 18px;
+}
+.chip-demo.ok {
+    border: 1px solid rgba(46, 230, 166, 0.6);
+    background: rgba(13, 110, 70, 0.9);
+    color: #FFFFFF;
+}
+.chip-demo.warn {
+    border: 2px solid rgba(255, 210, 120, 0.75);
+    background: rgba(150, 85, 0, 0.9);
+    color: #FFFFFF;
+}
+.faq {
+    display: grid;
+    gap: 10px;
+}
+.faq details {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.faq summary {
+    min-height: 48px;
+    padding: 12px 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.faq summary:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: -3px;
+    border-radius: var(--radius);
+}
+.faq details p {
+    margin: 0;
+    padding: 0 16px 14px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.prose {
+    max-width: 720px;
+    margin: 0;
+    color: var(--muted);
+}
+code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.92em;
 }
 
 /* ---------- 鏡頭畫面 ---------- */
@@ -389,6 +655,7 @@ footer a, .panel-note a {
 #stage {
     position: fixed;
     inset: 0;
+    z-index: 30;  /* 蓋過固定在上方的導覽列 */
     background: #000;
     /* 手機上點畫面查看關鍵點時：不閃灰色點擊框、連點兩下不放大畫面、長按不會選取到文字 */
     -webkit-tap-highlight-color: transparent;
@@ -495,6 +762,9 @@ footer a, .panel-note a {
     font-size: 14px;
 }
 #toolbar button, #toolbar select {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     min-height: 36px;
     padding: 0 12px;
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -529,6 +799,35 @@ footer a, .panel-note a {
 }
 #toolbar select option {
     color: #1B2536;
+}
+/* 上面的 display 會蓋掉 hidden，這裡補上（例如只有一顆鏡頭時，鏡頭選單要藏起來） */
+#toolbar [hidden] {
+    display: none;
+}
+#toolbar svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 功能按鈕靠右，和「結束」分開，不會誤按（有鏡頭選單時，選單在中間佔剩下的寬度） */
+#labelBtn {
+    margin-left: auto;
+}
+/* 開啟中的功能（顯示編號、數據）：綠色外框 */
+#toolbar .tool[aria-pressed="true"] {
+    border-color: rgba(46, 230, 166, 0.7);
+    background: rgba(46, 230, 166, 0.16);
+}
+/* 窄螢幕：功能按鈕只留文字（圖示佔空間），一行才放得下；「結束」保留 ✕ */
+@media (max-width: 480px) {
+    #toolbar .tool svg {
+        display: none;
+    }
 }
 /* 小螢幕（例如 iPhone SE）按鈕縮小左右留白，一行才放得下 */
 @media (max-width: 360px) {
@@ -733,6 +1032,10 @@ footer a, .panel-note a {
         width: 340px;
         max-height: none;
     }
+    /* 收合表格時只剩錄製列，不要再拉到畫面底部 */
+    #dataPanel.collapsed {
+        bottom: auto;
+    }
 }
 .panel-head {
     display: flex;
@@ -759,6 +1062,13 @@ footer a, .panel-note a {
 }
 #recordInfo {
     font-variant-numeric: tabular-nums;
+}
+/* 收合表格的按鈕靠右 */
+.panel-head .panel-toggle {
+    margin-left: auto;
+}
+.panel-body[hidden] {
+    display: none;
 }
 .panel-body {
     overflow: auto;

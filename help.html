@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="AI 智慧運動分析系統使用說明：怎麼擺手機、畫面上每個東西的意思、錄製與重播、常見問題">
+    <meta name="theme-color" content="#0B1220">
+    <title>使用說明 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+    <div class="page help">
+        <header class="help-head">
+            <h1>使用說明</h1>
+            <p class="intro">第一次使用？照著「擺好手機」做，大約 1 分鐘就能開始。影像只在你自己的裝置上處理，不會上傳。</p>
+            <ul class="toc" aria-label="這一頁的內容">
+                <li><a href="#setup">擺好手機</a></li>
+                <li><a href="#screen">畫面上的東西</a></li>
+                <li><a href="#record">錄製與重播</a></li>
+                <li><a href="#faq">常見問題</a></li>
+                <li><a href="#privacy">隱私</a></li>
+            </ul>
+        </header>
+
+        <main>
+            <section id="setup" aria-labelledby="setupTitle">
+                <h2 id="setupTitle">擺好手機</h2>
+                <ol class="steps">
+                    <li><strong>距離 2～3 公尺</strong>手機或筆電放在約 2～3 公尺外，從頭到腳都要在畫面裡</li>
+                    <li><strong>高度約在腰部</strong>太高或太低都會讓角度變形；可以用椅子、書堆墊高</li>
+                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，膝蓋、髖部的角度最準；正面拍時角度誤差會很大</li>
+                    <li><strong>光線充足、背景單純</strong>避免背光（人站在窗戶前），背景不要有其他人走動</li>
+                </ol>
+            </section>
+
+            <section id="screen" aria-labelledby="screenTitle">
+                <h2 id="screenTitle">畫面上的東西</h2>
+                <dl class="glossary">
+                    <div><dt><span class="swatch" style="background:#00FF00"></span>綠色線、紅色點</dt><dd>AI 找到的骨架。看不清楚的部位不會畫出來，不會在沒有身體的地方亂畫</dd></div>
+                    <div><dt><span class="swatch" style="background:#1E90FF"></span>藍色線</dt><dd>軀幹（肩膀中心到髖部中心），用來判斷身體前傾的程度</dd></div>
+                    <div><dt><span class="chip-demo">93°</span>白色角度標籤</dt><dd>膝蓋、髖部目前彎曲的角度；站直約 180°，蹲越低數字越小</dd></div>
+                    <div><dt><span class="chip-demo big">121°</span>大字儀表板</dt><dd>站遠也看得清楚的角度，自動選看得比較清楚的那一側（靠近鏡頭的那側）</dd></div>
+                    <div><dt><span class="chip-demo ok">已偵測到全身</span>綠色提示</dt><dd>站位沒問題，可以開始運動</dd></div>
+                    <div><dt><span class="chip-demo warn">請往後退</span>橘色大字</dt><dd>需要調整站位：往前、往後、站到中間，或改成側面拍</dd></div>
+                    <div><dt><span class="chip-demo">CPU · 30 FPS</span>運算標籤</dt><dd>AI 用 GPU 還是 CPU 計算、每秒分析幾格畫面；點一下看詳細資訊</dd></div>
+                </dl>
+                <p class="note">看不懂某個點是哪裡？直接點畫面上的點，會顯示它的編號與名稱；或按「顯示編號」標出所有主要關節。</p>
+            </section>
+
+            <section id="record" aria-labelledby="recordTitle">
+                <h2 id="recordTitle">錄製與重播</h2>
+                <ol class="steps">
+                    <li><strong>按「數據」→「開始錄製」</strong>錄下每一格 33 個關鍵點的位置（不是影片），最多 5 分鐘</li>
+                    <li><strong>停止後下載</strong>CSV 可以用 Excel 打開；JSON 給重播分析或之後的後端使用</li>
+                    <li><strong>到「重播分析」選檔案</strong>畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
+                </ol>
+                <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
+            </section>
+
+            <section id="faq" aria-labelledby="faqTitle">
+                <h2 id="faqTitle">常見問題</h2>
+                <div class="faq">
+                    <details>
+                        <summary>第一次打開很慢？</summary>
+                        <p>第一次需要下載約 18 MB 的 AI 檔案。下載完會存在裝置裡，之後打開幾乎馬上就能用，沒有網路也可以用。</p>
+                    </details>
+                    <details>
+                        <summary>一直顯示「未偵測到人體」？</summary>
+                        <p>確認從頭到腳都在畫面裡、光線夠亮、背景沒有其他人。人太小（太遠）或只拍到上半身時也會偵測不到。</p>
+                    </details>
+                    <details>
+                        <summary>角度看起來不準？</summary>
+                        <p>改成側面拍。正面拍時，大腿往鏡頭方向彎，畫面上看起來的角度會比實際大很多；畫面上也會提示「請側身」。</p>
+                    </details>
+                    <details>
+                        <summary>在 LINE、Instagram 裡打開沒辦法開鏡頭？</summary>
+                        <p>App 內建的瀏覽器常常不允許使用相機。請點右上角選單，改用 Chrome 或 Safari 開啟。</p>
+                    </details>
+                    <details>
+                        <summary>畫面很卡、手機發燙？</summary>
+                        <p>點運算標籤看是 GPU 還是 CPU。CPU 比較吃力，可以關掉其他 App，或改用筆電。</p>
+                    </details>
+                    <details>
+                        <summary>網站怪怪的，想重新來過？</summary>
+                        <p>在網址後面加上 <code>?sw=0</code> 打開一次，會清掉存在裝置裡的檔案，回到第一次使用的狀態。</p>
+                    </details>
+                </div>
+            </section>
+
+            <section id="privacy" aria-labelledby="privacyTitle">
+                <h2 id="privacyTitle">隱私</h2>
+                <p class="prose">所有分析都在你自己的手機或電腦上完成，鏡頭影像不會上傳到任何地方。錄製的資料只有關鍵點的座標（不是影片），而且只會存成你自己下載的檔案；重播分析讀檔案也只在瀏覽器裡處理。</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品</p>
+        </footer>
+    </div>
+    <script type="module" src="js/help.js"></script>
+</body>
+</html>

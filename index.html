@@ -12,6 +12,27 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
     <div class="page">
         <header class="hero">
             <div class="brand">
@@ -65,6 +86,15 @@
         </header>
 
         <main>
+            <section aria-labelledby="stepsTitle">
+                <h2 id="stepsTitle">開始前的準備</h2>
+                <ol class="steps">
+                    <li><strong>擺好裝置</strong>把手機或筆電放在 2～3 公尺外，高度約在腰部</li>
+                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，角度最準</li>
+                    <li><strong>全身入鏡</strong>畫面上的提示變成綠色「已偵測到全身」就可以開始</li>
+                </ol>
+            </section>
+
             <section aria-labelledby="featuresTitle">
                 <h2 id="featuresTitle">可以做什麼</h2>
                 <div class="features">
@@ -91,15 +121,6 @@
                 </div>
             </section>
 
-            <section aria-labelledby="stepsTitle">
-                <h2 id="stepsTitle">開始前的準備</h2>
-                <ol class="steps">
-                    <li><strong>擺好裝置</strong>把手機或筆電放在 2～3 公尺外，高度約在腰部</li>
-                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，角度最準</li>
-                    <li><strong>全身入鏡</strong>畫面上的提示變成綠色「已偵測到全身」就可以開始</li>
-                </ol>
-            </section>
-
             <section aria-labelledby="exercisesTitle">
                 <h2 id="exercisesTitle">支援的運動</h2>
                 <ul class="exercises">
@@ -108,12 +129,12 @@
                     <li>棒式</li>
                     <li>弓箭步</li>
                 </ul>
-                <p class="note">動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。</p>
+                <p class="note">動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
         <footer>
-            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品 · <a href="replay.html">錄製資料重播分析</a></p>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品 · <a href="help.html">使用說明</a> · <a href="replay.html">重播分析</a></p>
         </footer>
     </div>
 
@@ -137,12 +158,14 @@
         <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
         <div id="repToast" role="status" hidden></div>
         <div id="toolbar">
-            <button id="stopBtn" class="primary">關閉鏡頭</button>
+            <!-- 結束：最常用、最重要的按鈕，放最左邊、實心強調 -->
+            <button id="stopBtn" class="primary" title="關閉鏡頭，回到首頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="btn-text">結束</span></button>
             <!-- 有兩顆以上鏡頭時才顯示 -->
             <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
-            <button id="labelBtn" title="也可以直接點畫面上的點，查看它的編號與名稱">顯示編號</button>
-            <button id="dataBtn" title="顯示關鍵點的 x、y、z 數值，並可錄製匯出">數據</button>
-            <button id="fullscreenBtn">全螢幕</button>
+            <!-- 功能按鈕靠右：圖示＋文字；開關類的按鈕用 aria-pressed 告訴螢幕閱讀器現在是開還是關 -->
+            <button id="labelBtn" class="tool" aria-pressed="false" title="也可以直接點畫面上的點，查看它的編號與名稱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6l8 8-6 6-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg><span class="btn-text">顯示編號</span></button>
+            <button id="dataBtn" class="tool" aria-pressed="false" title="顯示關鍵點的 x、y、z 數值，並可錄製匯出"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M10 10v9"/></svg><span class="btn-text">數據</span></button>
+            <button id="fullscreenBtn" class="tool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="btn-text">全螢幕</span></button>
         </div>
         <div id="infobar">
             <span id="poseStatus">AI 準備中…</span>
@@ -155,8 +178,10 @@
                 <span id="recordInfo"></span>
                 <button id="csvBtn" hidden>下載 CSV</button>
                 <button id="jsonBtn" hidden>下載 JSON</button>
+                <!-- 收合表格：只留上面這一列（錄製、下載），畫面上的人不會被擋住 -->
+                <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="panelBody">收合表格</button>
             </div>
-            <div class="panel-body">
+            <div class="panel-body" id="panelBody">
                 <!-- 動作判斷用的資訊：拍攝方向、面向等 -->
                 <p id="viewInfo" class="panel-info"></p>
                 <table>
