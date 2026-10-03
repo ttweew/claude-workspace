@@ -241,10 +241,21 @@ export async function loadPoseModel(onProgress, attempt = 0) {
         state.aborts.forEach(abort => abort());
         stalled(new Error('下載停住了：超過 ' + STALL_MS / 1000 + ' 秒沒有收到任何資料'));
     });
-    const loading = load(onProgress, attempt, watch, state);
+    // 放棄之後（失敗、卡住）還在跑的下載不再回報進度，不會把畫面上「載入失敗」的訊息蓋回「下載中」
+    const report = progress => {
+        if (!state.abandoned) onProgress(progress);
+    };
+    const loading = load(report, attempt, watch, state);
     loading.catch(() => {});  // 卡住放棄之後，原本那次載入的失敗不用再處理
     try {
         return await Promise.race([loading, stall]);
+    } catch (err) {
+        // 任何原因失敗（不只是卡住）：停掉這次還在跑的下載（例如模型），不在背景繼續浪費流量
+        if (!state.abandoned) {
+            state.abandoned = true;
+            state.aborts.forEach(abort => abort());
+        }
+        throw err;
     } finally {
         watch.stop();
     }
@@ -565,6 +576,27 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
     }
     attach(worker);
 
+    // 背景執行緒卡住（一直沒回傳）：當作停掉了，交給 main.js 重新啟動，畫面才不會永遠停住
+    // 頁面在背景時不算：手機關螢幕、切到別的 App 時，背景執行緒會被暫停，回來時不代表壞掉；
+    // 回到前景後重新給完整的等待時間，不會一回來就把正常的背景執行緒砍掉重建（畫面停 1～2 秒）
+    let visibleSince = performance.now();
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) visibleSince = performance.now();
+    });
+    function watchDetect(id, sentAt) {
+        const check = () => {
+            if (!pending || pending.id !== id) return;
+            const waited = performance.now() - Math.max(sentAt, visibleSince);
+            if (document.hidden || waited < DETECT_TIMEOUT_MS) {
+                setTimeout(check, document.hidden ? 1000 : DETECT_TIMEOUT_MS - waited);
+                return;
+            }
+            dead = '背景運算沒有回應';
+            fail(new Error(dead));
+        };
+        setTimeout(check, DETECT_TIMEOUT_MS);
+    }
+
     const pose = {
         computeMode, computeDetail: computeDetail + '（背景運算）', gpuName: gpu ? gpu.name : '', timings,
         background: true,
@@ -575,12 +607,7 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
             return new Promise((resolve, reject) => {
                 const id = ++nextId;
                 pending = { id, resolve, reject };
-                // 背景執行緒卡住（一直沒回傳）：當作停掉了，交給 main.js 重新啟動，畫面才不會永遠停住
-                setTimeout(() => {
-                    if (!pending || pending.id !== id) return;
-                    dead = '背景運算沒有回應';
-                    fail(new Error(dead));
-                }, DETECT_TIMEOUT_MS);
+                watchDetect(id, performance.now());
                 try {
                     worker.postMessage({ type: 'detect', id, bitmap, ts: timeMs }, [bitmap]);
                 } catch (err) {

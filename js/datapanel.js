@@ -8,7 +8,9 @@ import { VIEW_NAMES } from './view.js';
 const ROWS = LANDMARKS.map(([, name], id) => ({ id, name })).filter(r => isMainJoint(r.id))
     .concat([{ id: 'SHOULDER_CENTER', name: '肩膀中心' }, { id: 'HIP_CENTER', name: '髖部中心' }]);
 
-const fmt = v => (v >= 0 ? ' ' : '') + v.toFixed(3);  // 正數前面補一個數字寬的空白，正負號對齊
+// 正數前面補一個數字寬的空白，正負號對齊；壞掉或沒有的數字（例如換模型後沒有可信度）顯示「—」，不讓整個面板出錯停住
+const fmt = v => (Number.isFinite(v) ? (v >= 0 ? ' ' : '') + v.toFixed(3) : '—');
+const fmtVis = v => (Number.isFinite(v) ? v.toFixed(2) : '—');
 
 let cells = null;
 
@@ -33,7 +35,7 @@ export function updateDataPanel(tbody, landmarks) {
     ROWS.forEach((row, i) => {
         const { tr, tds } = cells[i];
         const p = landmarks ? (typeof row.id === 'number' ? landmarks[row.id] : derived[row.id]) : null;
-        const values = p ? [fmt(p.x), fmt(p.y), fmt(p.z), p.visibility.toFixed(2)] : ['—', '—', '—', '—'];
+        const values = p ? [fmt(p.x), fmt(p.y), fmt(p.z), fmtVis(p.visibility)] : ['—', '—', '—', '—'];
         tds.forEach((td, k) => { td.textContent = values[k]; });
         // 看不到的點（模型猜的）顯示成淡色，提醒這筆數字不可靠
         tr.classList.toggle('unseen', !p || !isVisible(p));
