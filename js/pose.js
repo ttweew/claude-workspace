@@ -1,7 +1,7 @@
 // AI 骨架偵測：下載 MediaPipe 與骨架模型、選擇 GPU 或 CPU、暖機
 // 這裡只負責準備好偵測器，畫面上的文字由 main.js 負責
 
-import { MEDIAPIPE_URLS, POSE_MODEL_URL, POSE_MODEL_SIZE, FORCE_CPU } from './config.js';
+import { MEDIAPIPE_URLS, POSE_MODEL_URL, POSE_MODEL_SIZE, FORCE_CPU, USE_WORKER } from './config.js';
 import { getGpuInfo, shortGpuName } from './gpu.js';
 
 // 兩個要下載的大檔案（解壓縮後的大小），用來計算整體下載進度
@@ -42,37 +42,56 @@ function stallWatch(onStall) {
 
 // 自己下載骨架模型，才能邊下載邊回報進度；網頁一打開就開始下載，和 AI 引擎同時進行
 // onBytes(已下載位元組數)：每收到一段資料就通知一次
-// reader：一邊下載一邊交給 MediaPipe 讀取；finished：下載完成後的完整檔案（改用 CPU 重試時使用）
-// abort()：下載卡住時中止
+// 回傳：
+//   finished：下載完成後的完整檔案（Uint8Array；改用 CPU、重新啟動時使用）
+//   subscribe({ chunk, done, error })：邊下載邊拿到每一段（先補上已經收到的部分）
+//   reader()：邊下載邊讀的 reader，交給在主畫面執行的 MediaPipe
+//   abort()：下載卡住時中止
 function startModelDownload(onBytes) {
-    let controller;
-    const stream = new ReadableStream({ start(c) { controller = c; } });
     const aborter = new AbortController();
+    const chunks = [];
+    const listeners = new Set();
+    let status = 'loading', failure = null;
     const finished = (async () => {
         const res = await fetch(POSE_MODEL_URL, { signal: aborter.signal });
         if (!res.ok) throw new Error('骨架模型下載失敗（HTTP ' + res.status + '）');
         const reader = res.body.getReader();
-        const chunks = [];
         let received = 0;
         for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
             chunks.push(value);
-            controller.enqueue(value);
             received += value.length;
             onBytes(received);
+            listeners.forEach(l => l.chunk(value));
         }
-        controller.close();
         const data = new Uint8Array(received);
         let offset = 0;
         for (const chunk of chunks) {
             data.set(chunk, offset);
             offset += chunk.length;
         }
+        status = 'done';
+        listeners.forEach(l => l.done());
         return data;
     })();
-    finished.catch(err => controller.error(err));
-    return { reader: stream.getReader(), finished: finished, abort: () => aborter.abort() };
+    finished.catch(err => {
+        status = 'error';
+        failure = err;
+        listeners.forEach(l => l.error(err));
+    });
+    function subscribe(listener) {
+        chunks.forEach(c => listener.chunk(c));
+        if (status === 'done') listener.done();
+        else if (status === 'error') listener.error(failure);
+        else listeners.add(listener);
+    }
+    function reader() {
+        return new ReadableStream({
+            start(c) { subscribe({ chunk: v => c.enqueue(v), done: () => c.close(), error: e => c.error(e) }); }
+        }).getReader();
+    }
+    return { finished: finished, subscribe: subscribe, reader: reader, abort: () => aborter.abort() };
 }
 
 // 把兩個檔案的下載量合併成一個整體進度（0～1）；檔案下載完之前最多算到 99%，不會提早顯示完成
@@ -208,7 +227,8 @@ function warmUp(landmarker) {
 // attempt：第幾次重試（第一次為 0）
 // onProgress({ stage, fraction, delegate })：目前進行到哪個階段
 //   stage：'download' 下載檔案（fraction 為 0～1 的整體下載進度）、'start' 啟動 AI、'warmup' 暖機
-// 回傳 { vision, landmarker, computeMode, computeDetail, gpuName, timings, gpuLost(), restart() }
+// 回傳 { computeMode, computeDetail, gpuName, timings, background, detect(), lostReason(), restart() }
+//   background：是否在背景執行緒運算；detect(video, 時間) 回傳 Promise { landmarks, world }
 //   computeMode：'GPU' 或 'CPU'；computeDetail：GPU 時為晶片名稱，CPU 時為原因
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
 // 下載卡住（STALL_MS 沒收到資料）時直接失敗，由 main.js 等幾秒後重試
@@ -244,6 +264,28 @@ async function load(onProgress, attempt, watch, state) {
     const download = startModelDownload(tracker.bytes('model'));
     state.aborts.push(download.abort);
     download.finished.then(tracker.done('model'), () => {});
+
+    // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
+    const gpu = getGpuInfo();
+    const useGpu = !FORCE_CPU && gpu && !gpu.software;
+    const ctx = { onProgress, attempt, watch, state, t0, tracker, download, gpu, useGpu };
+
+    // 優先在背景執行緒運算（主畫面不會被 AI 卡住）；背景執行緒不能用 GPU 時，改在主畫面用 GPU，速度比較快
+    if (USE_WORKER && workerSupported()) {
+        const worker = await watch.hold(startWorker());
+        checkAbandoned(state);
+        if (worker && (!useGpu || worker.webgl)) return loadInWorker(ctx, worker.worker);
+        if (worker) {
+            worker.worker.terminate();
+            console.info('這個瀏覽器的背景執行緒不能用 GPU，改在主畫面執行');
+        }
+    }
+    return loadOnMain(ctx);
+}
+
+// ---------- 在主畫面執行（不支援背景執行緒時） ----------
+
+async function loadOnMain({ onProgress, attempt, watch, state, t0, tracker, download, gpu, useGpu }) {
     const { base, vision } = await watch.hold(importMediaPipe(attempt));
     checkAbandoned(state);
     const fileset = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
@@ -256,9 +298,6 @@ async function load(onProgress, attempt, watch, state) {
     state.aborts.push(engine.abort);
     engine.finished.then(tracker.done('engine'));
 
-    // 優先用 GPU（圖形處理器，手機與電腦的晶片都有內建）加速，不支援時改用 CPU
-    const gpu = getGpuInfo();
-    const useGpu = !FORCE_CPU && gpu && !gpu.software;
     let downloadedAt = 0;
     let createdAt = 0;
     Promise.all([engine.finished, download.finished]).then(() => {
@@ -271,15 +310,15 @@ async function load(onProgress, attempt, watch, state) {
     let created, computeMode, computeDetail;
     try {
         if (FORCE_CPU) {
-            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
+            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader());
             [computeMode, computeDetail] = ['CPU', '測試模式'];
         } else if (!useGpu) {
             // 沒有實體 GPU（例如軟體模擬）時，直接用 CPU 反而比較快
-            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader);
+            created = await createPoseLandmarker(vision, fileset, 'CPU', download.reader());
             [computeMode, computeDetail] = ['CPU', '未偵測到可用的 GPU'];
         } else {
             try {
-                created = await createPoseLandmarker(vision, fileset, 'GPU', download.reader);
+                created = await createPoseLandmarker(vision, fileset, 'GPU', download.reader());
                 [computeMode, computeDetail] = ['GPU', shortGpuName(gpu.name)];
             } catch (gpuErr) {
                 console.warn('GPU 無法使用，改用 CPU：', gpuErr);
@@ -315,10 +354,18 @@ async function load(onProgress, attempt, watch, state) {
     };
     console.info('AI 載入各階段秒數：', timings);
 
+    let lost = created.lost;
     const pose = {
-        vision, landmarker: created.landmarker, computeMode, computeDetail, gpuName: gpu ? gpu.name : '', timings,
-        // GPU 是否被系統收回（CPU 模式一律為 false）
-        gpuLost: created.lost,
+        landmarker: created.landmarker, computeMode, computeDetail, gpuName: gpu ? gpu.name : '', timings,
+        background: false,
+        // 偵測一格：回傳 Promise { landmarks（33 點）, world（公尺座標） }，沒有人時兩者為 null
+        // async：偵測出錯時變成 Promise 失敗，交給 main.js 的出錯計數（不會讓偵測迴圈停住）
+        async detect(video, timeMs) {
+            const r = pose.landmarker.detectForVideo(video, timeMs);
+            return { landmarks: r.landmarks[0] || null, world: (r.worldLandmarks && r.worldLandmarks[0]) || null };
+        },
+        // 偵測器是否已經不能用（GPU 被系統收回）；能用時回傳空字串
+        lostReason: () => (lost() ? 'GPU 被系統收回' : ''),
         // 偵測器壞掉時重新建立：原本用 GPU 就先再試一次 GPU（回到前景後通常就能用），還是不行再改用 CPU
         // 模型檔已經下載好留在記憶體裡，不用再下載，通常 1 秒內完成
         async restart() {
@@ -342,7 +389,234 @@ async function load(onProgress, attempt, watch, state) {
             }
             warmUp(next.landmarker);
             pose.landmarker = next.landmarker;
-            pose.gpuLost = next.lost;
+            lost = next.lost;
+        }
+    };
+    return pose;
+}
+
+// ---------- 在背景執行緒執行 ----------
+
+// 需要：Worker、OffscreenCanvas（背景執行緒裡的畫布）、createImageBitmap（把鏡頭畫面複製一份送過去）
+function workerSupported() {
+    return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined';
+}
+
+// 背景執行緒的檔案；網址帶上和這個檔案相同的版本號，發布新版時才不會拿到舊的
+const WORKER_URL = new URL('./pose-worker.js' + new URL(import.meta.url).search, import.meta.url);
+const HELLO_TIMEOUT_MS = 10000;
+const RESTART_TIMEOUT_MS = 30000;  // 重新啟動最多等這麼久，超過就放棄（使用者可以關閉鏡頭重開再試）
+const DETECT_TIMEOUT_MS = 5000;  // 一格超過這麼久沒有結果，當作背景執行緒卡住（正常最慢約 0.3 秒）
+
+// 開一個背景執行緒，等它回報能不能用 GPU；回傳 { worker, webgl }，開不起來回傳 null
+function startWorker() {
+    return new Promise(resolve => {
+        let worker;
+        try {
+            worker = new Worker(WORKER_URL);
+        } catch (err) {
+            console.warn('無法建立背景執行緒，改在主畫面執行：', err);
+            resolve(null);
+            return;
+        }
+        const timer = setTimeout(() => {
+            worker.terminate();
+            resolve(null);
+        }, HELLO_TIMEOUT_MS);
+        worker.onmessage = e => {
+            if (e.data.type !== 'hello') return;
+            clearTimeout(timer);
+            resolve({ worker: worker, webgl: e.data.webgl });
+        };
+        worker.onerror = e => {
+            clearTimeout(timer);
+            console.warn('背景執行緒無法啟動，改在主畫面執行：', e.message);
+            worker.terminate();
+            resolve(null);
+        };
+    });
+}
+
+// 重試時換一個下載來源先試：上一個來源可能就是卡住的原因
+function sourcesFor(attempt) {
+    const n = MEDIAPIPE_URLS.length;
+    return MEDIAPIPE_URLS.map((u, i) => MEDIAPIPE_URLS[(i + attempt) % n]);
+}
+
+// 在背景執行緒建立偵測器並暖機
+// model：完整模型檔（重新啟動時）；沒有時就用 download 邊下載邊送
+// 回傳 Promise { delegate, gpuError, warmupMs, createdAt }；onEngine(received) / onEngineDone() 回報 AI 引擎下載進度
+function initWorker(worker, { attempt, delegate, download, model, onEngine, onEngineDone, onCreated }) {
+    return new Promise((resolve, reject) => {
+        let created = null;
+        worker.onmessage = e => {
+            const m = e.data;
+            if (m.type === 'bytes') onEngine && onEngine(m.received);
+            else if (m.type === 'engine-done') onEngineDone && onEngineDone();
+            else if (m.type === 'created') {
+                created = { delegate: m.delegate, gpuError: m.gpuError, createdAt: performance.now() };
+                if (onCreated) onCreated();
+            } else if (m.type === 'ready') resolve({ ...created, warmupMs: m.warmupMs });
+            else if (m.type === 'fatal') reject(new Error(m.message));
+        };
+        worker.onerror = e => {
+            e.preventDefault();
+            reject(new Error('背景執行緒出錯：' + e.message));
+        };
+        if (model) {
+            const copy = model.slice();
+            worker.postMessage({ type: 'init', bases: sourcesFor(attempt), attempt, delegate, model: copy.buffer }, [copy.buffer]);
+        } else {
+            worker.postMessage({ type: 'init', bases: sourcesFor(attempt), attempt, delegate });
+            // 模型邊下載邊送過去（複製一份，原本的留著給改用 CPU、重新啟動時用）
+            download.subscribe({
+                chunk: v => {
+                    const copy = v.slice();
+                    worker.postMessage({ type: 'model-chunk', chunk: copy.buffer }, [copy.buffer]);
+                },
+                done: () => worker.postMessage({ type: 'model-done' }),
+                error: err => worker.postMessage({ type: 'model-error', message: String(err && err.message || err) })
+            });
+        }
+    });
+}
+
+async function loadInWorker({ onProgress, attempt, watch, state, t0, tracker, download, gpu, useGpu }, worker) {
+    // 下載卡住時直接結束整個背景執行緒：裡面所有的下載、運算一起停掉，不會在背景繼續搶網路
+    state.aborts.push(() => worker.terminate());
+    const delegate = useGpu ? 'GPU' : 'CPU';
+    let engineDone, downloadedAt = 0;
+    const engineFinished = new Promise(resolve => { engineDone = resolve; });
+    engineFinished.then(tracker.done('engine'));
+    Promise.all([engineFinished, download.finished]).then(() => {
+        watch.stop();  // 都下載完了，接下來是運算，花再久也不是網路卡住
+        downloadedAt = performance.now();
+        onProgress({ stage: 'start', delegate: delegate });
+    }, () => {});
+
+    let info;
+    try {
+        info = await initWorker(worker, {
+            attempt, delegate, download,
+            onEngine: tracker.bytes('engine'),
+            onEngineDone: engineDone,
+            onCreated: () => {
+                watch.stop();
+                onProgress({ stage: 'warmup' });
+            }
+        });
+        checkAbandoned(state);
+    } catch (err) {
+        // 失敗了（例如 MediaPipe 下載不下來）：結束這個背景執行緒，重試時會開新的，不會越積越多
+        worker.terminate();
+        throw err;
+    }
+
+    let computeMode = info.delegate, computeDetail;
+    if (FORCE_CPU) computeDetail = '測試模式';
+    else if (!useGpu) computeDetail = '未偵測到可用的 GPU';
+    else if (info.delegate === 'GPU') computeDetail = shortGpuName(gpu.name);
+    else {
+        console.warn('GPU 無法使用，改用 CPU：', info.gpuError);
+        computeDetail = '此裝置無法使用 GPU';
+    }
+    const seconds = ms => Math.round(ms / 100) / 10;
+    const timings = {
+        download: seconds((downloadedAt || info.createdAt) - t0),
+        start: seconds(Math.max(0, info.createdAt - (downloadedAt || info.createdAt))),
+        warmup: seconds(info.warmupMs)
+    };
+    console.info('AI 載入各階段秒數（背景執行緒）：', timings);
+    return workerPose(worker, { computeMode, computeDetail, gpu, timings, download, attempt });
+}
+
+// 背景執行緒的偵測器：介面和主畫面的相同（detect、lostReason、restart）
+function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, download, attempt }) {
+    let worker = firstWorker;
+    let pending = null;   // 送出去、還沒回來的那一格 { resolve, reject }
+    let lost = false;     // GPU 被系統收回
+    let dead = '';        // 背景執行緒停掉的原因
+    let nextId = 0;
+
+    function attach(w) {
+        worker = w;
+        lost = false;
+        dead = '';
+        w.onmessage = e => {
+            const m = e.data;
+            if (m.type !== 'result' && m.type !== 'detect-error') return;
+            if (m.lost) lost = true;
+            const p = pending;
+            pending = null;
+            if (!p || p.id !== m.id) return;
+            if (m.type === 'result') p.resolve({ landmarks: m.landmarks, world: m.world });
+            else p.reject(new Error(m.message));
+        };
+        w.onerror = e => {
+            e.preventDefault();
+            dead = '背景運算停止（' + (e.message || '未知原因') + '）';
+            fail(new Error(dead));
+        };
+    }
+    function fail(err) {
+        const p = pending;
+        pending = null;
+        if (p) p.reject(err);
+    }
+    attach(worker);
+
+    const pose = {
+        computeMode, computeDetail: computeDetail + '（背景運算）', gpuName: gpu ? gpu.name : '', timings,
+        background: true,
+        // 偵測一格：複製一份鏡頭畫面送到背景執行緒；同時只會有一格在處理
+        async detect(video, timeMs) {
+            if (pending) throw new Error('上一格還在處理');
+            const bitmap = await createImageBitmap(video);
+            return new Promise((resolve, reject) => {
+                const id = ++nextId;
+                pending = { id, resolve, reject };
+                // 背景執行緒卡住（一直沒回傳）：當作停掉了，交給 main.js 重新啟動，畫面才不會永遠停住
+                setTimeout(() => {
+                    if (!pending || pending.id !== id) return;
+                    dead = '背景運算沒有回應';
+                    fail(new Error(dead));
+                }, DETECT_TIMEOUT_MS);
+                try {
+                    worker.postMessage({ type: 'detect', id, bitmap, ts: timeMs }, [bitmap]);
+                } catch (err) {
+                    pending = null;
+                    bitmap.close();
+                    reject(err);
+                }
+            });
+        },
+        lostReason: () => (dead || (lost ? 'GPU 被系統收回' : '')),
+        // 重新啟動：直接換一個新的背景執行緒（舊的連同 GPU 資源一起清掉），模型檔已經在記憶體裡，不用再下載
+        // 原本用 GPU 就先再試一次 GPU（回到前景後通常就能用），還是不行再改用 CPU
+        async restart() {
+            worker.terminate();
+            fail(new Error('重新啟動中'));
+            const model = await download.finished;
+            const fresh = await startWorker();
+            if (!fresh) throw new Error('無法重新建立背景執行緒');
+            let info, timer;
+            try {
+                // 新的背景執行緒要重新載入 MediaPipe（通常瀏覽器已經存著，很快）；網路剛好卡住時不要永遠停在「重新啟動中」
+                const timeout = new Promise((resolve, reject) => {
+                    timer = setTimeout(() => reject(new Error('重新啟動超過 ' + RESTART_TIMEOUT_MS / 1000 + ' 秒')), RESTART_TIMEOUT_MS);
+                });
+                const init = initWorker(fresh.worker, { attempt, delegate: pose.computeMode === 'GPU' && fresh.webgl ? 'GPU' : 'CPU', model });
+                info = await Promise.race([init, timeout]);
+            } catch (err) {
+                fresh.worker.terminate();
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
+            if (pose.computeMode === 'GPU' && info.delegate !== 'GPU') {
+                [pose.computeMode, pose.computeDetail] = ['CPU', 'GPU 失效，改用 CPU（背景運算）'];
+            }
+            attach(fresh.worker);
         }
     };
     return pose;

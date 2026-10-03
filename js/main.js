@@ -1,12 +1,14 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB } from './config.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT } from './config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
 import { loadPoseModel } from './pose.js';
 import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 import { PosePipeline } from './pipeline.js';
+import { predictPose } from './predict.js';
+import { getDerivedPoints } from './landmarks.js';
 import { framingAdvice, FramingHint } from './framing.js';
 import { PoseRecorder, downloadText, recordingName } from './recorder.js';
 import { updateDataPanel, updateViewInfo } from './datapanel.js';
@@ -54,10 +56,12 @@ const hud = new Hud({
 let currentStream = null;
 let cameraRequest = 0;      // 每次開啟或關閉鏡頭就加 1，用來丟棄已經過時的開啟請求
 let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
-let drawingUtils = null;    // MediaPipe 內建的畫骨架工具
 let lastVideoTime = -1;
 let frameRequest = null;    // 下一次偵測的排程，關閉鏡頭時取消
 let failures = 0;           // 連續偵測出錯的次數
+let detecting = false;      // 有一格正在偵測（背景執行緒還沒回傳結果）
+let waitingFrame = null;    // 偵測中又來了新畫面：記下它，算完馬上接著算
+let streamGeneration = 0;   // 每次換鏡頭、關鏡頭、AI 重新啟動就加 1；比這個舊的偵測結果直接丟掉
 let restarting = false;     // AI 正在重新啟動（或已經放棄），這段時間不偵測
 let lastRestart = -Infinity;
 let poseBroken = false;     // 重新啟動也救不回來；使用者重新開啟鏡頭時再試一次
@@ -187,7 +191,6 @@ async function tryLoadPose(attempt) {
         const result = await loadPoseModel(progress => {
             if (!pose) showLoadingStage(progress);
         }, attempt);
-        drawingUtils = new result.vision.DrawingUtils(ctx);
         if (result.gpuName) perfBtn.title = '瀏覽器回報的 GPU：' + result.gpuName;
         pose = result;
         const seconds = ((performance.now() - startTime) / 1000).toFixed(1);
@@ -240,6 +243,7 @@ function cancelDetect() {
 const MAX_FAILURES = 10;  // 連續出錯這麼多格（約 0.3 秒）才重新啟動，偶爾一格出錯不用大動作
 async function restartPose(reason) {
     restarting = true;
+    streamGeneration++;
     console.warn('AI 重新啟動：' + reason);
     clearPose();
     // 5 秒內又壞掉，代表重新啟動也救不回來，不要一直重試
@@ -282,60 +286,107 @@ function clearPose() {
 function detectPose(time, frame) {
     frameRequest = null;
     if (!currentStream) return;
-    if (pose && !restarting && pose.gpuLost()) restartPose('GPU 被系統收回');
-    const frameId = frame ? 'f' + frame.presentedFrames : video.currentTime;
-    if (pose && !restarting && video.readyState >= 2 && frameId !== lastVideoTime) {
-        lastVideoTime = frameId;
-        // 畫布和影像的長寬比例相同，座標才會對齊
-        const dpr = fitOverlay();
-        try {
-            const now = performance.now();
-            const result = pose.landmarker.detectForVideo(video, now);
-            if (fps.tick(now)) updatePerfInfo();
-            ctx.clearRect(0, 0, overlay.width, overlay.height);
-            // landmarks[0] 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
-            // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
-            const raw = result.landmarks[0];
-            // worldLandmarks：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
-            const rawWorld = result.worldLandmarks && result.worldLandmarks[0];
-            // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/pipeline.js）；沒有人或是鬼骨架時為 null
-            const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
-            if (processed) {
-                const { landmarks, derived, angles } = processed;
-                drawSkeleton(drawingUtils, pose.vision.PoseLandmarker.POSE_CONNECTIONS, landmarks, derived, dpr);
-                // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
-                lastPose = { ...processed, raw, rawWorld };
-                showPoseLabels();
-                hud.update(landmarks, angles);
-                // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
-                const hint = framing.update(framingAdvice(landmarks), now);
-                // 深蹲實驗：站位沒問題、但是正面拍時，改提示側身
-                const prompt = updateSquat(processed, now);
-                if (prompt && hint.kind === 'ok') setPoseStatus(prompt, 'warn');
-                else setPoseStatus(hint.text, hint.kind);
-            } else {
-                clearPose();
-                updateSquat(null, now);
-                setPoseStatus('未偵測到人體，請站進畫面', 'warn');
-            }
-            // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
-            if (recorder.recording && !recorder.add(now, raw, rawWorld)) {
-                stopRecording();
-            }
-            if (now - lastPanelUpdate > 200) {
-                lastPanelUpdate = now;
-                if (!dataPanel.hidden) updatePanel();
-                if (recorder.recording) showRecordInfo();
-            }
-            failures = 0;
-        } catch (err) {
-            // 同樣的錯誤每一格都印，會塞爆主控台、拖慢速度，只印第一次
-            if (failures === 0) console.error(err);
-            failures++;
-            if (failures >= MAX_FAILURES) restartPose('連續 ' + failures + ' 格偵測出錯');
-        }
-    }
     scheduleDetect();
+    if (!pose || restarting) return;
+    const lostReason = pose.lostReason();
+    if (lostReason) {
+        restartPose(lostReason);
+        return;
+    }
+    const frameId = frame ? 'f' + frame.presentedFrames : video.currentTime;
+    if (video.readyState < 2 || frameId === lastVideoTime) return;
+    // 背景執行緒還在算上一格：先記下「有新畫面」，算完馬上接著算最新的這一格（不排隊、也不空等下一格）
+    if (detecting) {
+        waitingFrame = frameId;
+        return;
+    }
+    startDetect(frameId);
+}
+
+// 送一格去偵測；結果回來後畫出來，若等待期間又有新畫面，馬上接著偵測
+function startDetect(frameId) {
+    lastVideoTime = frameId;
+    detecting = true;
+    const generation = streamGeneration;
+    const now = performance.now();
+    const done = () => {
+        detecting = false;
+        const next = waitingFrame;
+        waitingFrame = null;
+        if (next !== null && next !== lastVideoTime && generation === streamGeneration && currentStream && !restarting) startDetect(next);
+    };
+    pose.detect(video, now).then(result => {
+        // 等結果的期間換了鏡頭、關了鏡頭或 AI 重新啟動：這一格作廢
+        if (generation === streamGeneration && currentStream && !restarting) {
+            try {
+                showResult(result, now);
+                failures = 0;
+            } catch (err) {
+                detectFailed(err);
+            }
+        }
+        done();
+    }, err => {
+        if (generation === streamGeneration && currentStream && !restarting) detectFailed(err);
+        done();
+    });
+}
+
+// 偵測或顯示出錯：偶爾一格出錯不用大動作，連續出錯才重新啟動 AI
+function detectFailed(err) {
+    // 同樣的錯誤每一格都印，會塞爆主控台、拖慢速度，只印第一次
+    if (failures === 0) console.error(err);
+    failures++;
+    if (failures >= MAX_FAILURES) restartPose('連續 ' + failures + ' 格偵測出錯');
+}
+
+// 畫出一格的偵測結果，更新角度、儀表板、提示、錄製與數據面板
+// result：{ landmarks（33 點原始比例座標，沒有人時為 null）, world（公尺座標） }；now：這一格送去偵測的時間
+function showResult(result, now) {
+    // 畫布和影像的長寬比例相同，座標才會對齊
+    const dpr = fitOverlay();
+    if (fps.tick(now)) updatePerfInfo();
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    // landmarks 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
+    // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
+    const raw = result.landmarks;
+    // world：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
+    const rawWorld = result.world;
+    // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/pipeline.js）；沒有人或是鬼骨架時為 null
+    const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
+    if (processed) {
+        const { landmarks, angles } = processed;
+        // 畫出來的位置往前推到「現在」（從送去偵測到現在經過的時間），骨架才不會跟在身體後面
+        // 角度、提示、錄製都用沒預測的 landmarks
+        const shown = PREDICT
+            ? predictPose(landmarks, pipeline.smoother.velocity(), performance.now() - now, video.videoWidth, video.videoHeight)
+            : landmarks;
+        const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
+        drawSkeleton(ctx, shown, shownDerived, dpr);
+        // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
+        lastPose = { ...processed, raw, rawWorld, shown, shownDerived };
+        showPoseLabels();
+        hud.update(landmarks, angles);
+        // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
+        const hint = framing.update(framingAdvice(landmarks), now);
+        // 深蹲實驗：站位沒問題、但是正面拍時，改提示側身
+        const prompt = updateSquat(processed, now);
+        if (prompt && hint.kind === 'ok') setPoseStatus(prompt, 'warn');
+        else setPoseStatus(hint.text, hint.kind);
+    } else {
+        clearPose();
+        updateSquat(null, now);
+        setPoseStatus('未偵測到人體，請站進畫面', 'warn');
+    }
+    // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
+    if (recorder.recording && !recorder.add(now, raw, rawWorld)) {
+        stopRecording();
+    }
+    if (now - lastPanelUpdate > 200) {
+        lastPanelUpdate = now;
+        if (!dataPanel.hidden) updatePanel();
+        if (recorder.recording) showRecordInfo();
+    }
 }
 
 // ---------- 深蹲實驗功能（?lab=squat） ----------
@@ -375,7 +426,7 @@ function showPoseLabels() {
     if (!lastPose) return;
     if (picked && performance.now() > picked.until) picked = null;
     const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
-    updateLabels(labelLayer, lastPose.landmarks, lastPose.derived, rect, video.classList.contains('mirrored'),
+    updateLabels(labelLayer, lastPose.shown, lastPose.shownDerived, rect, video.classList.contains('mirrored'),
         showLabels, picked ? picked.id : null, shownAngles());
 }
 
@@ -392,7 +443,7 @@ function pickPoint(event) {
     const bounds = stage.getBoundingClientRect();
     const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
     const id = nearestPoint(event.clientX - bounds.left, event.clientY - bounds.top,
-        lastPose.landmarks, lastPose.derived, rect, video.classList.contains('mirrored'), 40);
+        lastPose.shown, lastPose.shownDerived, rect, video.classList.contains('mirrored'), 40);
     picked = id === null ? null : { id, until: performance.now() + 3000 };
     showPoseLabels();
 }
@@ -467,6 +518,8 @@ function stopStream() {
     }
     video.srcObject = null;
     cancelDetect();
+    streamGeneration++;
+    waitingFrame = null;
     fps.reset();
     pipeline.reset();
     framing.reset();

@@ -79,3 +79,12 @@ export function getDerivedPoints(landmarks) {
         SHOULDER_CENTER: midpoint(landmarks[P.LEFT_SHOULDER], landmarks[P.RIGHT_SHOULDER])
     };
 }
+
+// 側面拍時，左右哪一邊看得比較清楚（靠近鏡頭那側比較準）：肩、髖、膝、踝的可信度加總比較
+// current：目前用的那一側；另一側要明顯比較清楚（多 margin）才換，避免數字在左右之間一直跳
+// 大字儀表板和深蹲計數都用這個，兩邊顯示的一定是同一隻腳
+export function clearerSide(landmarks, current = 'LEFT', margin = 0.4) {
+    const score = side => ['SHOULDER', 'HIP', 'KNEE', 'ANKLE'].reduce((sum, k) => sum + landmarks[P[side + '_' + k]].visibility, 0);
+    const other = current === 'LEFT' ? 'RIGHT' : 'LEFT';
+    return score(other) > score(current) + margin ? other : current;
+}

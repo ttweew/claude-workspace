@@ -8,7 +8,7 @@
 //   90° 是很多健身 App 常用的門檻；大腿和地面平行時膝蓋約 60～70°。門檻之後要和老師討論再調整
 // 只在側面、斜側面拍時計算：正面拍的膝蓋角度誤差太大（見 view.js），會提示使用者側身
 
-import { P } from './landmarks.js';
+import { clearerSide } from './landmarks.js';
 
 export const SQUAT = {
     STAND: 160,       // 膝蓋 ≥ 這個角度算站直
@@ -23,11 +23,6 @@ export const DEPTH_TEXT = { good: '蹲到位', close: '再低一點', shallow: '
 
 export function depthOf(minKnee) {
     return minKnee <= SQUAT.GOOD ? 'good' : minKnee <= SQUAT.CLOSE ? 'close' : 'shallow';
-}
-
-// 用哪一側的膝蓋：側面拍時靠近鏡頭那側比較準（可信度比較高）；換邊要明顯比較清楚才換，避免數字跳
-function sideScore(landmarks, side) {
-    return ['HIP', 'KNEE', 'ANKLE'].reduce((sum, k) => sum + landmarks[P[side + '_' + k]].visibility, 0);
 }
 
 export class SquatCounter {
@@ -94,11 +89,10 @@ export class SquatCounter {
         return out;
     }
 
-    // 選一側的膝蓋角度；那一側算不出來時用另一側
+    // 選一側的膝蓋角度（和大字儀表板同一側：靠近鏡頭、看得比較清楚的那側）；那一側算不出來時用另一側
     knee(pose) {
-        const l = pose.landmarks;
+        this.side = clearerSide(pose.landmarks, this.side);
         const other = this.side === 'LEFT' ? 'RIGHT' : 'LEFT';
-        if (sideScore(l, other) > sideScore(l, this.side) + 0.3) this.side = other;
         const a = pose.angles[this.side + '_KNEE'];
         if (a !== null) return a;
         const b = pose.angles[other + '_KNEE'];
