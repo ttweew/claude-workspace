@@ -2,14 +2,14 @@
 // 用和鏡頭畫面相同的處理流程（js/pipeline.js）重算一次，畫出角度曲線、統計、匯出
 // 用途：真人錄影時一邊錄、事後檢查角度與拍攝方向判斷得對不對（驗證實驗）
 
-import { PosePipeline } from './pipeline.js';
-import { ANGLES, computeAngles, signedAngle } from './angles.js';
-import { LANDMARKS, P, isVisible } from './landmarks.js';
+import { ANGLES } from './angles.js';
+import { P } from './landmarks.js';
 import { VIEW_NAMES } from './view.js';
 import { drawChart, xToTime } from './chart.js';
 import { makeDemoRecording } from './synth.js';
 import { downloadText } from './recorder.js';
-import { SquatCounter, DEPTH_TEXT } from './squat.js';
+import { DEPTH_TEXT } from './squat.js';
+import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES } from './replay-core.js';
 
 const $ = id => document.getElementById(id);
 const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus');
@@ -21,6 +21,7 @@ const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable =
 
 // 深蹲分析還在實驗中：網址加 ?lab=squat 才顯示（和鏡頭畫面一樣）
 const LAB_SQUAT = new URLSearchParams(location.search).get('lab') === 'squat';
+const POINTS = 33;
 
 // 曲線顏色：膝綠、髖藍、肘橘；左邊實線、右邊虛線
 const COLORS = { KNEE: '#2EE6A6', HIP: '#4CC3FF', ELBOW: '#FFB547' };
@@ -35,55 +36,115 @@ let mirrored = false;
 let playing = null;    // 播放中：{ start（真實時間）, from（從第幾秒開始） }
 let analysisCount = 0;  // 每次重算加 1，曲線圖用來判斷底圖要不要重畫
 
-// ---------- 讀檔 ----------
+// ---------- 讀檔與重算（優先在背景執行緒） ----------
 
-// JSON：網站「下載 JSON」的格式
-function parseJSON(text) {
-    const json = JSON.parse(text);
-    if (json.format !== 'ai-sport-pose' || !Array.isArray(json.frames)) throw new Error('這不是本網站「數據」面板下載的 JSON 或 CSV 檔');
-    const names = json.landmarkNames || LANDMARKS.map(([k]) => k);
-    if (names.length !== LANDMARKS.length) throw new Error('點的數量不同（' + names.length + ' 點），目前只支援 33 點');
-    return {
-        meta: json.meta || {},
-        frames: json.frames.map(f => ({
-            t: f.t,
-            raw: f.landmarks ? f.landmarks.map(([x, y, z, visibility]) => ({ x, y, z, visibility })) : null
-        }))
-    };
+// 背景執行緒的檔案；網址帶上和這個檔案相同的版本號，發布新版時才不會拿到舊的
+const WORKER_URL = new URL('./replay-worker.js' + new URL(import.meta.url).search, import.meta.url);
+let workerPromise = null;
+let requestId = 0;      // 每次讀檔、重算加 1；比較舊的結果直接丟掉
+let parsedOnMain = null; // 不能用背景執行緒時，在主畫面讀好的資料
+let loadedText = null;   // 目前檔案的內容：背景執行緒中途當掉時，改在主畫面重新讀取用
+
+// 開一個背景執行緒（module worker）；瀏覽器不支援或開不起來就回傳 null，改在主畫面計算
+function getWorker() {
+    if (!workerPromise) {
+        workerPromise = new Promise(resolve => {
+            let w;
+            try {
+                w = new Worker(WORKER_URL, { type: 'module' });
+            } catch (err) {
+                resolve(null);
+                return;
+            }
+            const timer = setTimeout(() => { w.terminate(); resolve(null); }, 8000);
+            w.onmessage = e => {
+                if (e.data.type !== 'ready') return;
+                clearTimeout(timer);
+                w.onmessage = null;
+                resolve(w);
+            };
+            w.onerror = e => {
+                e.preventDefault();
+                clearTimeout(timer);
+                w.terminate();
+                resolve(null);
+            };
+        });
+    }
+    return workerPromise;
 }
 
-// CSV：網站「下載 CSV」的格式（第一列是欄位名稱）
-function parseCSV(text) {
-    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
-    const header = lines[0].split(',');
-    const col = name => header.indexOf(name);
-    if (col('time_ms') < 0 || col('detected') < 0) throw new Error('這不是本網站「數據」面板下載的 JSON 或 CSV 檔');
-    const cols = LANDMARKS.map(([key]) => ['x', 'y', 'z', 'vis'].map(f => col(key.toLowerCase() + '_' + f)));
-    if (cols.some(c => c.some(i => i < 0))) throw new Error('CSV 缺少部分點的欄位');
-    const frames = lines.slice(1).map(line => {
-        const v = line.split(',');
-        const detected = v[col('detected')] === '1';
-        return {
-            t: Number(v[col('time_ms')]),
-            raw: detected ? cols.map(([x, y, z, vis]) => ({ x: Number(v[x]), y: Number(v[y]), z: Number(v[z]), visibility: Number(v[vis]) })) : null
+// 送一個工作給背景執行緒，等它回傳；progress：進度回報
+// 背景執行緒中途當掉：放棄它（下次改在主畫面算），這次的工作回報失敗，不會一直停在「分析中」
+function ask(w, message, transfer, progress) {
+    return new Promise((resolve, reject) => {
+        const id = message.id;
+        const cleanup = () => {
+            w.removeEventListener('message', onMessage);
+            w.removeEventListener('error', onError);
         };
+        const onError = e => {
+            e.preventDefault();
+            cleanup();
+            w.terminate();
+            workerPromise = Promise.resolve(null);
+            const err = new Error('背景計算出錯');
+            err.crashed = true;
+            reject(err);
+        };
+        const onMessage = e => {
+            const m = e.data;
+            if (m.id !== id) return;
+            if (m.type === 'progress') {
+                if (progress) progress(m.fraction);
+                return;
+            }
+            cleanup();
+            if (m.type === 'error') {
+                const err = new Error(m.message);
+                err.syntax = m.syntax;
+                reject(err);
+            } else resolve(m);
+        };
+        w.addEventListener('message', onMessage);
+        w.addEventListener('error', onError);
+        w.postMessage(message, transfer || []);
     });
-    return { meta: { csv: true }, frames };
 }
 
-function load(name, text) {
+// 主畫面計算時，每算一段讓畫面喘口氣（進度條才會動、按鈕才按得動）
+const breathe = () => new Promise(resolve => setTimeout(resolve, 0));
+
+async function load(name, text) {
     stopPlaying();
+    const id = ++requestId;
+    setStatus('讀取中…');
+    loadedText = text;
+    parsedOnMain = null;
     try {
-        // 看內容判斷格式，不看副檔名：有些手機下載時會把檔名改成 xxx.json.txt
-        const parsed = text.replace(/^\uFEFF/, '').trimStart().startsWith('{') ? parseJSON(text) : parseCSV(text);
-        if (!parsed.frames.length) throw new Error('檔案裡沒有任何一格資料');
-        data = { name, ...parsed };
+        let meta = null;
+        const w = await getWorker();
+        if (w) {
+            try {
+                meta = (await ask(w, { type: 'load', id, text })).meta;
+            } catch (err) {
+                if (!err.crashed) throw err;
+                // 背景執行緒當掉：改在主畫面讀（下面）
+            }
+        }
+        if (!meta) {
+            parsedOnMain = parseRecording(text);
+            meta = parsedOnMain.meta;
+        }
+        if (id !== requestId) return;
+        data = { name, meta };
     } catch (err) {
+        if (id !== requestId) return;
         console.error(err);
         // 收起上一個檔案的結果，避免誤以為是這個檔案的
         data = analysis = null;
         result.hidden = true;
-        setStatus('讀取失敗：' + (err instanceof SyntaxError ? '檔案內容不完整或格式不正確' : err.message), true);
+        setStatus('讀取失敗：' + (err instanceof SyntaxError || err.syntax ? '檔案內容不完整或格式不正確' : err.message), true);
         return;
     }
     aspectRow.hidden = !needsFrameSize();
@@ -98,36 +159,46 @@ function setStatus(text, error) {
     loadStatus.classList.toggle('error', !!error);
 }
 
-// ---------- 重算 ----------
-
 // 鏡頭畫面大小：JSON 有記錄；CSV（或沒記錄的檔案）用使用者選的
 function needsFrameSize() {
-    return !!data.meta.csv || !(data.meta.videoWidth > 0 && data.meta.videoHeight > 0);
+    return metaNeedsFrameSize(data.meta);
 }
 function frameSize() {
     if (!needsFrameSize()) return [data.meta.videoWidth, data.meta.videoHeight];
     return aspectSelect.value.split('x').map(Number);
 }
 
-function analyze() {
+async function analyze() {
+    const id = ++requestId;
     const [width, height] = frameSize();
-    const pipeline = new PosePipeline();
-    const rows = data.frames.map(f => {
-        const p = pipeline.process(f.raw, f.t, width, height);
-        const signed = {};
-        if (p) for (const [key] of ANGLES) signed[key] = signedAngle(key, p.angles, p.landmarks, width, height, p.view.facing);
-        return {
-            t: f.t / 1000,
-            raw: f.raw,
-            pose: p,
-            signed,
-            // 沒經過平滑、擋鬼點的角度，用來比較
-            rawAngles: f.raw ? computeAngles(f.raw, width, height) : null
-        };
-    });
-    analysis = { id: ++analysisCount, rows, width, height, times: rows.map(r => r.t), reps: LAB_SQUAT ? countSquats(rows) : [] };
+    const progress = f => { if (id === requestId) setStatus('分析中… ' + Math.round(f * 100) + '%'); };
+    let r;
+    try {
+        const w = await getWorker();
+        if (w && !parsedOnMain) {
+            try {
+                r = (await ask(w, { type: 'analyze', id, width, height, lab: LAB_SQUAT }, [], progress)).result;
+            } catch (err) {
+                if (!err.crashed) throw err;
+                // 背景執行緒當掉：改在主畫面重新讀取、計算（下面），使用者不用重選檔案
+            }
+        }
+        if (!r) {
+            if (!parsedOnMain) parsedOnMain = parseRecording(loadedText);
+            if (id !== requestId) return;
+            r = await analyzeRecording(parsedOnMain, width, height, { lab: LAB_SQUAT, onProgress: progress, pause: breathe });
+        }
+    } catch (err) {
+        if (id !== requestId) return;
+        console.error(err);
+        setStatus('分析失敗：' + err.message, true);
+        return;
+    }
+    if (id !== requestId) return;
+    analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps };
+    const rows = analysis.rows;
     // 一開始選在第一個有角度的格子（最前面幾格點還沒穩定，角度都是「—」）
-    cursor = Math.max(0, rows.findIndex(r => r.pose && Object.values(r.pose.angles).some(a => a !== null)));
+    cursor = Math.max(0, rows.findIndex(row => row.present && Object.values(row.angles).some(a => a !== null)));
     result.hidden = false;
     setStatus('已讀取「' + data.name + '」，共 ' + rows.length + ' 格');
     showSummary();
@@ -136,14 +207,30 @@ function analyze() {
     redraw();
 }
 
-// ---------- 深蹲分析（實驗中） ----------
-
-// 和鏡頭畫面用同一個 SquatCounter，一格一格餵進去
-function countSquats(rows) {
-    const counter = new SquatCounter();
-    for (const r of rows) counter.update(r.pose, r.t * 1000);
-    return counter.reps;
+// 每一格的摘要（時間、角度、拍攝方向）；點的座標留在數字陣列裡，畫骨架時才拿
+function buildRows(r) {
+    const A = ANGLE_KEYS.length, S = SIGNED_KEYS.length;
+    const val = x => (Number.isNaN(x) ? null : x);
+    const rows = new Array(r.n);
+    for (let i = 0; i < r.n; i++) {
+        const present = r.present[i] === 1;
+        const angles = {}, signed = {};
+        ANGLE_KEYS.forEach((k, j) => { angles[k] = present ? val(r.angles[i * A + j]) : null; });
+        SIGNED_KEYS.forEach((k, j) => { signed[k] = present ? val(r.signed[i * S + j]) : null; });
+        let rawAngles = null;
+        if (r.rawPresent[i]) {
+            rawAngles = {};
+            ANGLE_KEYS.forEach((k, j) => { rawAngles[k] = val(r.rawAngles[i * A + j]); });
+        }
+        rows[i] = {
+            t: r.t[i], present, angles, signed, rawAngles, hasRaw: r.rawPresent[i] === 1,
+            view: present ? { view: VIEW_CODES[r.view[i]], ratio: val(r.ratio[i]), facing: r.facing[i] } : null
+        };
+    }
+    return rows;
 }
+
+// ---------- 深蹲分析（實驗中） ----------
 
 function showSquats() {
     squatCard.hidden = !LAB_SQUAT;
@@ -191,12 +278,12 @@ function showSquats() {
 function showSummary() {
     const { rows, width, height } = analysis;
     const seconds = rows[rows.length - 1].t;
-    const detected = rows.filter(r => r.pose).length;
+    const detected = rows.filter(r => r.present).length;
     const views = { side: 0, oblique: 0, front: 0 };
     const facing = { 1: 0, '-1': 0 };
     for (const r of rows) {
-        if (r.pose && r.pose.view.view) views[r.pose.view.view]++;
-        if (r.pose && r.pose.view.facing) facing[r.pose.view.facing]++;
+        if (r.present && r.view.view) views[r.view.view]++;
+        if (r.present && r.view.facing) facing[r.view.facing]++;
     }
     const pct = n => (detected ? Math.round(n / detected * 100) : 0) + '%';
     const m = data.meta;
@@ -237,7 +324,7 @@ function showStats() {
     const { rows } = analysis;
     const head = ['關節', '有角度', '最小', '最大', '平均', '抖動', '原始抖動'];
     const body = ANGLES.map(([key, name]) => {
-        const vals = rows.map(r => (r.pose ? r.pose.angles[key] : null));
+        const vals = rows.map(r => r.angles[key]);
         const rawVals = rows.map(r => (r.rawAngles ? r.rawAngles[key] : null));
         const ok = vals.filter(v => v !== null);
         const cells = [name, Math.round(ok.length / rows.length * 100) + '%'];
@@ -311,7 +398,7 @@ function viewBands() {
     const { rows } = analysis;
     const bands = [];
     rows.forEach((r, i) => {
-        const v = r.pose && r.pose.view.view ? r.pose.view.view : 'none';
+        const v = r.present && r.view.view ? r.view.view : 'none';
         const t1 = i + 1 < rows.length ? rows[i + 1].t : r.t;
         const last = bands[bands.length - 1];
         if (last && last.view === v) last.to = t1;
@@ -340,7 +427,7 @@ function redraw() {
         const color = COLORS[key.split('_')[1]];
         const dash = key.startsWith('RIGHT') ? [6, 4] : [];
         if (showRaw) series.push({ values: rows.map(r => (r.rawAngles ? r.rawAngles[key] : null)), color, width: 1, dash, alpha: 0.45 });
-        series.push({ values: rows.map(r => (r.pose ? r.pose.angles[key] : null)), color, width: 2, dash });
+        series.push({ values: rows.map(r => r.angles[key]), color, width: 2, dash });
     }
     const markers = analysis.reps.map(r => ({ t: r.bottom, label: String(r.n) }));
     // 底圖代號：檔案、顯示的關節、是否顯示原始資料；只換游標時沿用底圖
@@ -363,7 +450,7 @@ const BONES = [
 ];
 
 function drawSkeleton() {
-    const { rows, width, height } = analysis;
+    const { rows, width, height, data: r } = analysis;
     const dpr = window.devicePixelRatio || 1;
     const w = skeleton.clientWidth, h = Math.round(w * height / width);
     skeleton.style.height = h + 'px';
@@ -373,43 +460,46 @@ function drawSkeleton() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
     const row = rows[cursor];
-    const px = p => [(mirrored ? 1 - p.x : p.x) * w, p.y * h];
+    const base = cursor * POINTS;
+    // 第 j 個點在畫布上的位置（鏡像時左右對調）
+    const at = (xy, j) => [(mirrored ? 1 - xy[(base + j) * 2] : xy[(base + j) * 2]) * w, xy[(base + j) * 2 + 1] * h];
     // 原始的點（淡色）：看得出平滑、擋鬼點前後的差別
-    if (row.raw) {
+    if (row.hasRaw) {
         ctx.fillStyle = 'rgba(255,255,255,0.25)';
-        for (const p of row.raw) {
-            if (!isVisible(p)) continue;
-            const [x, y] = px(p);
-            ctx.beginPath();
+        ctx.beginPath();
+        for (let j = 0; j < POINTS; j++) {
+            if (!r.rawVis[base + j]) continue;
+            const [x, y] = at(r.raw, j);
+            ctx.moveTo(x + 1.6, y);
             ctx.arc(x, y, 1.6, 0, Math.PI * 2);
-            ctx.fill();
         }
+        ctx.fill();
     }
-    if (!row.pose) {
+    if (!row.present) {
         ctx.fillStyle = '#9DABBE';
         ctx.font = '13px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('這一格沒有人', w / 2, h / 2);
         return;
     }
-    const l = row.pose.landmarks;
+    const seen = j => r.smoothVis[base + j] === 1;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#2EE6A6';
+    ctx.beginPath();
     for (const [a, b] of BONES) {
-        const pa = l[P[a]], pb = l[P[b]];
-        if (!isVisible(pa) || !isVisible(pb)) continue;
-        ctx.beginPath();
-        ctx.moveTo(...px(pa));
-        ctx.lineTo(...px(pb));
-        ctx.stroke();
+        const ia = P[a], ib = P[b];
+        if (!seen(ia) || !seen(ib)) continue;
+        ctx.moveTo(...at(r.smooth, ia));
+        ctx.lineTo(...at(r.smooth, ib));
     }
+    ctx.stroke();
     for (const [key] of ANGLES) {
-        const p = l[P[key]];
-        if (!isVisible(p)) continue;
+        const j = P[key];
+        if (!seen(j)) continue;
         ctx.fillStyle = COLORS[key.split('_')[1]];
         ctx.beginPath();
-        ctx.arc(...px(p), 3.5, 0, Math.PI * 2);
+        ctx.arc(...at(r.smooth, j), 3.5, 0, Math.PI * 2);
         ctx.fill();
     }
 }
@@ -417,14 +507,14 @@ function drawSkeleton() {
 function showReadout() {
     const row = analysis.rows[cursor];
     const head = row.t.toFixed(2) + ' 秒（第 ' + cursor + ' 格）';
-    if (!row.pose) {
+    if (!row.present) {
         readout.textContent = head + ' · 沒有人';
         return;
     }
-    const v = row.pose.view;
+    const v = row.view;
     const parts = ANGLES.map(([key, name]) => {
-        const a = row.pose.angles[key];
-        const s = row.signed[key];
+        const a = row.angles[key];
+        const s = row.signed[key] === undefined ? null : row.signed[key];
         // 往後反折、後伸時（超過 180°）另外標出來
         return name + ' ' + (a === null ? '—' : Math.round(a) + '°' + (s !== null && s > 180 ? '（反折 ' + Math.round(s) + '°）' : ''));
     });
@@ -489,10 +579,10 @@ function exportCSV() {
         .concat(keys.map(k => k.toLowerCase() + '_raw'));
     const num = v => (v === null || v === undefined ? '' : v.toFixed(1));
     const lines = rows.map(r => {
-        const v = r.pose ? r.pose.view : null;
-        return [Math.round(r.t * 1000), r.pose ? 1 : 0, v && v.view ? v.view : '', v && v.ratio !== null ? v.ratio.toFixed(3) : '', v ? v.facing : '']
-            .concat(keys.map(k => num(r.pose ? r.pose.angles[k] : null)))
-            .concat(signedKeys.map(k => num(r.pose ? r.signed[k] : null)))
+        const v = r.view;
+        return [Math.round(r.t * 1000), r.present ? 1 : 0, v && v.view ? v.view : '', v && v.ratio !== null ? v.ratio.toFixed(3) : '', v ? v.facing : '']
+            .concat(keys.map(k => num(r.angles[k])))
+            .concat(signedKeys.map(k => num(r.signed[k])))
             .concat(keys.map(k => num(r.rawAngles ? r.rawAngles[k] : null)))
             .join(',');
     });
@@ -518,7 +608,7 @@ drop.addEventListener('drop', e => {
 });
 $('demoSide').addEventListener('click', () => load('合成示範_側面深蹲.json', JSON.stringify(makeDemoRecording({ yaw: 8 }))));
 $('demoFront').addEventListener('click', () => load('合成示範_正面深蹲.json', JSON.stringify(makeDemoRecording({ yaw: 85 }))));
-aspectSelect.addEventListener('change', () => { if (data) analyze(); });
+aspectSelect.addEventListener('change', () => { if (data) analyze(); });  // 只重算，不用重新讀檔
 
 // 點圖或拖曳選時間；左右鍵一次移一格
 function pointerTime(e) {

@@ -29,8 +29,8 @@ jobs:
       - name: Add version to file links
         run: |
           v="${GITHUB_SHA::8}"
-          sed -i "s#href=\"css/\([a-z]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html
-          sed -i "s#\(from '\./[A-Za-z]*\.js\)'#\1?v=$v'#g" js/*.js
+          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html
+          sed -i "s#\(from '\./[A-Za-z-]*\.js\)'#\1?v=$v'#g" js/*.js
           grep -c "?v=$v" index.html replay.html js/*.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
