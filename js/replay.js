@@ -330,8 +330,14 @@ function showStats() {
         const ok = vals.filter(v => v !== null);
         const cells = [name, Math.round(ok.length / rows.length * 100) + '%'];
         if (ok.length) {
-            cells.push(Math.round(Math.min(...ok)) + '°', Math.round(Math.max(...ok)) + '°',
-                Math.round(ok.reduce((s, v) => s + v, 0) / ok.length) + '°');
+            // 用迴圈找最小、最大值：Math.min(...陣列) 在超過約 12 萬格（例如別人轉換來的長檔案）時瀏覽器會出錯
+            let min = Infinity, max = -Infinity, sum = 0;
+            for (const v of ok) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+                sum += v;
+            }
+            cells.push(Math.round(min) + '°', Math.round(max) + '°', Math.round(sum / ok.length) + '°');
         } else {
             cells.push('—', '—', '—');
         }

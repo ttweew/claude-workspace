@@ -4,7 +4,8 @@
 //   1. 出現要穩定：可信度連續 APPEAR_MS 都夠高才畫出來；畫出來之後要低於較低的門檻才收起，不會一直閃
 //   2. 骨架鏈：手腕要手肘也看得到、手肘要肩膀也看得到（腳也一樣），遠端的點不能單獨冒出來
 //   3. 塌縮保護：真人的身體大小不可能在 0.3 秒內縮小 3 成以上（要瞬間退後好幾公尺），
-//      發生這種情況就是鬼骨架，當作沒有人
+//      發生這種情況就是鬼骨架，當作沒有人；之後大小穩定 1 秒（沒有繼續縮小）就是真人，恢復顯示
+//      （例如人走到鏡頭前調整手機再快速退回原位，不會一直被當作沒有人；6 種真實情境的結果不受影響）
 // 模擬測試（6 種情境、各 240 格，詳見 docs/data-format.md）：
 //   鏡頭很近時錯位點少 86%、人走出畫面時少 70%；正常全身、光線暗、沒有人的畫面不受影響
 
@@ -17,6 +18,8 @@ const SHRINK = 0.3;       // 0.3 秒內縮小超過 3 成 → 鬼骨架
 const SHRINK_WINDOW_MS = 300;
 const MIN_SIZE = 0.15;    // 身體大小（軀幹長＋肩寬＋髖寬，以畫面高度為 1）小於這個值也當作鬼骨架，真人要站在約 8 公尺外才會這麼小
 const RESET_AFTER_MS = 500;
+const STABLE_MS = 1000;      // 判定為鬼骨架後，大小穩定這麼久（沒有再縮小）就當作真人，恢復顯示
+const STABLE_RANGE = 1.15;   // 「穩定」：這段時間最大、最小相差不到 15%
 
 // 每個點靠近身體那一端的點：手指 → 手腕 → 手肘 → 肩膀；腳尖、腳跟 → 腳踝 → 膝蓋 → 髖部
 const PARENT = {};
@@ -42,6 +45,7 @@ export class GhostFilter {
         this.since = null;      // 每個點從什麼時候開始夠清楚（還沒畫出來的點用）
         this.sizes = [];        // 最近 0.3 秒的身體大小 [時間, 大小]
         this.ghostSize = 0;     // 判定為鬼骨架時，塌縮前的大小；0 代表正常
+        this.stable = [];       // 最近 1 秒的身體大小 [時間, 大小]（判斷是不是穩定的真人）
         this.lastTime = 0;
     }
 
@@ -101,6 +105,15 @@ export class GhostFilter {
         }
         // 大小回到塌縮前的 7 成以上：人回來了（或重新偵測到），恢復顯示
         if (this.ghostSize && size >= this.ghostSize * 0.7) this.ghostSize = 0;
+        // 鬼骨架會越縮越小；大小穩定一段時間（沒有再縮小）、而且不是小到不合理，就是真人
+        // 例如人走到鏡頭前調整手機、再快速退回原位：退後的那一下像塌縮，之後人一直站著，不能永遠當作沒有人
+        this.stable.push([timeMs, size]);
+        while (timeMs - this.stable[0][0] > STABLE_MS) this.stable.shift();
+        if (this.ghostSize && size >= MIN_SIZE && timeMs - this.stable[0][0] >= STABLE_MS * 0.9) {
+            let lo = Infinity, hi = 0;
+            for (const [, s] of this.stable) { lo = Math.min(lo, s); hi = Math.max(hi, s); }
+            if (hi <= lo * STABLE_RANGE) this.ghostSize = 0;
+        }
         return this.ghostSize > 0;
     }
 }

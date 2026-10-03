@@ -210,6 +210,11 @@ h1 .accent {
     cursor: default;
     transform: none;
 }
+/* 暫時不能按（例如匯出檔案產生中）：變淡，但保留鍵盤焦點 */
+button[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: progress;
+}
 button:focus-visible, select:focus-visible {
     outline: 3px solid var(--info);
     outline-offset: 2px;

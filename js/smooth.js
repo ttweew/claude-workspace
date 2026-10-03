@@ -11,6 +11,7 @@ const D_CUTOFF = 3.0;        // 多快察覺「開始動了」：越大越快放
 //   原本的設定（MIN_CUTOFF 1.0、BETA 8、D_CUTOFF 1）移動中點平均落後 9.6 像素，感覺「停一下才跟上」
 //   現在的設定落後 4.9 像素（少一半），靜止時的抖動仍比不平滑少約 6 成
 const RESET_AFTER_MS = 500;  // 超過這麼久沒偵測到人，重新開始，不會從舊位置滑過來
+const MAX_COORD = 10;        // 座標（畫面比例）超過這個範圍當作壞掉的數字
 
 // 指數平滑的權重：cutoff 越高、間隔越長，越相信新的值
 function alpha(cutoff, dt) {
@@ -26,8 +27,13 @@ class OneEuro {
     }
     filter(raw, dt) {
         // 壞掉的數字（NaN、無限大）不採用，沿用上一個值；不然一格壞掉，這個點之後就永遠壞掉
+        // 離畫面非常遠的數字（例如 10 億）也一樣：真實的座標都在畫面比例附近（約 -1～2），
+        // 照單全收的話平滑後的點要好幾秒才回得來，這段時間骨架、角度都是錯的
         // 還沒有上一個值時原樣傳回 NaN，畫面判斷可見度時會把它當成看不到
-        if (!Number.isFinite(raw)) return this.value === null ? raw : this.value;
+        if (!Number.isFinite(raw) || Math.abs(raw) > MAX_COORD) {
+            if (this.value !== null) return this.value;
+            return Number.isFinite(raw) ? NaN : raw;
+        }
         if (this.value === null) {
             this.value = raw;
             return raw;
@@ -67,7 +73,8 @@ export class PoseSmoother {
             this.filters = landmarks.map(() => [new OneEuro(), new OneEuro(), new OneEuro()]);
             this.visibility = landmarks.map(p => p.visibility);
             this.lastTime = timeMs;
-            return landmarks.map(p => ({ ...p }));
+            const ok = v => (Math.abs(v) > MAX_COORD ? NaN : v);
+            return landmarks.map(p => ({ ...p, x: ok(p.x), y: ok(p.y), z: ok(p.z) }));
         }
         const dt = (timeMs - this.lastTime) / 1000;
         this.lastTime = timeMs;
