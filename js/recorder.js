@@ -1,7 +1,7 @@
 // 錄製關鍵點資料，匯出成 CSV（給 Excel、Python 分析）或 JSON（給之後的後端 AI）
 // 欄位與座標的說明在 docs/data-format.md
 
-import { LANDMARKS } from './landmarks.js';
+import { LANDMARKS, isVisible } from './landmarks.js';
 
 const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠
 const FORMAT_VERSION = 1;
@@ -26,6 +26,7 @@ function unpack(data, digits) {
     return points;
 }
 const LANDMARK_DIGITS = [5, 5, 5, 3];  // x、y、z、visibility
+const SMOOTH_DIGITS = [5, 5, 5, 3, 0];   // 平滑後的 x、y、z、visibility、seen（畫面上有沒有畫出來：1／0）
 const WORLD_DIGITS = [4, 4, 4];        // 公尺座標 x、y、z
 
 export class PoseRecorder {
@@ -48,9 +49,10 @@ export class PoseRecorder {
     }
 
     // 錄下一格；timeMs：偵測時間，landmarks：33 點原始比例座標，world：33 點公尺座標（可能沒有）
+    // smoothed：平滑後的 33 點（和畫面上的骨架相同；沒有人或被擋鬼點擋掉時為 null）
     // 沒偵測到人的格子也記錄（landmarks 為 null），才看得出中間斷掉多久
     // 回傳 false 表示已達時間上限、自動停止
-    add(timeMs, landmarks, world) {
+    add(timeMs, landmarks, world, smoothed = null) {
         if (!this.recording) return false;
         if (this.startTime === null) this.startTime = timeMs;
         const t = timeMs - this.startTime;
@@ -61,7 +63,8 @@ export class PoseRecorder {
         this.frames.push({
             t: Math.round(t),
             landmarks: landmarks ? pack(landmarks, ['x', 'y', 'z', 'visibility']) : null,
-            world: world ? pack(world, ['x', 'y', 'z']) : null
+            world: world ? pack(world, ['x', 'y', 'z']) : null,
+            smoothed: smoothed ? pack(smoothed.map(p => ({ ...p, seen: isVisible(p) ? 1 : 0 })), ['x', 'y', 'z', 'visibility', 'seen']) : null
         });
         return true;
     }
@@ -74,12 +77,13 @@ export class PoseRecorder {
         return this.frames.length ? this.frames[this.frames.length - 1].t / 1000 : 0;
     }
 
-    // 匯出用的每一格：{ t, landmarks: [[x, y, z, visibility], …], world: [[x, y, z], …] }
+    // 匯出用的每一格：{ t, landmarks: [[x, y, z, visibility], …], world: [[x, y, z], …], smoothed: [[x, y, z, visibility, seen], …] }
     exportFrame(f) {
         return {
             t: f.t,
             landmarks: f.landmarks ? unpack(f.landmarks, LANDMARK_DIGITS) : null,
-            world: f.world ? unpack(f.world, WORLD_DIGITS) : null
+            world: f.world ? unpack(f.world, WORLD_DIGITS) : null,
+            smoothed: f.smoothed ? unpack(f.smoothed, SMOOTH_DIGITS) : null
         };
     }
 
@@ -87,14 +91,16 @@ export class PoseRecorder {
         return this.frames.map(f => this.exportFrame(f));
     }
 
-    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，最後是公尺座標
+    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，然後是公尺座標，最後是平滑後的點
     // 一小段一小段產生（每段 CHUNK 格），匯出時中間可以讓畫面喘口氣
     *csvChunks() {
         const frames = this.frames;
         const names = LANDMARKS.map(([key]) => key.toLowerCase());
         const header = ['frame', 'time_ms', 'detected']
             .concat(...names.map(n => [n + '_x', n + '_y', n + '_z', n + '_vis']))
-            .concat(...names.map(n => [n + '_wx', n + '_wy', n + '_wz']));
+            .concat(...names.map(n => [n + '_wx', n + '_wy', n + '_wz']))
+            // 平滑後的點（加在最後面，前面的欄位和以前完全相同，舊的分析程式不用改）
+            .concat(...names.map(n => [n + '_sx', n + '_sy', n + '_sz', n + '_svis', n + '_seen']));
         const empty = n => new Array(n).fill('');
         // 開頭加 BOM，Excel 打開才不會亂碼
         yield '\ufeff' + header.join(',') + '\r\n';
@@ -105,6 +111,7 @@ export class PoseRecorder {
                 text += [i, f.t, f.landmarks ? 1 : 0]
                     .concat(f.landmarks ? f.landmarks.flat() : empty(33 * 4))
                     .concat(f.world ? f.world.flat() : empty(33 * 3))
+                    .concat(f.smoothed ? f.smoothed.flat() : empty(33 * 5))
                     .join(',') + '\r\n';
             }
             yield text;
@@ -119,7 +126,7 @@ export class PoseRecorder {
             version: FORMAT_VERSION,
             meta: this.meta,
             landmarkNames: LANDMARKS.map(([key]) => key),
-            fields: { landmarks: ['x', 'y', 'z', 'visibility'], world: ['x', 'y', 'z'] },
+            fields: { landmarks: ['x', 'y', 'z', 'visibility'], world: ['x', 'y', 'z'], smoothed: ['x', 'y', 'z', 'visibility', 'seen'] },
             frames: null
         });
         yield head.slice(0, -'null}'.length) + '[';

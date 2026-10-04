@@ -183,13 +183,18 @@
                 <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="panelBody">收合表格</button>
             </div>
             <div class="panel-body" id="panelBody">
+                <!-- 表格顯示原始資料（AI 直接輸出，驗證實驗用）或平滑後的數字（和畫面上的骨架相同，比較不會跳） -->
+                <div class="panel-mode" role="group" aria-label="表格的數字">
+                    <button id="rawModeBtn" type="button" aria-pressed="true">原始</button>
+                    <button id="smoothModeBtn" type="button" aria-pressed="false">平滑後</button>
+                </div>
                 <!-- 動作判斷用的資訊：拍攝方向、面向等 -->
                 <p id="viewInfo" class="panel-info"></p>
                 <table>
                     <thead><tr><th>關節</th><th>x</th><th>y</th><th>z</th><th>可信度</th></tr></thead>
                     <tbody id="dataRows"></tbody>
                 </table>
-                <p class="panel-note">原始資料（未經平滑）。x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點。下載的檔案可以用<a id="replayLink" href="replay.html" target="_blank" rel="noopener">重播分析</a>畫出角度曲線</p>
+                <p class="panel-note"><span id="panelModeNote">原始資料（AI 直接輸出，未經平滑）。</span>x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點。下載的檔案可以用<a id="replayLink" href="replay.html" target="_blank" rel="noopener">重播分析</a>畫出角度曲線</p>
             </div>
         </div>
     </div>

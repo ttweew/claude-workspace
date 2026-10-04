@@ -1146,6 +1146,40 @@ code {
 #recordInfo {
     font-variant-numeric: tabular-nums;
 }
+/* 表格顯示原始或平滑後的數字：兩個按鈕連在一起，選到的那個是綠底 */
+.panel-mode {
+    display: inline-flex;
+    margin: 6px 0 2px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.panel-mode button {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.panel-mode button + button {
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+.panel-mode button[aria-pressed="true"] {
+    background: rgba(46, 230, 166, 0.22);
+    font-weight: 700;
+}
+.panel-mode button:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: -3px;
+}
+@media (pointer: coarse) {
+    .panel-mode button {
+        min-height: 36px;
+    }
+}
 /* 收合表格的按鈕靠右 */
 .panel-head .panel-toggle {
     margin-left: auto;
