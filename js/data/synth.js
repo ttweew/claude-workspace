@@ -2,7 +2,7 @@
 // 用途：還沒有真人錄影前，先用來試用重播工具、測試動作判斷；檔案裡會標明是合成資料
 // 身體比例取自 MediaPipe 在真人正面全身照片上的輸出（軀幹長 = 1）
 
-import { LANDMARKS } from './landmarks.js';
+import { LANDMARKS } from '../skeleton/landmarks.js';
 
 const PROP = { shoulderW: 0.64, hipW: 0.38, thigh: 0.8, shank: 0.8, upperArm: 0.55, forearm: 0.5, ankleH: 0.13, heel: 0.1, toe: 0.3 };
 const rad = d => d * Math.PI / 180;

@@ -1,23 +1,23 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT } from './config.js';
-import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from './camera.js';
-import { loadPoseModel } from './pose.js';
-import { drawSkeleton } from './draw.js';
-import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
-import { FpsCounter } from './fps.js';
-import { PosePipeline } from './pipeline.js';
-import { WorldStabilizer } from './world.js';
-import { predictPose } from './predict.js';
-import { getDerivedPoints } from './landmarks.js';
-import { framingAdvice, FramingHint, NO_PERSON } from './framing.js';
-import { PoseRecorder, buildFile, downloadBlob, recordingName } from './recorder.js';
-import { updateDataPanel, updateViewInfo } from './datapanel.js';
-import { Hud } from './hud.js';
-import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from './screen.js';
-import { SquatCounter, DEPTH_TEXT } from './squat.js';
-import { setupOffline, forgetAiFiles } from './offline.js';
-import { unsupportedAdvice } from './support.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT } from '../config.js';
+import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from '../platform/camera.js';
+import { loadPoseModel } from '../ai/pose.js';
+import { drawSkeleton } from '../ui/draw.js';
+import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
+import { FpsCounter } from '../ai/fps.js';
+import { PosePipeline } from '../skeleton/pipeline.js';
+import { WorldStabilizer } from '../skeleton/world.js';
+import { predictPose } from '../skeleton/predict.js';
+import { getDerivedPoints } from '../skeleton/landmarks.js';
+import { framingAdvice, FramingHint, NO_PERSON } from '../analysis/framing.js';
+import { PoseRecorder, buildFile, downloadBlob, recordingName } from '../data/recorder.js';
+import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
+import { Hud } from '../ui/hud.js';
+import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
+import { SquatCounter, DEPTH_TEXT } from '../analysis/squat.js';
+import { setupOffline, forgetAiFiles } from '../platform/offline.js';
+import { unsupportedAdvice } from '../platform/support.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -382,7 +382,7 @@ function showResult(result, now) {
     const raw = result.landmarks;
     // world：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
     const rawWorld = result.world;
-    // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/pipeline.js）；沒有人或是鬼骨架時為 null
+    // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/skeleton/pipeline.js）；沒有人或是鬼骨架時為 null
     const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
     if (processed) {
         const { landmarks, angles } = processed;

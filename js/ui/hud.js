@@ -1,7 +1,7 @@
 // 大字儀表板：站在 2～3 公尺外運動時，關節旁的小字看不清楚，改用畫面下方的大數字顯示
 // 只顯示一側（膝蓋、髖部）：側面拍攝時，靠近鏡頭的那一側最準；正面拍攝時兩側差不多，選看得比較清楚的一側
 
-import { clearerSide } from './landmarks.js';
+import { clearerSide } from '../skeleton/landmarks.js';
 
 export class Hud {
     // els：{ root, kneeName, knee, hipName, hip } 畫面元素；兩個角度都算不出來時（例如太近、看不到腳）整個收起來

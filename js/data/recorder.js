@@ -1,7 +1,7 @@
 // 錄製關鍵點資料，匯出成 CSV（給 Excel、Python 分析）或 JSON（給之後的後端 AI）
 // 欄位與座標的說明在 docs/data-format.md
 
-import { LANDMARKS, isVisible } from './landmarks.js';
+import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 
 const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠
 const FORMAT_VERSION = 1;
@@ -50,7 +50,7 @@ export class PoseRecorder {
 
     // 錄下一格；timeMs：偵測時間，landmarks：33 點原始比例座標，world：33 點公尺座標（可能沒有）
     // smoothed：平滑後的 33 點（和畫面上的骨架相同；沒有人或被擋鬼點擋掉時為 null）
-    // stableWorld：處理過的公尺座標（js/world.js：平滑＋骨頭長度限制；沒有時為 null）
+    // stableWorld：處理過的公尺座標（js/skeleton/world.js：平滑＋骨頭長度限制；沒有時為 null）
     // 沒偵測到人的格子也記錄（landmarks 為 null），才看得出中間斷掉多久
     // 回傳 false 表示已達時間上限、自動停止
     add(timeMs, landmarks, world, smoothed = null, stableWorld = null) {

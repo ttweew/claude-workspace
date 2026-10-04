@@ -42,5 +42,5 @@ export const LAB = params.get('lab') || '';
 // AI 在背景執行緒運算（主畫面不會被 AI 卡住）；網址加 ?worker=0 改回在主畫面運算，方便用手機比較順暢度與 FPS
 export const USE_WORKER = params.get('worker') !== '0';
 
-// 骨架往前預測（js/predict.js）：網址加 ?predict=0 關掉，方便比較「跟手」的差別
+// 骨架往前預測（js/skeleton/predict.js）：網址加 ?predict=0 關掉，方便比較「跟手」的差別
 export const PREDICT = params.get('predict') !== '0';

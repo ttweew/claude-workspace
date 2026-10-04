@@ -23,15 +23,18 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      # 在每個 CSS、JS 檔名後面加上這次的版本號（commit 編號前 8 碼），例如 js/main.js?v=1a2b3c4d
+      # 在每個 CSS、JS 檔名後面加上這次的版本號（commit 編號前 8 碼），例如 js/pages/main.js?v=1a2b3c4d
       # 瀏覽器會把不同版本當成不同檔案，就不會發生「新版 main.js 配舊版 labels.js」而出錯
       # 只改發布出去的檔案，不影響 GitHub 上的原始碼
       - name: Add version to file links
         run: |
           v="${GITHUB_SHA::8}"
-          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html help.html
-          sed -i "s#\(from '\./[A-Za-z-]*\.js\)'#\1?v=$v'#g" js/*.js
-          grep -c "?v=$v" index.html replay.html help.html js/*.js
+          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z/-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html help.html
+          # js 分在幾個子資料夾裡：每個檔案的 import（./x.js、../skeleton/x.js）都加上版本號
+          find js -name '*.js' -exec sed -i -E "s#(from '\.{1,2}/[A-Za-z/.-]*\.js)'#\1?v=$v'#g" {} +
+          grep -c "?v=$v" index.html replay.html help.html $(find js -name '*.js' | sort)
+          # 安全檢查：還有沒加到版本號的 import 就停止發布（手機可能拿到新舊混在一起的檔案）
+          if grep -rnE "from '\.{1,2}/[^'?]*\.js'" js; then echo "有 import 沒加到版本號"; exit 1; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
