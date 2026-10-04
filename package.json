@@ -1,0 +1,13 @@
+{
+  "name": "ai-sport-pose",
+  "private": true,
+  "description": "AI 智慧運動分析系統：在瀏覽器裡用 MediaPipe 偵測骨架、計算關節角度（不需要安裝套件，網站直接用原始碼執行）",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start": "python3 -m http.server 8000"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

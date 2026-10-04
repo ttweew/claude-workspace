@@ -10,7 +10,7 @@
 // 線段在畫面上太短時不給角度：大腿、前臂等朝著鏡頭伸出時，在畫面上只剩一小段，
 // 這時算出來的角度主要是透視造成的假象，加上 1～2 個像素的抖動就會跳幾十度
 
-import { P, isVisible } from './landmarks.js';
+import { P, isVisible } from '../skeleton/landmarks.js';
 
 // 各段肢體的長度，以軀幹（肩膀中心到髖部中心）為 1；取自 MediaPipe 在真人正面全身照片上的輸出
 const SEGMENT_LENGTH = { thigh: 0.8, shank: 0.8, upperArm: 0.55, forearm: 0.5 };

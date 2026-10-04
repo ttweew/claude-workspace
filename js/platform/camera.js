@@ -1,7 +1,7 @@
 // 鏡頭：開啟、關閉、判斷前後鏡頭、列出所有鏡頭
 // 這裡只處理鏡頭本身，畫面上的文字與按鈕由 main.js 負責
 
-import { CAMERA_RESOLUTION } from './config.js';
+import { CAMERA_RESOLUTION } from '../config.js';
 
 // 瀏覽器是否支援鏡頭功能
 export function isCameraSupported() {

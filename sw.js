@@ -7,7 +7,7 @@
 //      → 有網路一定抓最新的（和沒有這個檔案時完全一樣）；只有斷網時才用上次存的
 // 其他所有請求（鏡頭、別的網站）完全不經手
 //
-// 網址加 ?sw=0 打開一次，會移除這個 Service Worker 和存起來的檔案（js/offline.js）
+// 網址加 ?sw=0 打開一次，會移除這個 Service Worker 和存起來的檔案（js/platform/offline.js）
 
 const AI_CACHE = 'ai-files-v1';      // AI 檔案的版本變了（config.js 換 MediaPipe 版本）就換名字，舊的會被清掉
 const SITE_CACHE = 'site-files-v1';

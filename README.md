@@ -6,48 +6,25 @@
 
 ## 檔案結構
 
+程式依功能分在不同資料夾，一個檔案只做一件事。每個檔案在做什麼、鏡頭的一格畫面經過哪些程式，詳見 **[docs/architecture.md](docs/architecture.md)**（第一次看程式碼建議先讀這份）。
+
 ```
-index.html          畫面結構（按鈕、影像、畫布）
-replay.html         錄製資料重播分析：讀錄下來的檔案，畫出角度曲線（給組員做驗證實驗用）
-help.html           使用說明：怎麼擺手機、畫面上每個東西的意思、錄製與重播、常見問題、隱私
-css/style.css       所有外觀樣式
-css/replay.css      重播分析頁的樣式
-js/main.js          程式起點：取得畫面元素、串接鏡頭與 AI 偵測、處理按鈕
-js/config.js        設定：MediaPipe 版本、模型檔網址、測試用網址參數
-js/camera.js        鏡頭：開啟、關閉、判斷前後鏡頭、列出所有鏡頭
-js/pose.js          AI 骨架偵測（優先在背景執行緒運算，不支援時改在主畫面）：下載 AI 檔案與計算進度、選擇 GPU 或 CPU、暖機、記錄各階段載入秒數、下載卡住時放棄重試、壞掉時重新建立
-js/pose-worker.js   AI 骨架偵測的背景執行緒：MediaPipe 在這裡運算，主畫面不會被 AI 卡住
-js/predict.js       骨架往前預測：把畫出來的骨架推到「現在」，動作中才不會跟在身體後面
-js/landmarks.js     33 個關鍵點的名稱對照表，以及算出新的點（例如髖部中心）
-js/draw.js          在畫布上畫骨架
-js/labels.js        關鍵點的編號標籤、點選查看某個點
-js/gpu.js           查詢 GPU 名稱並整理成看得懂的名稱
-js/fps.js           計算每秒偵測次數（FPS）
-js/pipeline.js      每一格骨架的處理流程（平滑 → 擋鬼點 → 角度 → 拍攝方向），鏡頭畫面和重播分析共用
-js/smooth.js        骨架點平滑（One Euro Filter），讓點不抖動、動作快時仍跟得上
-js/ghost.js         擋掉模型腦補出來的點與鬼骨架（出現要穩定、骨架鏈、塌縮保護）
-js/framing.js       入鏡提示：依拍到的部位提示往後退、往前、站到中間
-js/angles.js        關節角度計算（膝、髖、肘），在畫面上一直顯示；肢體朝鏡頭太短時不給角度；判斷往哪邊彎
-js/view.js          判斷拍攝方向（側面／斜側面／正面）與人面向哪邊
-js/hud.js           大字儀表板：站遠也看得清楚的膝蓋、髖部角度
-js/datapanel.js     數據面板：即時顯示主要關節的 x、y、z 與可信度
-js/recorder.js      錄製關鍵點，匯出 CSV / JSON
-js/screen.js        運動時讓螢幕保持亮著（不自動變暗、鎖定）
-js/offline.js       離線使用：註冊 sw.js，把 AI 檔案存在手機裡
-js/help.js          使用說明頁的程式（離線功能、檢查這支手機）
-js/support.js       檢查這支手機能不能跑 AI（WebGL2 等）、辨識系統與瀏覽器版本
-js/hero-art.js      首頁示意圖的深蹲動畫（只在看得到時才動）
-js/world.js         公尺座標穩定化：平滑＋骨頭長度限制（錄製時另外存一份，原始資料不變）
-sw.js               Service Worker：AI 檔案存起來重複使用；網站檔案有網路時一定抓最新的，斷網時用上次存的
-js/replay-core.js   重播分析的計算核心：讀檔、重算（背景執行緒和主畫面共用）
-js/replay-worker.js 重播分析的背景執行緒
-js/replay.js        重播分析頁：讀檔、重算、角度曲線、統計、匯出角度 CSV
-js/chart.js         重播分析頁的折線圖
-js/squat.js         深蹲次數與深度判斷（實驗中，網址加 ?lab=squat 才出現）
-js/synth.js         合成示範資料（3D 火柴人做的深蹲，不是真人），還沒有錄影時先用來試用、測試
-docs/data-format.md 錄製資料的格式、座標意義與驗證實驗建議
-docs/roadmap.md     日後改進清單與接下來的階段
-docs/design-plan.md 網站版面與導覽的規劃、進度（含登入功能的需求紀錄）
+index.html / replay.html / help.html   三個頁面：首頁＋鏡頭畫面、錄製資料重播分析、使用說明
+sw.js                 離線功能（Service Worker）
+css/                  樣式：style.css（全站）、replay.css（重播分析頁）
+js/
+  config.js           全站設定：MediaPipe 版本、模型位置、網址參數
+  pages/              每一頁的主程式：main.js（鏡頭頁）、replay.js、help.js、hero-art.js
+  ai/                 AI 模型：載入 MediaPipe、背景執行緒偵測骨架、FPS
+  skeleton/           骨架處理：處理流程、平滑、擋鬼點、往前預測、公尺座標穩定化、33 點對照表
+  analysis/           動作判斷：關節角度、拍攝方向、入鏡提示、深蹲次數
+  ui/                 畫面元件：骨架、編號標籤、大字儀表板、數據表、曲線圖
+  platform/           裝置功能：鏡頭、螢幕保持亮著、離線、GPU、這支手機能不能用
+  data/               錄製與重播：匯出 CSV／JSON、讀檔重算、合成示範資料
+tests/                自動測試（npm test）
+docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
+                      design-plan.md（版面規劃）、roadmap.md（日後改進）
+.github/workflows/    自動化：deploy.yml（發布網站）、test.yml（每次推送都跑測試）
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
@@ -81,7 +58,7 @@ iPhone 上所有瀏覽器（包括 Chrome）都用 Safari 的核心，所以看�
 
 ## 背景運算（讓畫面不被 AI 卡住）
 
-AI 偵測每一格要花幾十毫秒。以前在主畫面運算，這段時間按鈕、文字、骨架都要等它算完。現在 MediaPipe 在**背景執行緒**（`js/pose-worker.js`）運算，主畫面只負責把鏡頭畫面送過去、把結果畫出來：
+AI 偵測每一格要花幾十毫秒。以前在主畫面運算，這段時間按鈕、文字、骨架都要等它算完。現在 MediaPipe 在**背景執行緒**（`js/ai/pose-worker.js`）運算，主畫面只負責把鏡頭畫面送過去、把結果畫出來：
 
 | | 主畫面運算（`?worker=0`） | 背景運算（預設） |
 |---|---|---|
@@ -125,8 +102,16 @@ AI 偵測每一格要花幾十毫秒。以前在主畫面運算，這段時間�
 
 鏡頭功能只能在 `https://` 或 `localhost` 網址下使用。
 
+## 自動測試
+
+```
+npm test
+```
+
+只需要 Node.js 20 以上，不用安裝任何套件，約 2 秒跑完。測試內容包括平滑、擋鬼點、公尺座標穩定化、角度、深蹲判斷、CSV／JSON 格式、壞掉的檔案、裝置判斷，見 [docs/architecture.md](docs/architecture.md) 的「怎麼測試」。每次推送到 GitHub 時也會自動跑一次（Actions 頁面的「Tests」）。
+
 ## 更新網站
 
 合併到 `main` 分支後，GitHub Actions 會自動發布到 GitHub Pages，約 1 分鐘生效。
 
-發布時會在每個 CSS、JS 檔名後面加上版本號（例如 `js/main.js?v=1a2b3c4d`），瀏覽器一定拿到同一個版本的全部檔案，不會新舊混在一起而出錯。首頁本身仍可能被暫存最多 10 分鐘，看到舊畫面時按 Ctrl + F5（手機可用無痕模式）。
+發布時會在每個 CSS、JS 檔名後面加上版本號（例如 `js/pages/main.js?v=1a2b3c4d`），瀏覽器一定拿到同一個版本的全部檔案，不會新舊混在一起而出錯。首頁本身仍可能被暫存最多 10 分鐘，看到舊畫面時按 Ctrl + F5（手機可用無痕模式）。

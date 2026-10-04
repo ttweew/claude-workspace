@@ -1,9 +1,9 @@
 // AI 骨架偵測：下載 MediaPipe 與骨架模型、選擇 GPU 或 CPU、暖機
 // 這裡只負責準備好偵測器，畫面上的文字由 main.js 負責
 
-import { hasWebGL2 } from './support.js';
-import { MEDIAPIPE_URLS, POSE_MODEL_URL, POSE_MODEL_SIZE, FORCE_CPU, USE_WORKER } from './config.js';
-import { getGpuInfo, shortGpuName } from './gpu.js';
+import { hasWebGL2 } from '../platform/support.js';
+import { MEDIAPIPE_URLS, POSE_MODEL_URL, POSE_MODEL_SIZE, FORCE_CPU, USE_WORKER } from '../config.js';
+import { getGpuInfo, shortGpuName } from '../platform/gpu.js';
 
 // 兩個要下載的大檔案（解壓縮後的大小），用來計算整體下載進度
 // 伺服器回報的檔案大小可能是壓縮後的，不準，所以直接用固定版本的實際大小

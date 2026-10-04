@@ -58,7 +58,7 @@ export class PoseSmoother {
         this.lastTime = 0;
     }
     // 每個點目前的移動速度（平滑後，比用前後兩格相減穩定），單位：畫面比例／毫秒
-    // 用來把骨架往前推到「畫出來的那一刻」（js/predict.js），還沒有資料時回傳 null
+    // 用來把骨架往前推到「畫出來的那一刻」（js/skeleton/predict.js），還沒有資料時回傳 null
     velocity() {
         if (!this.filters) return null;
         return this.filters.map(([fx, fy]) => ({ vx: fx.speed / 1000, vy: fy.speed / 1000 }));

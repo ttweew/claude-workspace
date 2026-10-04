@@ -1,7 +1,7 @@
 // 在畫面上標出關鍵點的編號與名稱
 // 用網頁文字（不是畫在畫布上），字會跟按鈕一樣清楚；標籤重疊時自動上下錯開
 
-import { LANDMARKS, P, isMainJoint, isVisible } from './landmarks.js';
+import { LANDMARKS, P, isMainJoint, isVisible } from '../skeleton/landmarks.js';
 
 const CENTER_NAMES = { SHOULDER_CENTER: '肩膀中心', HIP_CENTER: '髖部中心' };
 

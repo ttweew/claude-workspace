@@ -2,7 +2,7 @@
 // 自己畫，不用 MediaPipe 的畫圖工具：AI 改在背景執行緒運算後，主畫面就不需要載入 MediaPipe
 // 同樣顏色、粗細的線和點各合成一次畫完，比一條一條畫省時間
 
-import { isVisible, isMainJoint } from './landmarks.js';
+import { isVisible, isMainJoint } from '../skeleton/landmarks.js';
 
 // 骨架連線：MediaPipe PoseLandmarker.POSE_CONNECTIONS（33 點之間的 35 條線）
 export const CONNECTIONS = [

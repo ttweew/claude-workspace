@@ -1,17 +1,17 @@
 // 錄製資料重播分析（replay.html）：讀「數據」面板下載的 JSON / CSV，
-// 用和鏡頭畫面相同的處理流程（js/pipeline.js）重算一次，畫出角度曲線、統計、匯出
+// 用和鏡頭畫面相同的處理流程（js/skeleton/pipeline.js）重算一次，畫出角度曲線、統計、匯出
 // 用途：真人錄影時一邊錄、事後檢查角度與拍攝方向判斷得對不對（驗證實驗）
 
-import { ANGLES } from './angles.js';
-import { P } from './landmarks.js';
-import { VIEW_NAMES } from './view.js';
-import { drawChart, xToTime } from './chart.js';
-import { makeDemoRecording } from './synth.js';
-import { downloadText } from './recorder.js';
-import { DEPTH_TEXT } from './squat.js';
+import { ANGLES } from '../analysis/angles.js';
+import { P } from '../skeleton/landmarks.js';
+import { VIEW_NAMES } from '../analysis/view.js';
+import { drawChart, xToTime } from '../ui/chart.js';
+import { makeDemoRecording } from '../data/synth.js';
+import { downloadText } from '../data/recorder.js';
+import { DEPTH_TEXT } from '../analysis/squat.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
-    WORLD_BONES, WORLD_KNEES } from './replay-core.js';
-import { setupOffline } from './offline.js';
+    WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
+import { setupOffline } from '../platform/offline.js';
 
 const $ = id => document.getElementById(id);
 const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus');
@@ -45,7 +45,7 @@ let analysisCount = 0;  // 每次重算加 1，曲線圖用來判斷底圖要不
 // ---------- 讀檔與重算（優先在背景執行緒） ----------
 
 // 背景執行緒的檔案；網址帶上和這個檔案相同的版本號，發布新版時才不會拿到舊的
-const WORKER_URL = new URL('./replay-worker.js' + new URL(import.meta.url).search, import.meta.url);
+const WORKER_URL = new URL('../data/replay-worker.js' + new URL(import.meta.url).search, import.meta.url);
 let workerPromise = null;
 let requestId = 0;      // 每次讀檔、重算加 1；比較舊的結果直接丟掉
 let parsedOnMain = null; // 不能用背景執行緒時，在主畫面讀好的資料

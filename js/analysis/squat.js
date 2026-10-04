@@ -8,7 +8,7 @@
 //   90° 是很多健身 App 常用的門檻；大腿和地面平行時膝蓋約 60～70°。門檻之後要和老師討論再調整
 // 只在側面、斜側面拍時計算：正面拍的膝蓋角度誤差太大（見 view.js），會提示使用者側身
 
-import { clearerSide } from './landmarks.js';
+import { clearerSide } from '../skeleton/landmarks.js';
 
 export const SQUAT = {
     STAND: 160,       // 膝蓋 ≥ 這個角度算站直

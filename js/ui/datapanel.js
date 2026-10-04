@@ -1,9 +1,9 @@
 // 數據面板：即時顯示主要關節的 x、y、z 與可信度（原始資料，未經平滑）
 // 讓老師與組員直接看到 MediaPipe 輸出的數字，也方便做驗證實驗
 
-import { LANDMARKS, isMainJoint, isVisible, getDerivedPoints } from './landmarks.js';
-import { ANGLES, signedAngle, shortSegments } from './angles.js';
-import { VIEW_NAMES } from './view.js';
+import { LANDMARKS, isMainJoint, isVisible, getDerivedPoints } from '../skeleton/landmarks.js';
+import { ANGLES, signedAngle, shortSegments } from '../analysis/angles.js';
+import { VIEW_NAMES } from '../analysis/view.js';
 
 const ROWS = LANDMARKS.map(([, name], id) => ({ id, name })).filter(r => isMainJoint(r.id))
     .concat([{ id: 'SHOULDER_CENTER', name: '肩膀中心' }, { id: 'HIP_CENTER', name: '髖部中心' }]);

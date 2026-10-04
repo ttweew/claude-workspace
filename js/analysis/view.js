@@ -9,7 +9,7 @@
 //   真人正面照片實測比值約 0.5；轉 20° 約 0.17、30° 約 0.26
 //   軀幹前傾、深蹲時軀幹長度在側面畫面上不會變短，所以比值不受動作影響
 
-import { P, isVisible } from './landmarks.js';
+import { P, isVisible } from '../skeleton/landmarks.js';
 
 const SIDE_BELOW = 0.2;      // 比值小於這個 → 側面（拍攝角度約 25° 以內）
 const OBLIQUE_BELOW = 0.3;   // 小於這個 → 斜側面（約 35° 以內）；再大 → 正面

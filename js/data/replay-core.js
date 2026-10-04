@@ -4,11 +4,11 @@
 // 結果用一整塊數字陣列（typed array）存，不是每一格一堆小物件：5 分鐘約 9000 格，
 // 小物件會有幾十萬個，佔記憶體、手機上也慢；數字陣列還可以「整塊交給」主畫面，不用複製
 
-import { PosePipeline } from './pipeline.js';
-import { ANGLES, angleAt, computeAngles, signedAngle } from './angles.js';
-import { LANDMARKS, isVisible } from './landmarks.js';
-import { SquatCounter } from './squat.js';
-import { WorldStabilizer } from './world.js';
+import { PosePipeline } from '../skeleton/pipeline.js';
+import { ANGLES, angleAt, computeAngles, signedAngle } from '../analysis/angles.js';
+import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
+import { SquatCounter } from '../analysis/squat.js';
+import { WorldStabilizer } from '../skeleton/world.js';
 
 export const ANGLE_KEYS = ANGLES.map(([key]) => key);
 export const SIGNED_KEYS = ANGLE_KEYS.filter(k => /_(KNEE|HIP)$/.test(k));
@@ -120,7 +120,7 @@ export function needsFrameSize(meta) {
 // 回傳：{ n, t, present, angles, signed, rawAngles, view, ratio, facing, smooth, smoothVis, rawPresent, raw, rawVis, reps,
 //         hasWorld, boneRaw, boneStable, knee3dRaw, knee3dStable }
 //   沒有值（算不出來）的角度、比值、長度是 NaN；present：這一格有沒有人（經過擋鬼點）
-//   boneRaw / boneStable：WORLD_BONES 每根骨頭的 3D 長度（公尺），原始 / 處理過（js/world.js，和錄製時存的 swx… 相同方法）
+//   boneRaw / boneStable：WORLD_BONES 每根骨頭的 3D 長度（公尺），原始 / 處理過（js/skeleton/world.js，和錄製時存的 swx… 相同方法）
 //   knee3dRaw / knee3dStable：WORLD_KNEES 的 3D 膝蓋角度；兩端關節在畫面上看得到時才算（看不到的點，公尺座標是猜的）
 export async function analyzeRecording(parsed, width, height, { lab = false, onProgress = null, pause = null } = {}) {
     const frames = parsed.frames;

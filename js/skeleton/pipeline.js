@@ -3,9 +3,9 @@
 
 import { PoseSmoother } from './smooth.js';
 import { GhostFilter } from './ghost.js';
-import { ViewTracker } from './view.js';
+import { ViewTracker } from '../analysis/view.js';
 import { getDerivedPoints } from './landmarks.js';
-import { computeAngles } from './angles.js';
+import { computeAngles } from '../analysis/angles.js';
 
 const KEEP_MS = 200;  // 漏掉幾格（沒偵測到人）多久以內，接著用原本的擋鬼點、拍攝方向
 

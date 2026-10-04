@@ -1,7 +1,7 @@
 // 入鏡提示：根據拍到哪些關節，告訴使用者該怎麼站，才能讓全身入鏡
 // 深蹲、伏地挺身、棒式、弓箭步都需要看到全身（特別是髖、膝、踝），角度計算才會準
 
-import { P, isVisible } from './landmarks.js';
+import { P, isVisible } from '../skeleton/landmarks.js';
 
 const HOLD_MS = 600;  // 同一個提示要持續這麼久才換上去，避免文字在兩種提示之間一直跳
 

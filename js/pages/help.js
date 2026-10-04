@@ -1,6 +1,6 @@
 // 使用說明頁：離線功能（打開過的頁面沒有網路也能看），以及「檢查這支手機」
-import { setupOffline } from './offline.js';
-import { checkSupport, unsupportedAdvice } from './support.js';
+import { setupOffline } from '../platform/offline.js';
+import { checkSupport, unsupportedAdvice } from '../platform/support.js';
 
 setupOffline();
 
