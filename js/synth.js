@@ -77,8 +77,12 @@ function kneeAt(t, depths, tempo, lead) {
 // yaw：拍攝角度（0 = 正側面、人面向畫面右邊；90 = 正面；180 = 側面、面向左邊）；depths：每一下的膝蓋角度
 // tempo：每一下的節奏（秒）；lead：開始前先站幾秒；gaps：[[開始秒, 結束秒]] 這段時間沒偵測到人（測試用）
 export function makeDemoRecording({ yaw = 8, depths = DEMO_DEPTHS, tempo = DEFAULT_TEMPO, lead = 1.5, gaps = [],
-                                    fps = 30, width = 640, height = 480, noisePx = 1.5, seed = 7 } = {}) {
+                                    fps = 30, width = 640, height = 480, noisePx = 1.5, seed = 7, worldNoise = 0.03 } = {}) {
     const gauss = random(seed);
+    // 公尺座標的雜訊另外用一組亂數，畫面座標才會和以前產生的完全一樣
+    // 模仿真實的單鏡頭深度：左右上下雜訊小（0.5 公分），前後深度雜訊大（worldNoise 公尺），各點還會慢慢前後飄
+    const wGauss = random(seed + 1000);
+    const drift = LANDMARKS.map((_, j) => [0.5 + (j % 5) * 0.17, j * 1.3]);
     const period = tempo.down + tempo.bottom + tempo.up + tempo.rest;
     const seconds = lead + depths.length * period + 1;
     const scale = height * 0.21;  // 軀幹在畫面上的長度（像素），全身大約佔畫面高度 7 成
@@ -109,7 +113,9 @@ export function makeDemoRecording({ yaw = 8, depths = DEMO_DEPTHS, tempo = DEFAU
                 round(-(depth - hipZ) * scale / width, 5),
                 round(vis, 3)
             ]);
-            world.push([round(X * 0.5, 4), round(-(y - 1.2) * 0.5, 4), round(-depth * 0.5, 4)]);
+            const j = world.length;
+            const zNoise = worldNoise * (wGauss() + 0.8 * Math.sin(drift[j][0] * t + drift[j][1]));
+            world.push([round(X * 0.5 + 0.005 * wGauss(), 4), round(-(y - 1.2) * 0.5 + 0.005 * wGauss(), 4), round(-depth * 0.5 + zNoise, 4)]);
         }
         frames.push({ t: Math.round(t * 1000), landmarks, world });
     }
@@ -120,7 +126,7 @@ export function makeDemoRecording({ yaw = 8, depths = DEMO_DEPTHS, tempo = DEFAU
             app: 'AI 智慧運動分析系統',
             model: 'synthetic',
             synthetic: true,
-            description: '合成示範資料（不是真人）：' + depths.length + ' 下深蹲，拍攝角度 ' + yaw + '°（0° = 正側面、90° = 正面），每下最低膝蓋角度 ' + depths.join('、') + '°',
+            description: '合成示範資料（不是真人）：' + depths.length + ' 下深蹲，拍攝角度 ' + yaw + '°（0° = 正側面、90° = 正面），每下最低膝蓋角度 ' + depths.join('、') + '°；大腿、小腿實際長度 40 公分，公尺座標的前後深度加了模擬的雜訊',
             computeMode: '—',
             videoWidth: width,
             videoHeight: height,
