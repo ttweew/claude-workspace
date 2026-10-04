@@ -7,6 +7,7 @@ import { drawSkeleton } from './draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from './labels.js';
 import { FpsCounter } from './fps.js';
 import { PosePipeline } from './pipeline.js';
+import { WorldStabilizer } from './world.js';
 import { predictPose } from './predict.js';
 import { getDerivedPoints } from './landmarks.js';
 import { framingAdvice, FramingHint, NO_PERSON } from './framing.js';
@@ -94,6 +95,7 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
+const worldStabilizer = new WorldStabilizer();  // 公尺座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
 const squat = LAB === 'squat' ? new SquatCounter() : null;
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
@@ -410,7 +412,9 @@ function showResult(result, now) {
         setPoseStatus(hint.text, hint.kind);
     }
     // 錄製：原始資料（未平滑、未過濾，模型輸出什麼就記什麼）＋平滑後的點（和畫面上的骨架相同），兩種都存
-    if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null)) {
+    // 公尺座標每一格都要處理（平滑需要連續的資料），錄製時才存
+    const stableWorld = worldStabilizer.process(rawWorld, now);
+    if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null, stableWorld)) {
         stopRecording();
     }
     if (now - lastPanelUpdate > 200) {
@@ -424,6 +428,7 @@ function showResult(result, now) {
 // 錄製中就自動停止：錄製檔記的是開始時的畫面大小，轉向後的資料混在同一份裡，重播時角度會算錯
 function videoResized() {
     pipeline.reset();
+    worldStabilizer.reset();
     framing.reset();
     if (recorder.recording) {
         stopRecording();
@@ -564,6 +569,7 @@ function stopStream() {
     waitingFrame = null;
     fps.reset();
     pipeline.reset();
+    worldStabilizer.reset();
     framing.reset();
     resetSquat();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
