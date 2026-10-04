@@ -113,6 +113,25 @@
                 <p class="note">「抖動」＝相鄰兩格角度平均差幾度，越小越穩。「原始」是 MediaPipe 直接輸出、沒經過平滑的點算出來的，用來和畫面上的（平滑後）比較。</p>
             </section>
 
+            <!-- 3D 檢查：檔案有公尺座標時才顯示（驗證實驗 D、H） -->
+            <section id="worldCard" class="card" aria-labelledby="worldTitle" hidden>
+                <h2 id="worldTitle">3D 檢查（公尺座標） <span class="badge">驗證用</span></h2>
+                <p class="note">公尺座標的前後深度是 AI 從單一畫面猜的。這裡比較「原始」和網站「處理過」（平滑＋骨頭長度限制）兩份，看哪一份比較可信。只算畫面上看得到的關節。</p>
+                <div class="tape-row" role="group" aria-labelledby="tapeTitle">
+                    <span id="tapeTitle" class="tape-title">捲尺量的長度（公分，可不填）</span>
+                    <label>大腿（髖到膝）<input id="tapeThigh" type="number" inputmode="decimal" min="10" max="100" step="0.5" placeholder="—"></label>
+                    <label>小腿（膝到踝）<input id="tapeShank" type="number" inputmode="decimal" min="10" max="100" step="0.5" placeholder="—"></label>
+                </div>
+                <div class="table-wrap">
+                    <table id="boneTable" class="stats"></table>
+                </div>
+                <p class="note">單位是公分。每一格上面是長度（整段錄影的中間值），下面「±」是變動（中間 8 成的格子上下差多少，越小越穩）；綠色＝比較好的那一份。<strong>變動小不代表準</strong>：填了捲尺長度，下面就改成「和捲尺差幾公分」，這才知道準不準（實驗 D）。</p>
+                <div class="table-wrap">
+                    <table id="kneeTable" class="stats"></table>
+                </div>
+                <p id="kneeNote" class="note"></p>
+            </section>
+
             <section class="card" aria-labelledby="exportTitle">
                 <h2 id="exportTitle">匯出</h2>
                 <p class="note">每一格的角度、拍攝方向，可用 Excel 打開畫圖。</p>

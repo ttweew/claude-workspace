@@ -9,7 +9,8 @@ import { drawChart, xToTime } from './chart.js';
 import { makeDemoRecording } from './synth.js';
 import { downloadText } from './recorder.js';
 import { DEPTH_TEXT } from './squat.js';
-import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES } from './replay-core.js';
+import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
+    WORLD_BONES, WORLD_KNEES } from './replay-core.js';
 import { setupOffline } from './offline.js';
 
 const $ = id => document.getElementById(id);
@@ -19,6 +20,8 @@ const result = $('result'), summary = $('summary'), synthNote = $('synthNote');
 const toggles = $('toggles'), chart = $('chart'), skeleton = $('skeleton'), readout = $('readout');
 const playBtn = $('playBtn'), mirrorBtn = $('mirrorBtn'), stats = $('stats'), csvOut = $('csvOut');
 const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable');
+const worldCard = $('worldCard'), boneTable = $('boneTable'), kneeTable = $('kneeTable'), kneeNote = $('kneeNote');
+const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 
 // 深蹲分析還在實驗中：網址加 ?lab=squat 才顯示（和鏡頭畫面一樣）
 const LAB_SQUAT = new URLSearchParams(location.search).get('lab') === 'squat';
@@ -29,6 +32,8 @@ const COLORS = { KNEE: '#2EE6A6', HIP: '#4CC3FF', ELBOW: '#FFB547' };
 const VIEW_COLORS = { side: '#2EE6A6', oblique: '#FFC857', front: '#FF5C5C', none: 'rgba(255,255,255,0.18)' };
 const shown = new Set(['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP']);
 let showRaw = false;
+let show3d = false;    // 曲線圖上加畫 3D 膝蓋角度（處理過的公尺座標算的）
+const KNEE3D_COLOR = '#E8EEF7';
 
 let data = null;       // 讀進來的錄製資料 { name, meta, frames: [{ t, raw }] }
 let analysis = null;   // 重算的結果
@@ -205,6 +210,8 @@ async function analyze() {
     showSummary();
     showStats();
     showSquats();
+    showWorld();
+    buildToggles();
     redraw();
 }
 
@@ -223,8 +230,11 @@ function buildRows(r) {
             rawAngles = {};
             ANGLE_KEYS.forEach((k, j) => { rawAngles[k] = val(r.rawAngles[i * A + j]); });
         }
+        const K = WORLD_KNEES.length;
+        const knee3d = {};
+        WORLD_KNEES.forEach(([k], j) => { knee3d[k] = val(r.knee3dStable[i * K + j]); });
         rows[i] = {
-            t: r.t[i], present, angles, signed, rawAngles, hasRaw: r.rawPresent[i] === 1,
+            t: r.t[i], present, angles, signed, rawAngles, hasRaw: r.rawPresent[i] === 1, knee3d,
             view: present ? { view: VIEW_CODES[r.view[i]], ratio: val(r.ratio[i]), facing: r.facing[i] } : null
         };
     }
@@ -272,6 +282,113 @@ function showSquats() {
         tbody.appendChild(tr);
     }
     squatTable.replaceChildren(thead, tbody);
+}
+
+// ---------- 3D 檢查（公尺座標；驗證實驗 D、H） ----------
+
+// 排序好的數字陣列的第 q 分位（0～1）
+function quantile(sorted, q) {
+    if (!sorted.length) return NaN;
+    const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+// 一欄數字陣列（每格 count 個值）第 k 個值，去掉 NaN、排序好
+function column(values, count, k, keep = null) {
+    const out = [];
+    for (let i = k, row = 0; i < values.length; i += count, row++) {
+        if (!Number.isNaN(values[i]) && (!keep || keep(row))) out.push(values[i]);
+    }
+    return out.sort((a, b) => a - b);
+}
+
+// 捲尺長度（公分）；沒填或不合理時回傳 null
+function tapeLength(input) {
+    const v = Number(input.value);
+    return input.value.trim() !== '' && v >= 10 && v <= 150 ? v : null;
+}
+
+function makeTable(table, head, body, better = []) {
+    const thead = document.createElement('thead');
+    const htr = document.createElement('tr');
+    head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
+    thead.appendChild(htr);
+    const tbody = document.createElement('tbody');
+    body.forEach((cells, r) => {
+        const tr = document.createElement('tr');
+        cells.forEach((c, i) => {
+            const td = document.createElement(i ? 'td' : 'th');
+            td.textContent = c;
+            if (better[r] && better[r].includes(i)) td.className = 'better';
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.replaceChildren(thead, tbody);
+}
+
+// 兩個數字比較，絕對值小的那一欄標綠色；差不到 1 成、或差不到 minGap 時不標，避免把雜訊當成差別
+function smaller(a, b, ia, ib, minGap = 0) {
+    const gap = Math.abs(Math.abs(a) - Math.abs(b));
+    if (!Number.isFinite(a) || !Number.isFinite(b) || gap <= minGap || gap <= 0.1 * Math.max(Math.abs(a), Math.abs(b))) return [];
+    return Math.abs(a) < Math.abs(b) ? [ia] : [ib];
+}
+
+function showWorld() {
+    const r = analysis.data;
+    worldCard.hidden = !r.hasWorld;
+    if (!r.hasWorld) return;
+    const n = r.n, B = WORLD_BONES.length;
+    const cm = v => (Number.isFinite(v) ? (v * 100).toFixed(1) : '—');
+    const tapes = { THIGH: tapeLength(tapeThigh), SHANK: tapeLength(tapeShank) };
+    const anyTape = tapes.THIGH !== null || tapes.SHANK !== null;
+    // 每一格兩行：長度 ± 變動；有填捲尺時第二行改成「和捲尺差」（準不準比穩不穩重要，綠色也改看這個）
+    const head = ['骨頭', '有資料', '原始', '處理過'];
+    if (anyTape) head.push('捲尺');
+    const better = [];
+    const body = WORLD_BONES.map(([key, name], k) => {
+        const raw = column(r.boneRaw, B, k), stable = column(r.boneStable, B, k);
+        const rawMid = quantile(raw, 0.5), stMid = quantile(stable, 0.5);
+        const rawSpread = quantile(raw, 0.9) - quantile(raw, 0.1), stSpread = quantile(stable, 0.9) - quantile(stable, 0.1);
+        const tape = anyTape ? tapes[key.split('_')[1]] : null;
+        const diff = v => (Number.isFinite(v) ? '差 ' + (v * 100 - tape >= 0 ? '+' : '−') + Math.abs(v * 100 - tape).toFixed(1) : '—');
+        const cell = (mid, spread) => cm(mid) + '\n' + (tape === null ? '±' + cm(spread / 2) : diff(mid));
+        const cells = [name, Math.round(raw.length / n * 100) + '%', cell(rawMid, rawSpread), cell(stMid, stSpread)];
+        if (anyTape) cells.push(tape === null ? '—' : String(tape));
+        // 和捲尺的差距要差 0.5 公分以上才算有差別（捲尺本身也量不到更準）
+        better.push(tape === null ? smaller(rawSpread, stSpread, 2, 3, 0.002) : smaller(rawMid * 100 - tape, stMid * 100 - tape, 2, 3, 0.5));
+        return cells;
+    });
+    makeTable(boneTable, head, body, better);
+
+    // 3D 膝蓋角度 vs 側面拍的畫面角度：側面拍時畫面角度很準（模擬誤差 ≤ 4°），可以當標準答案
+    const A = ANGLE_KEYS.length, K = WORLD_KNEES.length;
+    const side = i => r.present[i] === 1 && VIEW_CODES[r.view[i]] === 'side';
+    const kBetter = [];
+    let sideFrames = 0;
+    for (let i = 0; i < n; i++) if (side(i)) sideFrames++;
+    const kBody = WORLD_KNEES.map(([key, name], j) => {
+        const a = ANGLE_KEYS.indexOf(key);
+        const diffs = which => {
+            const out = [];
+            for (let i = 0; i < n; i++) {
+                if (!side(i)) continue;
+                const ref = r.angles[i * A + a], v = which[i * K + j];
+                if (!Number.isNaN(ref) && !Number.isNaN(v)) out.push(Math.abs(v - ref));
+            }
+            return out.sort((x, y) => x - y);
+        };
+        const raw = diffs(r.knee3dRaw), stable = diffs(r.knee3dStable);
+        const mean = d => (d.length ? d.reduce((s, v) => s + v, 0) / d.length : NaN);
+        const deg = v => (Number.isFinite(v) ? v.toFixed(1) + '°' : '—');
+        kBetter.push(smaller(mean(raw), mean(stable), 2, 3, 0.5));
+        const cell = d => '平均 ' + deg(mean(d)) + '\n9 成≤' + deg(quantile(d, 0.9));
+        return [name, String(raw.length), cell(raw), cell(stable)];
+    });
+    makeTable(kneeTable, ['3D 膝角', '格數', '原始', '處理過'], kBody, kBetter);
+    kneeNote.textContent = sideFrames
+        ? '側面拍時畫面上的角度很準，拿來當標準答案，看 3D 公尺座標算的膝蓋角度差多少（越小越好；綠色＝比較好的那一份）。「平均」＝平均差幾度，「9 成≤」＝9 成的格子差距在這個度數以內。曲線圖可以按「3D 膝角」一起看。'
+        : '這段錄影沒有判斷為側面拍的格子，沒有標準答案可以對照。正面拍的 3D 膝角準不準，請用兩支手機同時錄（實驗 H），兩個檔案各下載角度 CSV 來比較；曲線圖可以按「3D 膝角」看。';
 }
 
 // ---------- 摘要 ----------
@@ -403,7 +520,23 @@ function buildToggles() {
         raw.setAttribute('aria-pressed', showRaw);
         redraw();
     });
-    toggles.replaceChildren(...buttons, raw);
+    const extra = [raw];
+    if (analysis && analysis.data.hasWorld) {
+        const b3 = document.createElement('button');
+        b3.type = 'button';
+        b3.className = 'toggle';
+        b3.textContent = '3D 膝角';
+        b3.style.color = KNEE3D_COLOR;
+        b3.title = '處理過的公尺座標算出來的膝蓋角度（白色）';
+        b3.setAttribute('aria-pressed', show3d);
+        b3.addEventListener('click', () => {
+            show3d = !show3d;
+            b3.setAttribute('aria-pressed', show3d);
+            redraw();
+        });
+        extra.push(b3);
+    }
+    toggles.replaceChildren(...buttons, ...extra);
 }
 
 // 拍攝方向色條：連續同一類的格子合成一段
@@ -441,10 +574,11 @@ function redraw() {
         const dash = key.startsWith('RIGHT') ? [6, 4] : [];
         if (showRaw) series.push({ values: rows.map(r => (r.rawAngles ? r.rawAngles[key] : null)), color, width: 1, dash, alpha: 0.45 });
         series.push({ values: rows.map(r => r.angles[key]), color, width: 2, dash });
+        if (show3d && analysis.data.hasWorld && key in rows[0].knee3d) series.push({ values: rows.map(r => r.knee3d[key]), color: KNEE3D_COLOR, width: 1.5, dash, alpha: 0.8 });
     }
     const markers = analysis.reps.map(r => ({ t: r.bottom, label: String(r.n) }));
     // 底圖代號：檔案、顯示的關節、是否顯示原始資料；只換游標時沿用底圖
-    const key = analysis.id + '|' + [...shown].join(',') + '|' + showRaw;
+    const key = analysis.id + '|' + [...shown].join(',') + '|' + showRaw + '|' + show3d;
     drawChart(chart, { key, times, series, bands: viewBands(), markers, cursor: rows[cursor].t, yMin: 0, yMax: 200, yStep: 30 });
     drawSkeleton();
     showReadout();
@@ -531,6 +665,10 @@ function showReadout() {
         // 往後反折、後伸時（超過 180°）另外標出來
         return name + ' ' + (a === null ? '—' : Math.round(a) + '°' + (s !== null && s > 180 ? '（反折 ' + Math.round(s) + '°）' : ''));
     });
+    if (analysis.data.hasWorld) {
+        const k = WORLD_KNEES.map(([key, name]) => name + ' ' + (row.knee3d[key] === null ? '—' : Math.round(row.knee3d[key]) + '°'));
+        parts.push('3D（處理過）' + k.join(' '));
+    }
     readout.textContent = head + ' · ' + (v.view ? VIEW_NAMES[v.view] + '（比值 ' + v.ratio.toFixed(2) + '）' : '拍攝方向判斷中') + '\n' + parts.join(' · ');
 }
 
@@ -589,14 +727,20 @@ function exportCSV() {
     const header = ['time_ms', 'detected', 'view', 'view_ratio', 'facing']
         .concat(keys.map(k => k.toLowerCase()))
         .concat(signedKeys.map(k => k.toLowerCase() + '_signed'))
-        .concat(keys.map(k => k.toLowerCase() + '_raw'));
+        .concat(keys.map(k => k.toLowerCase() + '_raw'))
+        .concat(...WORLD_KNEES.map(([k]) => [k.toLowerCase() + '_3d_raw', k.toLowerCase() + '_3d_stable']))
+        .concat(...WORLD_BONES.map(([k]) => [k.toLowerCase() + '_cm_raw', k.toLowerCase() + '_cm_stable']));
     const num = v => (v === null || v === undefined ? '' : v.toFixed(1));
-    const lines = rows.map(r => {
+    const d = analysis.data, K = WORLD_KNEES.length, B = WORLD_BONES.length;
+    const at = (arr, i, count, k, scale = 1) => (Number.isNaN(arr[i * count + k]) ? '' : (arr[i * count + k] * scale).toFixed(1));
+    const lines = rows.map((r, i) => {
         const v = r.view;
         return [Math.round(r.t * 1000), r.present ? 1 : 0, v && v.view ? v.view : '', v && v.ratio !== null ? v.ratio.toFixed(3) : '', v ? v.facing : '']
             .concat(keys.map(k => num(r.angles[k])))
             .concat(signedKeys.map(k => num(r.signed[k])))
             .concat(keys.map(k => num(r.rawAngles ? r.rawAngles[k] : null)))
+            .concat(...WORLD_KNEES.map((_, k) => [at(d.knee3dRaw, i, K, k), at(d.knee3dStable, i, K, k)]))
+            .concat(...WORLD_BONES.map((_, k) => [at(d.boneRaw, i, B, k, 100), at(d.boneStable, i, B, k, 100)]))
             .join(',');
     });
     const base = data.name.replace(/\.(json|csv)$/i, '');
@@ -622,6 +766,15 @@ drop.addEventListener('drop', e => {
 $('demoSide').addEventListener('click', () => load('合成示範_側面深蹲.json', JSON.stringify(makeDemoRecording({ yaw: 8 }))));
 $('demoFront').addEventListener('click', () => load('合成示範_正面深蹲.json', JSON.stringify(makeDemoRecording({ yaw: 85 }))));
 aspectSelect.addEventListener('change', () => { if (data) analyze(); });  // 只重算，不用重新讀檔
+
+// 捲尺長度：改了就重算表格；記在這個瀏覽器裡（同一個人錄好幾段不用重填），讀寫失敗（無痕模式等）就算了
+for (const [input, name] of [[tapeThigh, 'tapeThigh'], [tapeShank, 'tapeShank']]) {
+    try { input.value = localStorage.getItem(name) || ''; } catch (err) { /* 不能存就不記 */ }
+    input.addEventListener('input', () => {
+        try { localStorage.setItem(name, input.value); } catch (err) { /* 不能存就不記 */ }
+        if (analysis) showWorld();
+    });
+}
 
 // 點圖或拖曳選時間；左右鍵一次移一格
 function pointerTime(e) {

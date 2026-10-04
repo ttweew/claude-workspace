@@ -23,6 +23,17 @@ const CLEAR_DEPTH = 0.35;       // 深度差至少是骨頭長度的 35%，才�
 const PULL = 0.5;               // 往估計長度拉回的比例
 const RESET_AFTER_MS = 500;     // 超過這麼久沒有資料，重新開始
 
+// 排序好的陣列裡，第一個 ≥ v 的位置（二分搜尋）
+function lowerBound(sorted, v) {
+    let lo = 0, hi = sorted.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (sorted[mid] < v) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
+
 function alpha(cutoff, dt) {
     const tau = 1 / (2 * Math.PI * cutoff);
     return 1 / (1 + tau / dt);
@@ -50,7 +61,9 @@ export class WorldStabilizer {
     reset() {
         this.filters = null;
         this.lastTime = null;
-        this.lengths = BONES.map(() => []);  // 每根骨頭最近的 [時間, 長度]
+        // 每根骨頭最近 4 秒的量測：依時間排的 [時間, 長度]，以及同樣的長度由小到大排好（取中間值用）
+        // 排好的那份每格只插入、移除幾個數字，不用每格重新排序（每格 8 根骨頭各排一次約 120 個數字，手機上太慢）
+        this.lengths = BONES.map(() => ({ history: [], sorted: [] }));
     }
 
     // world：MediaPipe 這一格的 33 點公尺座標（{ x, y, z }），沒有時傳 null；timeMs：這一格的時間
@@ -78,11 +91,11 @@ export class WorldStabilizer {
             const dx = p[b].x - p[a].x, dy = p[b].y - p[a].y, dz = p[b].z - p[a].z;
             const length = Math.hypot(dx, dy, dz);
             if (!Number.isFinite(length)) return;
-            const history = this.lengths[k];
+            const { history, sorted } = this.lengths[k];
             history.push([timeMs, length]);
-            while (timeMs - history[0][0] > LENGTH_WINDOW_MS) history.shift();
+            sorted.splice(lowerBound(sorted, length), 0, length);
+            while (timeMs - history[0][0] > LENGTH_WINDOW_MS) sorted.splice(lowerBound(sorted, history.shift()[1]), 1);
             if (history.length < MIN_SAMPLES) return;
-            const sorted = history.map(h => h[1]).sort((x, y) => x - y);
             const bone = sorted[Math.floor(sorted.length / 2)];
             // 深度方向不明確（肢體大致和鏡頭平行）：不修正
             if (Math.abs(dz) < CLEAR_DEPTH * bone) return;

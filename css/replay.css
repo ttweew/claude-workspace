@@ -296,3 +296,51 @@
 .depth-good { color: var(--accent); }
 .depth-close { color: #FFC857; }
 .depth-shallow { color: var(--danger); }
+
+/* 3D 檢查（公尺座標） */
+.tape-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin: 4px 0 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.tape-title {
+    flex-basis: 100%;
+}
+.tape-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.tape-row input {
+    width: 5.5em;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;  /* 16px 以上 iPhone 點輸入框時才不會自動放大畫面 */
+}
+.tape-row input:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+}
+.stats .better {
+    color: var(--accent);
+    font-weight: 600;
+}
+/* 3D 檢查的表格：一格兩行（數值、變動或差距），手機上才不用左右捲動 */
+#boneTable td, #kneeTable td {
+    white-space: pre;
+    line-height: 1.45;
+}
+@media (max-width: 360px) {
+    #boneTable th, #boneTable td, #kneeTable th, #kneeTable td {
+        padding: 6px 2px;
+    }
+}
