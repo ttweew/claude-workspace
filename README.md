@@ -37,6 +37,7 @@ js/offline.js       離線使用：註冊 sw.js，把 AI 檔案存在手機裡
 js/help.js          使用說明頁的程式（離線功能、檢查這支手機）
 js/support.js       檢查這支手機能不能跑 AI（WebGL2 等）、辨識系統與瀏覽器版本
 js/hero-art.js      首頁示意圖的深蹲動畫（只在看得到時才動）
+js/world.js         公尺座標穩定化：平滑＋骨頭長度限制（錄製時另外存一份，原始資料不變）
 sw.js               Service Worker：AI 檔案存起來重複使用；網站檔案有網路時一定抓最新的，斷網時用上次存的
 js/replay-core.js   重播分析的計算核心：讀檔、重算（背景執行緒和主畫面共用）
 js/replay-worker.js 重播分析的背景執行緒
