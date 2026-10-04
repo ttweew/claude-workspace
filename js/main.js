@@ -41,6 +41,8 @@ const dataPanel = document.getElementById('dataPanel');
 const dataRows = document.getElementById('dataRows');
 const viewInfo = document.getElementById('viewInfo');
 const recordBtn = document.getElementById('recordBtn');
+const countdownSelect = document.getElementById('countdownSelect');
+const countdownEl = document.getElementById('countdown');
 const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
@@ -558,6 +560,7 @@ async function startCamera(deviceId) {
 // 只停止鏡頭串流（切換鏡頭時使用，畫面維持全螢幕）
 // 錄製中也一併停止：換了鏡頭，解析度與角度都不同，不能接在同一份資料裡
 function stopStream() {
+    cancelCountdown();
     if (recorder.recording) stopRecording();
     if (currentStream) {
         stopCamera(currentStream);
@@ -634,6 +637,95 @@ function updateDataBtn() {
 function showRecordInfo() {
     recordInfo.textContent = (recorder.recording ? '錄製中 ' : '已錄 ') + recorder.seconds.toFixed(1)
         + ' 秒 · ' + recorder.frameCount + ' 格';
+}
+
+// ---------- 錄製前倒數 ----------
+// 一個人錄的時候，按下錄製還要走到 2～3 公尺外、轉成側面；倒數讓開頭不會都是走路的畫面
+// 每一秒嗶一聲（站遠看不到畫面也知道），最後一聲比較長、比較高，代表開始錄
+
+let countdown = null;   // 倒數中：{ timer, end }
+let audio = null;       // 提示音（第一次按錄製時才建立：瀏覽器規定要使用者按過按鈕才能出聲）
+
+try {
+    const saved = localStorage.getItem('recordCountdown');
+    if (saved !== null && [...countdownSelect.options].some(o => o.value === saved)) countdownSelect.value = saved;
+} catch (err) { /* 不能存就用預設 */ }
+countdownSelect.addEventListener('change', () => {
+    try { localStorage.setItem('recordCountdown', countdownSelect.value); } catch (err) { /* 不能存就不記 */ }
+});
+
+// 短促的嗶聲；沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
+function beep(long) {
+    try {
+        if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+        if (audio.state === 'suspended') audio.resume();
+        const t = audio.currentTime, length = long ? 0.45 : 0.12;
+        const osc = audio.createOscillator(), gain = audio.createGain();
+        osc.frequency.value = long ? 1320 : 880;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
+        osc.connect(gain).connect(audio.destination);
+        osc.start(t);
+        osc.stop(t + length + 0.02);
+    } catch (err) { /* 沒有聲音也沒關係 */ }
+}
+
+function startCountdown() {
+    const seconds = Number(countdownSelect.value) || 0;
+    if (!seconds) {
+        startRecording();
+        return;
+    }
+    countdown = { end: performance.now() + seconds * 1000, timer: 0, shown: 0 };
+    recordBtn.classList.add('counting');
+    countdownSelect.disabled = true;
+    tickCountdown();
+}
+
+// 用「結束時間」算剩幾秒，不是每秒減 1：手機忙的時候計時器會晚到，累積起來會越倒越慢
+function tickCountdown() {
+    const left = Math.ceil((countdown.end - performance.now()) / 1000);
+    if (left <= 0) {
+        cancelCountdown();
+        beep(true);
+        startRecording();
+        // 「開始」短暫顯示一下，站遠的人知道已經在錄了
+        countdownEl.textContent = '開始';
+        countdownEl.classList.add('go');
+        countdownEl.hidden = false;
+        countdown = { timer: setTimeout(hideCountdown, 800), go: true };
+        return;
+    }
+    if (left !== countdown.shown) {
+        countdown.shown = left;
+        countdownEl.textContent = String(left);
+        countdownEl.classList.remove('go');
+        countdownEl.hidden = false;
+        recordBtn.textContent = '✕ 取消倒數（' + left + '）';
+        beep(false);
+    }
+    countdown.timer = setTimeout(tickCountdown, 100);
+}
+
+function hideCountdown() {
+    countdownEl.hidden = true;
+    countdownEl.classList.remove('go');
+    if (countdown && countdown.go) countdown = null;
+}
+
+// 取消倒數（按取消、關鏡頭、換鏡頭）；已經開始錄的「開始」字樣也一起收掉
+function cancelCountdown() {
+    if (!countdown) return;
+    clearTimeout(countdown.timer);
+    const counting = !countdown.go;
+    countdown = null;
+    hideCountdown();
+    if (counting) {
+        recordBtn.classList.remove('counting');
+        countdownSelect.disabled = false;
+        recordBtn.textContent = recorder.frameCount ? '● 重新錄製' : '● 開始錄製';
+    }
 }
 
 function startRecording() {
@@ -767,7 +859,11 @@ try {
 } catch (err) {
     // 無痕模式等情況可能無法讀取，就用預設的展開
 }
-recordBtn.addEventListener('click', () => (recorder.recording ? stopRecording() : startRecording()));
+recordBtn.addEventListener('click', () => {
+    if (recorder.recording) stopRecording();
+    else if (countdown && !countdown.go) cancelCountdown();
+    else startCountdown();
+});
 // 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，重複按不會再產生一份
 // 不用 disabled 停用按鈕：停用會讓鍵盤焦點跑掉，用鍵盤操作的人產生完要重新找按鈕
 let exporting = false;

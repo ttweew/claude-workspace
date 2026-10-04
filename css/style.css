@@ -406,7 +406,7 @@ footer {
     color: var(--muted);
     font-size: 13px;
 }
-footer a, .panel-note a, .note a {
+footer a, .panel-note a, .note a, .prose a {
     color: var(--info);
 }
 
@@ -1146,6 +1146,56 @@ code {
 #recordInfo {
     font-variant-numeric: tabular-nums;
 }
+.panel-head select {
+    min-height: 32px;
+    padding: 0 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 13px;
+}
+#recordBtn.counting {
+    border-color: #FFC857;
+    background: rgba(160, 110, 0, 0.85);
+}
+/* 錄製前倒數：畫面中間偏上的大數字，站在 3 公尺外也看得到
+   偏上：數據面板打開時貼在畫面下方（最多佔 45% 高），放正中間會被擋住 */
+#countdown {
+    position: absolute;
+    top: 36%;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(120px, 34vmin, 280px);
+    height: clamp(120px, 34vmin, 280px);
+    transform: translate(-50%, -50%);
+    border: 4px solid #FFC857;
+    border-radius: 50%;
+    background: rgba(11, 18, 32, 0.72);
+    color: #FFFFFF;
+    font-size: clamp(64px, 20vmin, 170px);
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+}
+/* 手機橫拿時畫面很矮，偏上會碰到狀態列；這時數據面板在右側，放中間偏下不會被擋 */
+@media (orientation: landscape) and (max-height: 500px) {
+    #countdown {
+        top: 58%;
+    }
+}
+#countdown.go {
+    border-color: var(--danger);
+    font-size: clamp(36px, 10vmin, 84px);
+}
+#countdown[hidden] {
+    display: none;
+}
 /* 表格顯示原始或平滑後的數字：兩個按鈕連在一起，選到的那個是綠底 */
 .panel-mode {
     display: inline-flex;
@@ -1234,5 +1284,51 @@ code {
     }
     #modelProgress .fill, #modelProgress.hide, #startBtn {
         transition: none;
+    }
+}
+
+/* 使用說明：驗證實驗（示意圖＋步驟） */
+.help h3 {
+    margin: 22px 0 10px;
+    font-size: 18px;
+}
+.exp {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+.exp-fig {
+    width: 100%;
+    height: auto;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+/* 實驗的步驟比較長，排一欄比較好讀 */
+.help .exp .steps {
+    grid-template-columns: minmax(0, 1fr);
+}
+.fig-body { fill: none; stroke: var(--line); stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; }
+.fig-limb { fill: none; stroke: var(--muted); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.fig-joint { fill: var(--accent); }
+.fig-person { fill: var(--surface-2); stroke: var(--muted); stroke-width: 3; }
+.fig-phone { fill: var(--surface-2); stroke: var(--text); stroke-width: 2.5; }
+.fig-tape { fill: none; stroke: #FFC857; stroke-width: 3; stroke-linecap: round; }
+.fig-tape2 { fill: none; stroke: var(--info); stroke-width: 3; stroke-linecap: round; }
+.fig-text { fill: #FFC857; font-size: 15px; font-weight: 700; }
+.fig-text2 { fill: var(--info); font-size: 15px; font-weight: 700; }
+.fig-small { fill: var(--muted); font-size: 13px; }
+.fig-arrow { fill: none; stroke: var(--muted); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 手機：圖放在步驟上面，縮小置中 */
+@media (max-width: 560px) {
+    .exp {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .exp-fig {
+        max-width: 200px;
+        justify-self: center;
     }
 }

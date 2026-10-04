@@ -40,6 +40,7 @@
                 <li><a href="#setup">擺好手機</a></li>
                 <li><a href="#screen">畫面上的東西</a></li>
                 <li><a href="#record">錄製與重播</a></li>
+                <li><a href="#experiments">驗證實驗</a></li>
                 <li><a href="#faq">常見問題</a></li>
                 <li><a href="#privacy">隱私</a></li>
             </ul>
@@ -89,11 +90,65 @@
             <section id="record" aria-labelledby="recordTitle">
                 <h2 id="recordTitle">錄製與重播</h2>
                 <ol class="steps">
-                    <li><strong>按「數據」→「開始錄製」</strong>錄下每一格 33 個關鍵點的位置（不是影片），最多 5 分鐘</li>
+                    <li><strong>按「數據」→「開始錄製」</strong>錄下每一格 33 個關鍵點的位置（不是影片），最多 5 分鐘。按下後會先倒數（預設 5 秒，每秒嗶一聲），讓你有時間走到定位；旁邊的選單可以改成 3、10 秒或不倒數</li>
                     <li><strong>停止後下載</strong>CSV 可以用 Excel 打開；JSON 給重播分析或之後的後端使用</li>
                     <li><strong>到「重播分析」選檔案</strong>畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
                 </ol>
                 <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
+            </section>
+
+            <section id="experiments" aria-labelledby="expTitle">
+                <h2 id="expTitle">驗證實驗：公尺座標準不準</h2>
+                <p class="prose">AI 除了畫面上的位置，還會猜每個點離鏡頭多遠（公尺座標）。如果夠準，之後正面拍也能算膝蓋角度，不用限制側身。下面兩個實驗用來確認，錄完把檔案丟進<a href="replay.html">重播分析</a>，看「3D 檢查」卡片就有結果，不用自己算。</p>
+
+                <h3>實驗 D：量腿長（一支手機、一個人就能做）</h3>
+                <div class="exp">
+                    <svg class="exp-fig" viewBox="0 0 200 230" role="img" aria-labelledby="figDTitle">
+                        <title id="figDTitle">側面看的腿：大腿從大腿外側最突出的骨頭量到膝蓋外側的關節縫，小腿從膝蓋關節縫量到腳踝外側突起的中心</title>
+                        <path class="fig-body" d="M70 20 L64 112 L76 200 M64 112 L58 112"/>
+                        <path class="fig-limb" d="M70 30 L66 112 L78 200 L108 204"/>
+                        <circle class="fig-joint" cx="70" cy="30" r="6"/>
+                        <circle class="fig-joint" cx="66" cy="112" r="6"/>
+                        <circle class="fig-joint" cx="78" cy="200" r="6"/>
+                        <path class="fig-tape" d="M100 30 L100 112 M94 30 L106 30 M94 112 L106 112"/>
+                        <path class="fig-tape2" d="M118 112 L118 200 M112 112 L124 112 M112 200 L124 200"/>
+                        <text class="fig-text" x="128" y="66">大腿</text>
+                        <text class="fig-text" x="128" y="84">髖→膝</text>
+                        <text class="fig-text2" x="132" y="154">小腿</text>
+                        <text class="fig-text2" x="132" y="172">膝→踝</text>
+                    </svg>
+                    <ol class="steps">
+                        <li><strong>用捲尺量腿長</strong>大腿：大腿外側最突出的骨頭（手扠腰往下摸到的硬骨頭）量到膝蓋外側的關節縫；小腿：膝蓋關節縫量到腳踝外側突起的中心。各量兩次取平均，記下來</li>
+                        <li><strong>側面錄一段深蹲</strong>手機放 2～3 公尺外、腰的高度，側身對鏡頭。按「數據」→「開始錄製」，倒數時走到定位，做 5 下深蹲，停止後下載 JSON</li>
+                        <li><strong>站遠一點再錄一次</strong>例如 4 公尺。兩次距離都準，才代表公尺座標可以信任</li>
+                        <li><strong>看結果</strong>到重播分析頁選檔案，在「3D 檢查」填入捲尺量的長度。看「原始」和「處理過」哪一份和捲尺差比較少（綠色），兩次距離的結果是否接近</li>
+                    </ol>
+                </div>
+                <p class="note">捲尺本身大概有 1～2 公分的誤差（骨頭位置摸不準），差不到 2 公分可以算一樣好。</p>
+
+                <h3>實驗 H：正面拍的 3D 膝角（兩支手機）</h3>
+                <div class="exp">
+                    <svg class="exp-fig" viewBox="0 0 200 200" role="img" aria-labelledby="figHTitle">
+                        <title id="figHTitle">從上面往下看：人站在中間、面向正面那支手機；另一支手機放在人的正側面，兩支都距離 2 到 3 公尺</title>
+                        <circle class="fig-person" cx="120" cy="64" r="16"/>
+                        <path class="fig-arrow" d="M120 84 L120 104 M113 97 L120 104 L127 97"/>
+                        <text class="fig-small" x="130" y="100">面向</text>
+                        <rect class="fig-phone" x="20" y="51" width="16" height="26" rx="3"/>
+                        <rect class="fig-phone" x="112" y="164" width="16" height="26" rx="3"/>
+                        <path class="fig-tape" d="M40 64 L100 64"/>
+                        <path class="fig-tape2" d="M120 112 L120 158"/>
+                        <text class="fig-text" x="10" y="98">側面</text>
+                        <text class="fig-text2" x="136" y="184">正面</text>
+                        <text class="fig-small" x="42" y="56">2～3 公尺</text>
+                    </svg>
+                    <ol class="steps">
+                        <li><strong>擺兩支手機</strong>一支放正側面、一支放正前方，都 2～3 公尺、腰的高度</li>
+                        <li><strong>兩支都開始錄</strong>兩支都選「倒數 10 秒」，先後按「開始錄製」（差幾秒沒關係），走到中間</li>
+                        <li><strong>拍手當對時記號</strong>開始深蹲前，雙手在胸前拍一下，之後對齊兩個檔案的時間用。接著做 5 下深蹲，兩支都停止，各下載 JSON，記得哪個檔案是側面</li>
+                        <li><strong>看結果</strong>側面那支的畫面角度當標準答案；正面那支在重播分析頁按曲線圖的「3D 膝角」，看每一下最低的角度和側面那支差多少（也可以下載「角度 CSV」用 Excel 比）</li>
+                    </ol>
+                </div>
+                <p class="note">結果請記下來告訴我們（手機型號、距離、差幾公分或幾度），我們再決定要不要支援正面拍。</p>
             </section>
 
             <section id="faq" aria-labelledby="faqTitle">

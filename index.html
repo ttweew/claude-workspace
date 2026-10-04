@@ -158,6 +158,8 @@
         </div>
         <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
         <div id="repToast" role="status" hidden></div>
+        <!-- 錄製前倒數：大字放在畫面中間，站遠也看得到 -->
+        <div id="countdown" aria-live="assertive" hidden></div>
         <div id="toolbar">
             <!-- 結束：最常用、最重要的按鈕，放最左邊、實心強調 -->
             <button id="stopBtn" class="primary" title="關閉鏡頭，回到首頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="btn-text">結束</span></button>
@@ -176,6 +178,13 @@
         <div id="dataPanel" hidden>
             <div class="panel-head">
                 <button id="recordBtn">● 開始錄製</button>
+                <!-- 按下錄製後先倒數，讓一個人錄的時候有時間走到定位（會記住選擇） -->
+                <select id="countdownSelect" aria-label="錄製前倒數" title="按下錄製後先倒數，有時間走到定位">
+                    <option value="0">不倒數</option>
+                    <option value="3">倒數 3 秒</option>
+                    <option value="5" selected>倒數 5 秒</option>
+                    <option value="10">倒數 10 秒</option>
+                </select>
                 <span id="recordInfo"></span>
                 <button id="csvBtn" hidden>下載 CSV</button>
                 <button id="jsonBtn" hidden>下載 JSON</button>
