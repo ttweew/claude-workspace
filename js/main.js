@@ -44,6 +44,9 @@ const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
 const panelToggle = document.getElementById('panelToggle');
+const rawModeBtn = document.getElementById('rawModeBtn');
+const smoothModeBtn = document.getElementById('smoothModeBtn');
+const panelModeNote = document.getElementById('panelModeNote');
 const panelBody = document.getElementById('panelBody');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
@@ -406,8 +409,8 @@ function showResult(result, now) {
         const hint = framing.update(NO_PERSON, now);
         setPoseStatus(hint.text, hint.kind);
     }
-    // 錄製與數據面板都用原始資料（未平滑、未過濾，模型輸出什麼就記什麼）
-    if (recorder.recording && !recorder.add(now, raw, rawWorld)) {
+    // 錄製：原始資料（未平滑、未過濾，模型輸出什麼就記什麼）＋平滑後的點（和畫面上的骨架相同），兩種都存
+    if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null)) {
         stopRecording();
     }
     if (now - lastPanelUpdate > 200) {
@@ -655,9 +658,9 @@ function stopRecording() {
     csvBtn.hidden = jsonBtn.hidden = recorder.frameCount === 0;
 }
 
-// 數據面板：原始數值表格，以及動作判斷用的資訊
+// 數據面板：數值表格（原始或平滑後），以及動作判斷用的資訊
 function updatePanel() {
-    updateDataPanel(dataRows, lastPose && lastPose.raw);
+    updateDataPanel(dataRows, lastPose && (panelSmooth ? lastPose.landmarks : lastPose.raw));
     updateViewInfo(viewInfo, lastPose, video.classList.contains('mirrored'), video.videoWidth, video.videoHeight);
 }
 
@@ -728,6 +731,31 @@ function setPanelCollapsed(collapsed) {
     }
 }
 panelToggle.addEventListener('click', () => setPanelCollapsed(!panelBody.hidden));
+// 表格的數字：原始（AI 直接輸出，驗證實驗用）或平滑後（和畫面上的骨架相同，比較不會跳）；選擇會記在瀏覽器裡
+// 錄製、下載的檔案不受影響：兩種都會存
+const SMOOTH_KEY = 'panelSmooth';
+let panelSmooth = false;
+function setPanelSmooth(on) {
+    panelSmooth = on;
+    rawModeBtn.setAttribute('aria-pressed', String(!on));
+    smoothModeBtn.setAttribute('aria-pressed', String(on));
+    panelModeNote.textContent = on
+        ? '平滑後的數字（和畫面上的骨架相同；x、y、z 都經過平滑，淡色是被擋掉的鬼點）。'
+        : '原始資料（AI 直接輸出，未經平滑）。';
+    try {
+        localStorage.setItem(SMOOTH_KEY, on ? '1' : '0');
+    } catch (err) {
+        // 無法儲存也不影響使用
+    }
+    if (!dataPanel.hidden) updatePanel();
+}
+rawModeBtn.addEventListener('click', () => setPanelSmooth(false));
+smoothModeBtn.addEventListener('click', () => setPanelSmooth(true));
+try {
+    if (localStorage.getItem(SMOOTH_KEY) === '1') setPanelSmooth(true);
+} catch (err) {
+    // 無痕模式等情況可能無法讀取，就用預設的原始資料
+}
 try {
     if (localStorage.getItem(PANEL_KEY) === '1') setPanelCollapsed(true);
 } catch (err) {
