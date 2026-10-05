@@ -63,3 +63,20 @@ test('肢體太短：大腿朝著鏡頭（畫面上只剩 3 成長）時不給�
     assert.equal(a.LEFT_KNEE, null);
     assert.ok(a.RIGHT_KNEE !== null, '另一腳照常給角度');
 });
+
+test('深蹲：側面蹲到底、起身時轉成正面，站直了也算這一下', async () => {
+    const { SquatCounter } = await import('../js/analysis/squat.js');
+    const counter = new SquatCounter();
+    const pose = (knee, view) => ({ angles: { LEFT_KNEE: knee, RIGHT_KNEE: knee, LEFT_HIP: knee, RIGHT_HIP: knee }, landmarks: Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 })), view: { view } });
+    let t = 0;
+    const run = (knee, view, ms) => { for (let e = 0; e < ms; e += 33) counter.update(pose(knee, view), t += 33); };
+    run(175, 'side', 500);          // 側面站直
+    run(80, 'side', 800);           // 側面蹲到底
+    run(120, 'front', 400);         // 起身時轉成正面
+    run(175, 'front', 500);         // 正面站直
+    assert.equal(counter.reps.length, 1);
+    assert.equal(Math.round(counter.reps[0].minKnee), 80, '最低角度用側面量到的');
+    run(80, 'front', 1500);         // 一直正面蹲：不算
+    run(175, 'front', 500);
+    assert.equal(counter.reps.length, 1);
+});

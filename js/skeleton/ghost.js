@@ -5,6 +5,8 @@
 //   2. 骨架鏈：手腕要手肘也看得到、手肘要肩膀也看得到（腳也一樣），遠端的點不能單獨冒出來
 //   3. 塌縮保護：真人的身體大小不可能在 0.3 秒內縮小 3 成以上（要瞬間退後好幾公尺），
 //      發生這種情況就是鬼骨架，當作沒有人；之後大小穩定 1 秒（沒有繼續縮小）就是真人，恢復顯示
+//      軀幹長和肩寬＋髖寬要「都」縮小才算：只有寬度變小是轉身（真實錄影：正面轉側面時以前骨架會消失約 1 秒），
+//      只有軀幹變短是彎腰、蹲下
 //      （例如人走到鏡頭前調整手機再快速退回原位，不會一直被當作沒有人；6 種真實情境的結果不受影響）
 // 模擬測試（6 種情境、各 240 格，詳見 docs/data-format.md）：
 //   鏡頭很近時錯位點少 86%、人走出畫面時少 70%；正常全身、光線暗、沒有人的畫面不受影響
@@ -96,11 +98,16 @@ export class GhostFilter {
         const dist = (a, b) => Math.hypot((a.x - b.x) * aspect, a.y - b.y);
         const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
         const ls = l[P.LEFT_SHOULDER], rs = l[P.RIGHT_SHOULDER], lh = l[P.LEFT_HIP], rh = l[P.RIGHT_HIP];
-        const size = dist(mid(ls, rs), mid(lh, rh)) + dist(ls, rs) + dist(lh, rh);
-        this.sizes.push([timeMs, size]);
+        const torso = dist(mid(ls, rs), mid(lh, rh)), widths = dist(ls, rs) + dist(lh, rh);
+        const size = torso + widths;
+        this.sizes.push([timeMs, size, torso, widths]);
         while (timeMs - this.sizes[0][0] > SHRINK_WINDOW_MS) this.sizes.shift();
-        const recent = Math.max(...this.sizes.map(s => s[1]));
-        if (!this.ghostSize && (size < recent * (1 - SHRINK) || size < MIN_SIZE)) {
+        let recent = 0, recentTorso = 0, recentWidths = 0;
+        for (const [, s, t, w] of this.sizes) { recent = Math.max(recent, s); recentTorso = Math.max(recentTorso, t); recentWidths = Math.max(recentWidths, w); }
+        // 突然縮小：軀幹長和肩寬＋髖寬「都」縮小才算（鬼骨架是整副等比例縮小）
+        // 只有寬度變小是轉身（正面轉側面時肩寬、髖寬 0.1 秒內少 4 成）；只有軀幹變短是彎腰、蹲下
+        const shrunk = size < recent * (1 - SHRINK) && torso < recentTorso * (1 - SHRINK) && widths < recentWidths * (1 - SHRINK);
+        if (!this.ghostSize && (shrunk || size < MIN_SIZE)) {
             this.ghostSize = Math.max(recent, MIN_SIZE / 0.7);
         }
         // 大小回到塌縮前的 7 成以上：人回來了（或重新偵測到），恢復顯示

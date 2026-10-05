@@ -125,3 +125,27 @@ test('公尺座標穩定化：骨頭長度限制真的有幫助（比只做平�
     }
     assert.ok(fullErr < smoothErr * 0.95, `3D 膝角平均誤差：只平滑 ${(smoothErr / n).toFixed(2)}°、加上骨頭長度限制 ${(fullErr / n).toFixed(2)}°`);
 });
+
+test('擋鬼點：正面轉成側面時骨架不會消失（只有肩寬、髖寬變小不是鬼骨架）', () => {
+    const front = demoFrames({ yaw: 90, depths: [], lead: 5 }), side = demoFrames({ yaw: 5, depths: [], lead: 5 });
+    const pipeline = new PosePipeline();
+    let hidden = 0;
+    for (let i = 0, t = 0; t < 4000; i++, t += 33) {
+        const f = (t < 2000 ? front : side)[i % 100];   // 2 秒時一格之內轉成側面（最嚴格的情況）
+        if (t > 500 && !pipeline.process(f.raw, t, W, H)) hidden++;
+        else if (t <= 500) pipeline.process(f.raw, t, W, H);
+    }
+    assert.equal(hidden, 0);
+});
+
+test('擋鬼點：整副骨架等比例越縮越小（人走出畫面後的鬼骨架）仍然擋掉', () => {
+    const frames = demoFrames({ yaw: 5, depths: [], lead: 10 });
+    const pipeline = new PosePipeline();
+    let shownLate = 0;
+    for (let i = 0, t = 0; t < 6000; i++, t += 33) {
+        const k = t < 2000 ? 1 : Math.max(0.4, 1 - (t - 2000) / 1500 * 0.6);
+        const raw = frames[i % frames.length].raw.map(p => ({ ...p, x: 0.5 + (p.x - 0.5) * k, y: 0.5 + (p.y - 0.5) * k }));
+        if (pipeline.process(raw, t, W, H) && t > 3000) shownLate++;
+    }
+    assert.ok(shownLate < 40, '縮小之後還畫出來的格數 ' + shownLate);
+});
