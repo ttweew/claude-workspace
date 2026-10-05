@@ -47,8 +47,12 @@ export function angleAt(a, b, c) {
 }
 
 // 太短的肢體：回傳 Set，例如 { 'LEFT_thigh' }
-// 「應有長度」用整個人的大小推算：軀幹長度、以及各段肢體換算回來的軀幹長度取中間值，兩者取大的
-// 不只看軀幹，因為正面拍、身體前傾時軀幹本身也會變短；取中間值，一兩段肢體變短不影響
+// 「應有長度」用四肢互相比較：各段肢體換算回來的身體大小取中間值，一兩段肢體朝鏡頭變短不影響
+// 不和軀幹比：手機放得比較高、往下拍時，越下面的部位在畫面上縮得越多
+//   第一次真實錄影（手機直拿、放得比較高）：站直時小腿只有軀幹的 0.37 倍（照片推算的比例是 0.8 倍），
+//   以前和軀幹比，站直的膝蓋有一半的時間不給角度；改成四肢互相比較後，站直時都有角度
+//   合成深蹲（2,223 種拍攝角度與姿勢）擋掉的仍然都是誤差超過 30° 的情況
+// 看得到的肢體不到 3 段時（例如只拍到上半身），才用軀幹長度
 export function shortSegments(landmarks, width, height) {
     const px = id => ({ x: landmarks[P[id]].x * width, y: landmarks[P[id]].y * height });
     const seen = (...ids) => ids.every(id => isVisible(landmarks[P[id]]));
@@ -61,7 +65,7 @@ export function shortSegments(landmarks, width, height) {
         scales.push(lengths[name] / SEGMENT_LENGTH[kind]);
     }
     let scale = 0;
-    if (seen('LEFT_SHOULDER', 'RIGHT_SHOULDER', 'LEFT_HIP', 'RIGHT_HIP')) {
+    if (scales.length < 3 && seen('LEFT_SHOULDER', 'RIGHT_SHOULDER', 'LEFT_HIP', 'RIGHT_HIP')) {
         const mid = (a, b) => ({ x: (px(a).x + px(b).x) / 2, y: (px(a).y + px(b).y) / 2 });
         scale = dist(mid('LEFT_SHOULDER', 'RIGHT_SHOULDER'), mid('LEFT_HIP', 'RIGHT_HIP'));
     }
