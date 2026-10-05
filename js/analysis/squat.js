@@ -59,6 +59,21 @@ export class SquatCounter {
         // 斜側面（約 30°）在分界附近，偶爾一個關節跳一下就會短暫被判斷成正面，以前會把正在蹲的這一下整個作廢、漏算
         if (view === 'front') {
             if (this.frontSince === null) this.frontSince = timeMs;
+            // 已經在側面蹲到底（最低的角度量好了），起身時轉成正面：站直了就算這一下
+            // 站直不管從哪個方向拍都看得出來；第一次真實錄影有人蹲完轉身面向手機，以前這一下會被作廢
+            // 正面拍的角度不拿來更新最低角度，也不會因為正面而開始新的一下
+            const c = this.current;
+            if (c && c.reachedDown) {
+                this.lastSeen = timeMs;
+                if (knee >= SQUAT.STAND && timeMs - c.start >= SQUAT.MIN_REP_MS) {
+                    out.rep = this.finish(timeMs);
+                    this.abandon();
+                    out.reps = this.reps.length;
+                }
+                if (timeMs - this.frontSince >= SQUAT.FRONT_MS) out.prompt = '請側身對著鏡頭，正面拍膝蓋角度不準';
+                out.state = this.state;
+                return out;
+            }
             if (timeMs - this.frontSince >= SQUAT.FRONT_MS) {
                 out.prompt = '請側身對著鏡頭，正面拍膝蓋角度不準';
                 this.abandon();
