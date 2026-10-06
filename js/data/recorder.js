@@ -3,7 +3,7 @@
 
 import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 
-const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠
+export const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠（5 分鐘的 JSON 約 34 MB；再長手機的瀏覽器可能記憶體不夠而重新整理，整段就不見了）
 const FORMAT_VERSION = 1;
 
 // 小數位數：比例座標到小數第 5 位（640 像素寬時約 0.006 像素），公尺到 0.1 公釐
