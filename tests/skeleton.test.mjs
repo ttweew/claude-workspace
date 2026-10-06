@@ -149,3 +149,16 @@ test('擋鬼點：整副骨架等比例越縮越小（人走出畫面後的鬼�
     }
     assert.ok(shownLate < 40, '縮小之後還畫出來的格數 ' + shownLate);
 });
+
+test('擋鬼點：側面站得比較遠（軀幹約佔畫面 1 成 3）蹲下時，骨架不會被當成鬼骨架', () => {
+    // 真實錄影（iPhone）：側面時肩寬、髖寬幾乎是 0，「身體大小」只剩軀幹長，低於門檻被藏了 10 秒
+    const frames = demoFrames({ yaw: 5, lead: 10 });
+    const pipeline = new PosePipeline();
+    let shown = 0, total = 0;
+    for (let i = 0, t = 0; t < 8000; i++, t += 33) {
+        const raw = frames[i % frames.length].raw.map(p => ({ ...p, x: 0.5 + (p.x - 0.5) * 0.6, y: 0.5 + (p.y - 0.5) * 0.6 }));
+        const out = pipeline.process(raw, t, W, H);
+        if (t > 1000) { total++; if (out) shown++; }
+    }
+    assert.ok(shown / total > 0.95, `畫出來的格 ${(100 * shown / total).toFixed(0)}%`);
+});
