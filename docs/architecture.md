@@ -117,7 +117,7 @@ npm test
 | 檔案 | 測什麼 |
 |---|---|
 | `tests/skeleton.test.mjs` | 平滑真的變穩、壞掉的數字不會擴散、亂七八糟的輸入不會當掉；公尺座標穩定化更接近真實位置，而且骨頭長度限制比只做平滑更準 |
-| `tests/analysis.test.mjs` | 角度計算、深蹲次數與深度、正面拍不計算、小幅晃動不誤算 |
+| `tests/analysis.test.mjs` | 角度計算、深蹲次數與深度、正面拍不計算、小幅晃動不誤算、入鏡提示（蹲低時腳被擋住不叫人往後退） |
 | `tests/data.test.mjs` | CSV／JSON 格式、讀 JSON 和讀 CSV 結果相同、壞掉的檔案給中文錯誤、3D 檢查 |
 | `tests/platform.test.mjs` | 從瀏覽器識別字串判斷 iPhone、Android、LINE 內建瀏覽器 |
 
