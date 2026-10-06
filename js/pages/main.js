@@ -11,7 +11,7 @@ import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
 import { getDerivedPoints } from '../skeleton/landmarks.js';
 import { framingAdvice, FramingHint, NO_PERSON } from '../analysis/framing.js';
-import { PoseRecorder, buildFile, downloadBlob, recordingName } from '../data/recorder.js';
+import { PoseRecorder, buildFile, downloadBlob, recordingName, MAX_SECONDS } from '../data/recorder.js';
 import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
@@ -43,6 +43,7 @@ const viewInfo = document.getElementById('viewInfo');
 const recordBtn = document.getElementById('recordBtn');
 const countdownSelect = document.getElementById('countdownSelect');
 const countdownEl = document.getElementById('countdown');
+const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
 const csvBtn = document.getElementById('csvBtn');
 const jsonBtn = document.getElementById('jsonBtn');
@@ -417,7 +418,10 @@ function showResult(result, now) {
     // 公尺座標每一格都要處理（平滑需要連續的資料），錄製時才存
     const stableWorld = worldStabilizer.process(rawWorld, now);
     if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null, stableWorld)) {
-        stopRecording();
+        stopRecording(true);
+    } else if (recorder.recording && !recWarned && recorder.seconds >= MAX_SECONDS - WARN_BEFORE_END) {
+        recWarned = true;
+        showRecNotice('錄製剩 ' + WARN_BEFORE_END + ' 秒', false);
     }
     if (now - lastPanelUpdate > 200) {
         lastPanelUpdate = now;
@@ -561,6 +565,7 @@ async function startCamera(deviceId) {
 // 錄製中也一併停止：換了鏡頭，解析度與角度都不同，不能接在同一份資料裡
 function stopStream() {
     cancelCountdown();
+    hideRecNotice();
     if (recorder.recording) stopRecording();
     if (currentStream) {
         stopCamera(currentStream);
@@ -634,9 +639,41 @@ function updateDataBtn() {
     dataBtn.setAttribute('aria-pressed', String(!dataPanel.hidden));
 }
 
+// 錄製中顯示「已錄／上限」，人走回來看一眼就知道還剩多久
 function showRecordInfo() {
-    recordInfo.textContent = (recorder.recording ? '錄製中 ' : '已錄 ') + recorder.seconds.toFixed(1)
-        + ' 秒 · ' + recorder.frameCount + ' 格';
+    recordInfo.textContent = recorder.recording
+        ? '錄製中 ' + clock(recorder.seconds) + '／' + clock(MAX_SECONDS) + ' · ' + recorder.frameCount + ' 格'
+        : '已錄 ' + clock(recorder.seconds) + ' · ' + recorder.frameCount + ' 格'
+            + (recLimitHit ? '（已錄滿 ' + MAX_SECONDS / 60 + ' 分鐘，自動停止）' : '');
+}
+
+// 秒數 → 「4:05」（四捨五入：錄滿時最後一格約 299.97 秒，顯示 5:00）
+function clock(seconds) {
+    const s = Math.round(seconds);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+// ---------- 錄製快結束、錄滿時的提醒 ----------
+// 錄製最多 5 分鐘（js/data/recorder.js 的 MAX_SECONDS）。以前錄滿只有數據面板的小字改變，
+// 人在 2～3 公尺外運動時看不到也聽不到，後面的動作沒錄到也不知道（真實錄影：棒式、伏地挺身被截掉）
+// 所以剩 30 秒、錄滿時都在畫面中間顯示大字並嗶一聲，和錄製前倒數一樣站遠也知道
+const WARN_BEFORE_END = 30;
+let recWarned = false;     // 這次錄製已經提醒過「剩 30 秒」
+let recLimitHit = false;   // 這次錄製是錄滿自動停止的
+let recNoticeTimer = 0;
+
+function showRecNotice(text, final) {
+    clearTimeout(recNoticeTimer);
+    recNoticeEl.textContent = text;
+    recNoticeEl.classList.toggle('final', final);
+    recNoticeEl.hidden = false;
+    beep(final);
+    recNoticeTimer = setTimeout(hideRecNotice, final ? 6000 : 3000);
+}
+
+function hideRecNotice() {
+    clearTimeout(recNoticeTimer);
+    recNoticeEl.hidden = true;
 }
 
 // ---------- 錄製前倒數 ----------
@@ -729,6 +766,9 @@ function cancelCountdown() {
 }
 
 function startRecording() {
+    recWarned = false;
+    recLimitHit = false;
+    hideRecNotice();
     recorder.start({
         app: 'AI 智慧運動分析系統',
         model: POSE_MODEL_NAME,
@@ -747,8 +787,11 @@ function startRecording() {
     showRecordInfo();
 }
 
-function stopRecording() {
+// limitHit：錄滿上限自動停止（其他情況：按停止、關鏡頭、換鏡頭、畫面轉向）
+function stopRecording(limitHit = false) {
     recorder.stop();
+    recLimitHit = limitHit;
+    if (limitHit) showRecNotice('已錄滿 ' + MAX_SECONDS / 60 + ' 分鐘，自動停止', true);
     recordBtn.textContent = '● 重新錄製';
     recordBtn.classList.remove('recording');
     updateDataBtn();
