@@ -18,10 +18,16 @@ const HIDE_AT = 0.6;      // 已經畫出來的點，低於這個值才收起
 const APPEAR_MS = 80;     // 約 2～3 格
 const SHRINK = 0.3;       // 0.3 秒內縮小超過 3 成 → 鬼骨架
 const SHRINK_WINDOW_MS = 300;
-const MIN_SIZE = 0.15;    // 身體大小（軀幹長＋肩寬＋髖寬，以畫面高度為 1）小於這個值也當作鬼骨架，真人要站在約 8 公尺外才會這麼小
+const MIN_SIZE = 0.15;    // 身體大小（軀幹長＋肩寬＋髖寬，以畫面高度為 1）小於這個值也當作鬼骨架，正面拍時真人要站在約 8 公尺外才會這麼小（側面見下面的 TORSO_SHRINK）
 const RESET_AFTER_MS = 500;
 const STABLE_MS = 1000;      // 判定為鬼骨架後，大小穩定這麼久（沒有再縮小）就當作真人，恢復顯示
 const STABLE_RANGE = 1.15;   // 「穩定」：這段時間最大、最小相差不到 15%
+// 側面拍時肩寬、髖寬幾乎是 0，「身體大小」只剩軀幹長，真人站在 3～4 公尺外就會小於 MIN_SIZE
+// 所以側面時，要軀幹也在縮小（比最近 2 秒最長時短 2 成以上）才當作鬼骨架：鬼骨架是整副一起縮小，真人的軀幹長度不會變
+// 真實錄影（iPhone，人約佔畫面高度 5 成）：側面蹲低時被當成鬼骨架，骨架藏了 10 秒
+const TORSO_WINDOW_MS = 2000;
+const TORSO_SHRINK = 0.2;
+const SIDE_WIDTH = 0.4;      // 肩寬＋髖寬不到軀幹長的 4 成才算側面（真實錄影側面時約 0.05～0.25；鬼骨架拉遠時約 0.7）
 
 // 每個點靠近身體那一端的點：手指 → 手腕 → 手肘 → 肩膀；腳尖、腳跟 → 腳踝 → 膝蓋 → 髖部
 const PARENT = {};
@@ -48,6 +54,7 @@ export class GhostFilter {
         this.sizes = [];        // 最近 0.3 秒的身體大小 [時間, 大小]
         this.ghostSize = 0;     // 判定為鬼骨架時，塌縮前的大小；0 代表正常
         this.stable = [];       // 最近 1 秒的身體大小 [時間, 大小]（判斷是不是穩定的真人）
+        this.torsos = [];       // 最近 2 秒的軀幹長 [時間, 長度]（側面時判斷是不是在縮小）
         this.lastTime = 0;
     }
 
@@ -107,7 +114,13 @@ export class GhostFilter {
         // 突然縮小：軀幹長和肩寬＋髖寬「都」縮小才算（鬼骨架是整副等比例縮小）
         // 只有寬度變小是轉身（正面轉側面時肩寬、髖寬 0.1 秒內少 4 成）；只有軀幹變短是彎腰、蹲下
         const shrunk = size < recent * (1 - SHRINK) && torso < recentTorso * (1 - SHRINK) && widths < recentWidths * (1 - SHRINK);
-        if (!this.ghostSize && (shrunk || size < MIN_SIZE)) {
+        this.torsos.push([timeMs, torso]);
+        while (timeMs - this.torsos[0][0] > TORSO_WINDOW_MS) this.torsos.shift();
+        let maxTorso = 0;
+        for (const [, t] of this.torsos) maxTorso = Math.max(maxTorso, t);
+        const side = widths < torso * SIDE_WIDTH;
+        const tooSmall = size < MIN_SIZE && (!side || torso < maxTorso * (1 - TORSO_SHRINK));
+        if (!this.ghostSize && (shrunk || tooSmall)) {
             this.ghostSize = Math.max(recent, MIN_SIZE / 0.7);
         }
         // 大小回到塌縮前的 7 成以上：人回來了（或重新偵測到），恢復顯示
