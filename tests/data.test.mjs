@@ -1,7 +1,7 @@
 // 錄製與重播（js/data/）：CSV、JSON 格式，讀檔的防呆，3D 檢查
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PoseRecorder } from '../js/data/recorder.js';
+import { PoseRecorder, MAX_SECONDS } from '../js/data/recorder.js';
 import { parseRecording, analyzeRecording } from '../js/data/replay-core.js';
 import { demoFrames } from './helpers.mjs';
 
@@ -13,6 +13,25 @@ function record() {
     recorder.stop();
     return recorder;
 }
+
+test('錄製上限：預設 5 分鐘；選 20 分鐘時錄到 20 分鐘才自動停止，下一次不選又回到預設', () => {
+    const recorder = new PoseRecorder();
+    // 每秒一格，只看時間到了沒有
+    const fill = seconds => {
+        let t = 0;
+        while (t <= seconds * 1000 + 2000 && recorder.add(t, null, null)) t += 1000;
+        return t;
+    };
+    assert.equal(MAX_SECONDS, 300);
+    recorder.start({});
+    assert.equal(fill(1200), 301000);          // 5 分鐘（300 秒）那一格還錄，下一格停止
+    assert.equal(recorder.recording, false);
+    recorder.start({}, 1200);
+    assert.equal(fill(1200), 1201000);
+    assert.equal(recorder.frameCount, 1201);
+    recorder.start({});
+    assert.equal(recorder.maxSeconds, 300);
+});
 
 test('CSV：498 欄（原始 234 欄在前面），每一列欄數一樣', () => {
     const lines = record().toCSV().trim().split('\r\n');

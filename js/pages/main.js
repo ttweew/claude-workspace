@@ -11,14 +11,14 @@ import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
 import { getDerivedPoints } from '../skeleton/landmarks.js';
 import { framingAdvice, FramingHint, NO_PERSON, LEGS_BLOCKED } from '../analysis/framing.js';
-import { PoseRecorder, buildFile, downloadBlob, recordingName, MAX_SECONDS } from '../data/recorder.js';
+import { PoseRecorder, buildFile, downloadBlob, recordingName, MAX_SECONDS, LIMIT_MINUTES, JSON_MB_PER_MINUTE } from '../data/recorder.js';
 import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { SquatCounter, DEPTH_TEXT } from '../analysis/squat.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
-import { unsupportedAdvice } from '../platform/support.js';
+import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -44,6 +44,8 @@ const dataRows = document.getElementById('dataRows');
 const viewInfo = document.getElementById('viewInfo');
 const recordBtn = document.getElementById('recordBtn');
 const countdownSelect = document.getElementById('countdownSelect');
+const limitSelect = document.getElementById('limitSelect');
+const limitNote = document.getElementById('limitNote');
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -430,7 +432,7 @@ function showResult(result, now) {
     const stableWorld = worldStabilizer.process(rawWorld, now);
     if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null, stableWorld)) {
         stopRecording(true);
-    } else if (recorder.recording && !recWarned && recorder.seconds >= MAX_SECONDS - WARN_BEFORE_END) {
+    } else if (recorder.recording && !recWarned && recorder.seconds >= recorder.maxSeconds - WARN_BEFORE_END) {
         recWarned = true;
         showRecNotice('錄製剩 ' + WARN_BEFORE_END + ' 秒', false);
     }
@@ -655,9 +657,9 @@ function updateDataBtn() {
 // 錄製中顯示「已錄／上限」，人走回來看一眼就知道還剩多久
 function showRecordInfo() {
     recordInfo.textContent = recorder.recording
-        ? '錄製中 ' + clock(recorder.seconds) + '／' + clock(MAX_SECONDS) + ' · ' + recorder.frameCount + ' 格'
+        ? '錄製中 ' + clock(recorder.seconds) + '／' + clock(recorder.maxSeconds) + ' · ' + recorder.frameCount + ' 格'
         : '已錄 ' + clock(recorder.seconds) + ' · ' + recorder.frameCount + ' 格'
-            + (recLimitHit ? '（已錄滿 ' + MAX_SECONDS / 60 + ' 分鐘，自動停止）' : '');
+            + (recLimitHit ? '（已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止）' : '');
 }
 
 // 秒數 → 「4:05」（四捨五入：錄滿時最後一格約 299.97 秒，顯示 5:00）
@@ -667,7 +669,7 @@ function clock(seconds) {
 }
 
 // ---------- 錄製快結束、錄滿時的提醒 ----------
-// 錄製最多 5 分鐘（js/data/recorder.js 的 MAX_SECONDS）。以前錄滿只有數據面板的小字改變，
+// 錄製上限是使用者選的 5～20 分鐘（下面的「錄製上限」）。以前錄滿只有數據面板的小字改變，
 // 人在 2～3 公尺外運動時看不到也聽不到，後面的動作沒錄到也不知道（真實錄影：棒式、伏地挺身被截掉）
 // 所以剩 30 秒、錄滿時都在畫面中間顯示大字並嗶一聲，和錄製前倒數一樣站遠也知道
 const WARN_BEFORE_END = 30;
@@ -702,6 +704,39 @@ try {
 countdownSelect.addEventListener('change', () => {
     try { localStorage.setItem('recordCountdown', countdownSelect.value); } catch (err) { /* 不能存就不記 */ }
 });
+
+// ---------- 錄製上限 ----------
+// 以前固定 5 分鐘；老師 10/12 回饋改成可以選 5、10、15、20 分鐘（會記住選擇）
+// 旁邊顯示檔案大約多大；手機選 15、20 分鐘時提醒：錄製中的資料都放在記憶體裡（20 分鐘約 165 MB），
+// 手機的瀏覽器記憶體不夠時會直接重新整理網頁，整段就不見了。只提醒、不禁止（有些手機記憶體夠）
+const PHONE = ['iOS', 'iPadOS', 'Android'].includes(describeDevice().os);
+const PHONE_WARN_MINUTES = 15;
+
+try {
+    const saved = localStorage.getItem('recordLimit');
+    if (saved !== null && LIMIT_MINUTES.includes(Number(saved))) limitSelect.value = saved;
+} catch (err) { /* 不能存就用預設 */ }
+limitSelect.addEventListener('change', () => {
+    try { localStorage.setItem('recordLimit', limitSelect.value); } catch (err) { /* 不能存就不記 */ }
+    showLimitNote();
+});
+
+function limitMinutes() {
+    return Number(limitSelect.value) || MAX_SECONDS / 60;
+}
+
+function showLimitNote() {
+    const minutes = limitMinutes();
+    // 四捨五入到 5 MB：只是大概，實際大小看每秒幾格、有沒有偵測到人
+    const mb = Math.round(minutes * JSON_MB_PER_MINUTE / 5) * 5;
+    const warn = PHONE && minutes >= PHONE_WARN_MINUTES;
+    limitNote.textContent = '檔案約 ' + mb + ' MB'
+        + (warn ? '。手機錄太久，瀏覽器可能記憶體不夠而重新整理，錄的資料會不見；建議用電腦，或分成幾段錄' : '');
+    limitNote.classList.toggle('warn', warn);
+    // 錄製中不顯示（數據面板那一列留給「錄製中 0:12／10:00」）
+    limitNote.hidden = recorder.recording;
+}
+showLimitNote();
 
 // 短促的嗶聲（倒數每秒一聲、開始錄製和錄滿是長音）；跟著工具列的音量，沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
 function beep(long) {
@@ -778,7 +813,10 @@ function startRecording() {
         // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
         displayMirrored: video.classList.contains('mirrored'),
         userAgent: navigator.userAgent
-    });
+    }, limitMinutes() * 60);
+    // 錄製中不能改上限（改了也不知道算新的還是舊的）
+    limitSelect.disabled = true;
+    showLimitNote();
     recordBtn.textContent = '■ 停止錄製';
     recordBtn.classList.add('recording');
     updateDataBtn();
@@ -791,7 +829,9 @@ function startRecording() {
 function stopRecording(limitHit = false) {
     recorder.stop();
     recLimitHit = limitHit;
-    if (limitHit) showRecNotice('已錄滿 ' + MAX_SECONDS / 60 + ' 分鐘，自動停止', true);
+    if (limitHit) showRecNotice('已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止', true);
+    limitSelect.disabled = false;
+    showLimitNote();
     recordBtn.textContent = '● 重新錄製';
     recordBtn.classList.remove('recording');
     updateDataBtn();

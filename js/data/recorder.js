@@ -3,7 +3,12 @@
 
 import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 
-export const MAX_SECONDS = 300;  // 最多錄 5 分鐘，避免手機記憶體不夠（5 分鐘的 JSON 約 34 MB；再長手機的瀏覽器可能記憶體不夠而重新整理，整段就不見了）
+// 錄製上限：使用者可以選 5、10、15、20 分鐘（老師 10/12 回饋），預設 5 分鐘
+// 錄越久檔案越大、錄製中佔的記憶體越多（每分鐘約 7 MB JSON、8 MB 記憶體）：
+// 手機的瀏覽器記憶體不夠時會直接重新整理網頁，整段就不見了，所以手機選 15、20 分鐘時會提醒
+export const LIMIT_MINUTES = [5, 10, 15, 20];
+export const MAX_SECONDS = 300;            // 預設上限（5 分鐘）
+export const JSON_MB_PER_MINUTE = 6.8;     // 真實錄影：5 分鐘的 JSON 約 34 MB
 const FORMAT_VERSION = 1;
 
 // 小數位數：比例座標到小數第 5 位（640 像素寬時約 0.006 像素），公尺到 0.1 公釐
@@ -34,10 +39,13 @@ export class PoseRecorder {
         this.frames = [];
         this.recording = false;
         this.meta = null;
+        this.maxSeconds = MAX_SECONDS;   // 這次錄製的上限（秒）
     }
 
     // 開始錄製；meta：裝置與設定資訊（運算方式、鏡頭解析度…），會寫進 JSON
-    start(meta) {
+    // maxSeconds：這次最多錄幾秒（使用者選的上限）
+    start(meta, maxSeconds = MAX_SECONDS) {
+        this.maxSeconds = maxSeconds;
         this.frames = [];
         this.meta = { ...meta, startedAt: new Date().toISOString() };
         this.startTime = null;
@@ -57,7 +65,7 @@ export class PoseRecorder {
         if (!this.recording) return false;
         if (this.startTime === null) this.startTime = timeMs;
         const t = timeMs - this.startTime;
-        if (t > MAX_SECONDS * 1000) {
+        if (t > this.maxSeconds * 1000) {
             this.stop();
             return false;
         }

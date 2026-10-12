@@ -208,6 +208,14 @@
                     <option value="5" selected>倒數 5 秒</option>
                     <option value="10">倒數 10 秒</option>
                 </select>
+                <!-- 一次最多錄多久（老師 10/12 回饋：可以自己選；會記住選擇）。錄越久檔案越大，手機選 15、20 分鐘會提醒 -->
+                <select id="limitSelect" aria-label="一次最多錄多久" aria-describedby="limitNote" title="一次最多錄多久，錄滿會自動停止">
+                    <option value="5" selected>最多 5 分鐘</option>
+                    <option value="10">最多 10 分鐘</option>
+                    <option value="15">最多 15 分鐘</option>
+                    <option value="20">最多 20 分鐘</option>
+                </select>
+                <span id="limitNote"></span>
                 <span id="recordInfo"></span>
                 <button id="csvBtn" hidden>下載 CSV</button>
                 <button id="jsonBtn" hidden>下載 JSON</button>

@@ -49,7 +49,7 @@ const WORKER_URL = new URL('../data/replay-worker.js' + new URL(import.meta.url)
 let workerPromise = null;
 let requestId = 0;      // 每次讀檔、重算加 1；比較舊的結果直接丟掉
 let parsedOnMain = null; // 不能用背景執行緒時，在主畫面讀好的資料
-let loadedText = null;   // 目前檔案的內容：背景執行緒中途當掉時，改在主畫面重新讀取用
+let loadedSource = null; // 目前的檔案（File）或文字：背景執行緒中途當掉時，改在主畫面重新讀取用
 
 // 開一個背景執行緒（module worker）；瀏覽器不支援或開不起來就回傳 null，改在主畫面計算
 function getWorker() {
@@ -121,26 +121,31 @@ function ask(w, message, transfer, progress) {
 // 主畫面計算時，每算一段讓畫面喘口氣（進度條才會動、按鈕才按得動）
 const breathe = () => new Promise(resolve => setTimeout(resolve, 0));
 
-async function load(name, text) {
+// source：使用者選的檔案（File），或示範資料的文字
+// 檔案直接交給背景執行緒讀（不先在主畫面讀成文字）：大檔案主畫面才不會卡、記憶體也不會多一份
+async function load(name, source) {
     stopPlaying();
     const id = ++requestId;
     setStatus('讀取中…');
-    loadedText = text;
+    loadedSource = source;
     parsedOnMain = null;
     try {
         let meta = null;
         const w = await getWorker();
         if (w) {
             try {
-                meta = (await ask(w, { type: 'load', id, text })).meta;
+                meta = (await ask(w, { type: 'load', id, source })).meta;
             } catch (err) {
                 if (!err.crashed) throw err;
                 // 背景執行緒當掉：改在主畫面讀（下面）
             }
         }
         if (!meta) {
-            parsedOnMain = parseRecording(text);
-            meta = parsedOnMain.meta;
+            // 讀檔要等一下：等的時候使用者可能又選了別的檔案，確定還是這個檔案才存起來
+            const parsed = parseRecording(await readText(source));
+            if (id !== requestId) return;
+            parsedOnMain = parsed;
+            meta = parsed.meta;
         }
         if (id !== requestId) return;
         data = { name, meta };
@@ -158,6 +163,10 @@ async function load(name, text) {
     mirrored = !!data.meta.displayMirrored;
     mirrorBtn.setAttribute('aria-pressed', mirrored);
     analyze();
+}
+
+function readText(source) {
+    return typeof source === 'string' ? source : source.text();
 }
 
 function setStatus(text, error) {
@@ -190,7 +199,11 @@ async function analyze() {
             }
         }
         if (!r) {
-            if (!parsedOnMain) parsedOnMain = parseRecording(loadedText);
+            if (!parsedOnMain) {
+                const parsed = parseRecording(await readText(loadedSource));
+                if (id !== requestId) return;
+                parsedOnMain = parsed;
+            }
             if (id !== requestId) return;
             r = await analyzeRecording(parsedOnMain, width, height, { lab: LAB_SQUAT, onProgress: progress, pause: breathe });
         }
@@ -750,9 +763,7 @@ function exportCSV() {
 // ---------- 事件 ----------
 
 function readFile(file) {
-    if (!file) return;
-    setStatus('讀取中…');
-    file.text().then(text => load(file.name, text), err => setStatus('讀取失敗：' + err.message, true));
+    if (file) load(file.name, file);
 }
 
 fileInput.addEventListener('change', () => readFile(fileInput.files[0]));
