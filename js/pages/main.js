@@ -1,7 +1,7 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT } from '../config.js';
-import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage } from '../platform/camera.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT, FPS_CHOICES } from '../config.js';
+import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { drawSkeleton } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
@@ -46,6 +46,9 @@ const recordBtn = document.getElementById('recordBtn');
 const countdownSelect = document.getElementById('countdownSelect');
 const limitSelect = document.getElementById('limitSelect');
 const limitNote = document.getElementById('limitNote');
+const fpsSelect = document.getElementById('fpsSelect');  // 首頁「畫面流暢度」
+const fpsLive = document.getElementById('fpsLive');      // 鏡頭畫面：點開運算標籤時出現
+const fpsHint = document.getElementById('fpsHint');
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -96,7 +99,9 @@ let showLabels = SHOW_LABELS_AT_START || loadLabelSetting();  // 是否在主要
 let perfExpanded = false;   // 運算資訊標籤是否展開顯示詳細資訊
 let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面時用來找最近的點
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
-const fps = new FpsCounter();
+const fps = new FpsCounter();        // AI 每秒算幾格
+const cameraFps = new FpsCounter();  // 鏡頭每秒送來幾格（AI 最多只能算這麼多格）
+let lastCameraFrame = null;          // 上一次看到的鏡頭畫面（算鏡頭格數用）
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
@@ -243,7 +248,14 @@ async function tryLoadPose(attempt) {
 function updatePerfInfo() {
     if (!pose) return;
     const parts = [perfExpanded ? pose.computeMode + '：' + pose.computeDetail : pose.computeMode];
-    if (currentStream) parts.push(fps.value ? fps.value + ' FPS' : 'FPS 計算中');
+    if (currentStream) {
+        const ai = fps.value ? fps.value + ' FPS' : 'FPS 計算中';
+        // 選了每秒 60 格以上：分開顯示鏡頭送來幾格、AI 算了幾格，才知道卡在鏡頭還是 AI
+        const high = getFrameRate() > 30;
+        if (high) parts.push('鏡頭 ' + (cameraFps.value || '…') + ' · AI ' + ai);
+        else parts.push(ai);
+        if (perfExpanded && !high) parts.push('鏡頭每秒 ' + (cameraFps.value || '…') + ' 格');
+    }
     if (currentStream && perfExpanded) {
         parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
             : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗');
@@ -254,6 +266,7 @@ function updatePerfInfo() {
     }
     perfBtn.textContent = parts.join(' · ');
     perfBtn.hidden = false;
+    fpsLive.hidden = !(perfExpanded && currentStream);
 }
 
 // 排下一次偵測：鏡頭每送來一格新畫面，就偵測一次
@@ -333,6 +346,7 @@ function detectPose(time, frame) {
         return;
     }
     const frameId = frame ? 'f' + frame.presentedFrames : video.currentTime;
+    if (video.readyState >= 2) countCameraFrame(frame);
     if (video.readyState < 2 || frameId === lastVideoTime) return;
     // 背景執行緒還在算上一格：先記下「有新畫面」，算完馬上接著算最新的這一格（不排隊、也不空等下一格）
     if (detecting) {
@@ -340,6 +354,16 @@ function detectPose(time, frame) {
         return;
     }
     startDetect(frameId);
+}
+
+// 鏡頭每秒送來幾格：requestVideoFrameCallback 有「已經顯示幾格」，兩次叫醒之間送來幾格都算得到；
+// 舊瀏覽器沒有，只能看影像時間有沒有變
+function countCameraFrame(frame) {
+    const id = frame ? frame.presentedFrames : video.currentTime;
+    if (id === lastCameraFrame) return;
+    const frames = frame && lastCameraFrame !== null ? Math.max(1, id - lastCameraFrame) : 1;
+    lastCameraFrame = id;
+    if (cameraFps.tick(performance.now(), frames)) updatePerfInfo();
 }
 
 // 送一格去偵測；結果回來後畫出來，若等待期間又有新畫面，馬上接著偵測
@@ -552,6 +576,10 @@ async function startCamera(deviceId) {
     video.classList.toggle('mirrored', mirror);
     overlay.classList.toggle('mirrored', mirror);
     hud.setMirrored(mirror);
+    // 這顆鏡頭最多每秒幾格：做不到的選項變灰；檔案大小跟著鏡頭的每秒格數估算
+    cameraMaxFps = maxFrameRate(stream);
+    showFpsChoice();
+    showLimitNote();
     // 鏡頭中途斷線（外接鏡頭被拔掉、被其他程式搶走）：回到首頁並說明原因
     stream.getVideoTracks()[0].addEventListener('ended', () => {
         if (stream !== currentStream) return;
@@ -590,6 +618,8 @@ function stopStream() {
     streamGeneration++;
     waitingFrame = null;
     fps.reset();
+    cameraFps.reset();
+    lastCameraFrame = null;
     pipeline.reset();
     worldStabilizer.reset();
     framing.reset();
@@ -727,9 +757,13 @@ function limitMinutes() {
 
 function showLimitNote() {
     const minutes = limitMinutes();
+    // 鏡頭每秒格數比 30 多（使用者選了 60 格以上），檔案和記憶體跟著變大，提醒的門檻跟著提早
+    // 用鏡頭實際設定的格數估算（選 60 但鏡頭只給 30，就照 30 算）；還沒開鏡頭時用選的格數
+    const rate = (currentStream && cameraFrameRate(currentStream)) || getFrameRate();
+    const load = minutes * Math.max(1, rate / 30);
     // 四捨五入到 5 MB：只是大概，實際大小看每秒幾格、有沒有偵測到人
-    const mb = Math.round(minutes * JSON_MB_PER_MINUTE / 5) * 5;
-    const warn = PHONE && minutes >= PHONE_WARN_MINUTES;
+    const mb = Math.round(load * JSON_MB_PER_MINUTE / 5) * 5;
+    const warn = PHONE && load >= PHONE_WARN_MINUTES;
     limitNote.textContent = '檔案約 ' + mb + ' MB'
         + (warn ? '。手機錄太久，瀏覽器可能記憶體不夠而重新整理，錄的資料會不見；建議用電腦，或分成幾段錄' : '');
     limitNote.classList.toggle('warn', warn);
@@ -737,6 +771,47 @@ function showLimitNote() {
     limitNote.hidden = recorder.recording;
 }
 showLimitNote();
+
+// ---------- 每秒格數 ----------
+// 老師 10/12：每秒 30 格感覺很低。讓使用者依自己手機的能力選 30、60、90、120（js/platform/camera.js 會記住）
+// 首頁「畫面流暢度」和鏡頭畫面（點開運算標籤）兩個選單都能選；開著鏡頭時換了就用新的格數重開同一顆鏡頭
+// 鏡頭有回報上限時，做不到的選項變灰（例如「每秒 120 格（鏡頭最多 60）」）；
+// 沒回報（舊的 Safari）就都能選，做不到時鏡頭自動用做得到的，運算標籤會顯示實際每秒幾格
+let cameraMaxFps = 0;   // 最近開的鏡頭最多每秒幾格（0：不知道）
+
+function fillFpsOptions(select) {
+    const current = getFrameRate();
+    select.replaceChildren(...FPS_CHOICES.map(rate => {
+        const option = document.createElement('option');
+        const over = rate > 30 && cameraMaxFps > 0 && rate > cameraMaxFps;
+        option.value = String(rate);
+        option.textContent = '每秒 ' + rate + ' 格' + (rate === 30 ? '（建議）' : over ? '（鏡頭最多 ' + cameraMaxFps + '）' : '（實驗）');
+        // 目前選的不鎖住（不然選單會顯示空白），只寫出鏡頭最多幾格
+        option.disabled = over && rate !== current;
+        return option;
+    }));
+    select.value = String(current);
+}
+
+function showFpsChoice() {
+    fillFpsOptions(fpsSelect);
+    fillFpsOptions(fpsLive);
+    fpsHint.hidden = getFrameRate() <= 30;
+    fpsHint.textContent = '實驗中：要鏡頭支援、AI 算得夠快，手機會比較耗電、發燙；做不到時會自動用做得到的。'
+        + '開鏡頭後點運算標籤，可以看實際每秒幾格，也可以直接切換';
+}
+
+function chooseFps(select) {
+    setFrameRate(Number(select.value));
+    showFpsChoice();
+    showLimitNote();
+    updatePerfInfo();
+    // 開著鏡頭：用新的每秒格數重開同一顆鏡頭（錄製中選單會鎖住，不會走到這裡）
+    if (currentStream) startCamera(activeDeviceId(currentStream));
+}
+fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
+fpsLive.addEventListener('change', () => chooseFps(fpsLive));
+showFpsChoice();
 
 // 短促的嗶聲（倒數每秒一聲、開始錄製和錄滿是長音）；跟著工具列的音量，沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
 function beep(long) {
@@ -810,12 +885,15 @@ function startRecording() {
         computeMode: pose ? pose.computeMode : '',
         videoWidth: video.videoWidth,
         videoHeight: video.videoHeight,
+        // 鏡頭設定的每秒格數（選了 60 格以上時，看鏡頭到底有沒有給那麼多格）
+        cameraFrameRate: cameraFrameRate(currentStream),
         // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
         displayMirrored: video.classList.contains('mirrored'),
         userAgent: navigator.userAgent
     }, limitMinutes() * 60);
-    // 錄製中不能改上限（改了也不知道算新的還是舊的）
+    // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）
     limitSelect.disabled = true;
+    fpsLive.disabled = true;
     showLimitNote();
     recordBtn.textContent = '■ 停止錄製';
     recordBtn.classList.add('recording');
@@ -831,6 +909,7 @@ function stopRecording(limitHit = false) {
     recLimitHit = limitHit;
     if (limitHit) showRecNotice('已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止', true);
     limitSelect.disabled = false;
+    fpsLive.disabled = false;
     showLimitNote();
     recordBtn.textContent = '● 重新錄製';
     recordBtn.classList.remove('recording');

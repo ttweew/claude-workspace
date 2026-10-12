@@ -223,6 +223,41 @@ button:focus-visible, select:focus-visible {
     outline: 3px solid var(--info);
     outline-offset: 2px;
 }
+/* 畫面流暢度（每秒格數）：開啟鏡頭按鈕下面一列；字級 16px，iPhone 點選時才不會自動放大畫面 */
+.fps-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    color: var(--text);
+    font-size: 15px;
+}
+/* 選單佔剩下的寬度（最多 240px）：選項文字變長（「鏡頭最多 60」）時不會把整頁撐寬
+   width: 0 讓選單不用自己的寬度去撐開首頁 */
+.fps-pick select {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    max-width: 240px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 16px;
+}
+.fps-hint {
+    margin: 8px 0 0;
+    color: #FFC857;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.fps-hint[hidden] {
+    display: none;
+}
 #status, #modelStatus {
     margin: 12px 0 0;
     color: var(--muted);
@@ -1199,6 +1234,17 @@ code {
 #demoPanel .demo-cues {
     margin-top: 8px;
     color: var(--text);
+}
+/* 點開運算標籤時出現的每秒格數選單 */
+#fpsLive {
+    max-width: 100%;
+    min-height: 30px;
+    font: inherit;
+    font-size: 16px;
+    padding: 0 8px;
+}
+#fpsLive option {
+    color: #1B2536;
 }
 
 /* ---------- 站遠也看得清楚：大字橫幅與大字儀表板 ---------- */

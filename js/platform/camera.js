@@ -1,7 +1,26 @@
 // 鏡頭：開啟、關閉、判斷前後鏡頭、列出所有鏡頭
 // 這裡只處理鏡頭本身，畫面上的文字與按鈕由 main.js 負責
 
-import { CAMERA_RESOLUTION } from '../config.js';
+import { CAMERA_RESOLUTION, FPS_CHOICES, FPS_FROM_URL } from '../config.js';
+
+// 使用者選的每秒格數（30、60、90、120），網站會記住；網址的 ?fps= 優先，但不記住
+const FPS_KEY = 'cameraFps';
+let frameRate = FPS_FROM_URL || loadFrameRate();
+function loadFrameRate() {
+    try {
+        const saved = Number(localStorage.getItem(FPS_KEY));
+        if (FPS_CHOICES.includes(saved)) return saved;
+    } catch (err) { /* 不能讀就用預設 */ }
+    return 30;
+}
+export function getFrameRate() {
+    return frameRate;
+}
+export function setFrameRate(fps) {
+    if (!FPS_CHOICES.includes(fps)) return;
+    frameRate = fps;
+    try { localStorage.setItem(FPS_KEY, String(fps)); } catch (err) { /* 不能存就不記 */ }
+}
 
 // 瀏覽器是否支援鏡頭功能
 export function isCameraSupported() {
@@ -11,8 +30,10 @@ export function isCameraSupported() {
 // 開啟鏡頭並回傳鏡頭串流；沒指定 deviceId 時使用裝置預設鏡頭
 // 第一次使用時瀏覽器會詢問使用者是否允許相機
 // 解析度用 ideal（建議值）：鏡頭不支援時瀏覽器會自動選最接近的，不會開啟失敗
+// 每秒格數選 60 以上時也是 ideal：鏡頭做不到就用它做得到的，照樣能開；選 30 時不指定，和以前一樣用鏡頭預設的
 export function openCamera(deviceId) {
     const video = { width: { ideal: CAMERA_RESOLUTION[0] }, height: { ideal: CAMERA_RESOLUTION[1] } };
+    if (frameRate > 30) video.frameRate = { ideal: frameRate };
     if (deviceId) video.deviceId = { exact: deviceId };
     return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
 }
@@ -25,6 +46,22 @@ export function stopCamera(stream) {
 // 手機後鏡頭拍的是別人，不需要鏡像；前鏡頭與電腦鏡頭預設鏡像
 export function shouldMirror(stream) {
     return stream.getVideoTracks()[0].getSettings().facingMode !== 'environment';
+}
+
+// 鏡頭設定的每秒格數（瀏覽器回報的；不知道時是 0）
+export function cameraFrameRate(stream) {
+    return Math.round(stream.getVideoTracks()[0].getSettings().frameRate || 0);
+}
+
+// 這顆鏡頭最多每秒幾格（瀏覽器回報的；不知道時是 0，例如舊的 Safari 沒有 getCapabilities）
+export function maxFrameRate(stream) {
+    const track = stream.getVideoTracks()[0];
+    try {
+        const caps = track.getCapabilities ? track.getCapabilities() : null;
+        return caps && caps.frameRate && caps.frameRate.max ? Math.round(caps.frameRate.max) : 0;
+    } catch (err) {
+        return 0;
+    }
 }
 
 // 目前串流使用的是哪一顆鏡頭

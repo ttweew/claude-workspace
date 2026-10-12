@@ -76,6 +76,11 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
                     開啟鏡頭
                 </button>
+                <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
+                <label class="fps-pick">畫面流暢度
+                    <select id="fpsSelect" aria-describedby="fpsHint"></select>
+                </label>
+                <p id="fpsHint" class="fps-hint" hidden></p>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
                 <p id="modelStatus" aria-live="polite">AI 準備中…</p>
@@ -184,7 +189,9 @@
         </div>
         <div id="infobar">
             <span id="poseStatus">AI 準備中…</span>
-            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
+            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數"></button>
+            <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數 -->
+            <select id="fpsLive" aria-label="每秒格數" hidden></select>
         </div>
         <!-- 動作示範（老師 10/12 回饋）：右上角的按鈕打開小視窗，先看標準姿勢再跟著做 -->
         <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>示範</button>
