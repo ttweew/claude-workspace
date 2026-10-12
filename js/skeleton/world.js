@@ -1,4 +1,4 @@
-// 公尺座標（MediaPipe 的 world landmarks）穩定化：平滑 ＋ 骨頭長度限制
+// 3D 座標（MediaPipe 的 world landmarks）穩定化：平滑 ＋ 骨頭長度限制
 //
 // 只有一支鏡頭時，前後深度（z）是 AI 猜的，雜訊比左右上下大很多，還會慢慢飄、偶爾跳開
 // 兩步驟處理（原始資料不變，錄製時另外存一份處理後的）：
@@ -15,7 +15,7 @@
 // 骨頭：[靠近身體的關節, 遠端的關節]（左右大腿、小腿、上臂、前臂）
 const BONES = [[23, 25], [25, 27], [24, 26], [26, 28], [11, 13], [13, 15], [12, 14], [14, 16]];
 const MIN_CUTOFF = 0.8;    // 平滑：靜止時的平滑程度（越小越穩）
-const BETA = 10;           // 平滑：動作越快、平滑越少（公尺座標的數值比畫面比例小，所以比畫面上的骨架大）
+const BETA = 10;           // 平滑：動作越快、平滑越少（3D 座標的數值比畫面比例小，所以比畫面上的骨架大）
 const D_CUTOFF = 3;
 const LENGTH_WINDOW_MS = 4000;  // 骨頭長度用最近 4 秒的量測估計（取中間值，不怕偶爾跳開）
 const MIN_SAMPLES = 10;         // 量測太少時先不修正
@@ -66,7 +66,7 @@ export class WorldStabilizer {
         this.lengths = BONES.map(() => ({ history: [], sorted: [] }));
     }
 
-    // world：MediaPipe 這一格的 33 點公尺座標（{ x, y, z }），沒有時傳 null；timeMs：這一格的時間
+    // world：MediaPipe 這一格的 33 點 3D 座標（{ x, y, z }），沒有時傳 null；timeMs：這一格的時間
     // 回傳處理後的 33 點（新的陣列，不會改到原始資料），沒有資料時回傳 null
     process(world, timeMs) {
         if (!world) return null;

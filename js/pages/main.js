@@ -98,7 +98,7 @@ let lastPose = null;        // 最近一次偵測到的關鍵點，點選畫面�
 let picked = null;          // 使用者點選要查看的點與顯示期限 { id, until }
 const fps = new FpsCounter();
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
-const worldStabilizer = new WorldStabilizer();  // 公尺座標：平滑＋骨頭長度限制（錄製時另外存一份）
+const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
 const squat = LAB === 'squat' ? new SquatCounter() : null;
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
@@ -367,7 +367,7 @@ function detectFailed(err) {
 }
 
 // 畫出一格的偵測結果，更新角度、儀表板、提示、錄製與數據面板
-// result：{ landmarks（33 點原始比例座標，沒有人時為 null）, world（公尺座標） }；now：這一格送去偵測的時間
+// result：{ landmarks（33 點原始比例座標，沒有人時為 null）, world（3D 座標） }；now：這一格送去偵測的時間
 function showResult(result, now) {
     // 手機轉向（直拿改橫拿）時鏡頭畫面的寬高會對調，點的座標意義跟著變
     const size = video.videoWidth + 'x' + video.videoHeight;
@@ -415,7 +415,7 @@ function showResult(result, now) {
         setPoseStatus(hint.text, hint.kind);
     }
     // 錄製：原始資料（未平滑、未過濾，模型輸出什麼就記什麼）＋平滑後的點（和畫面上的骨架相同），兩種都存
-    // 公尺座標每一格都要處理（平滑需要連續的資料），錄製時才存
+    // 3D 座標每一格都要處理（平滑需要連續的資料），錄製時才存
     const stableWorld = worldStabilizer.process(rawWorld, now);
     if (recorder.recording && !recorder.add(now, raw, rawWorld, processed ? processed.landmarks : null, stableWorld)) {
         stopRecording(true);

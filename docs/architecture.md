@@ -26,7 +26,7 @@ claude-workspace/
 │   ├── config.js       全站設定：MediaPipe 版本、模型位置、網址參數
 │   ├── pages/          每一頁的主程式：把下面的模組組合起來、處理按鈕
 │   ├── ai/             AI 模型：載入 MediaPipe、在背景執行緒偵測骨架
-│   ├── skeleton/       骨架處理：平滑、擋鬼點、往前預測、公尺座標穩定化
+│   ├── skeleton/       骨架處理：平滑、擋鬼點、往前預測、3D 座標穩定化
 │   ├── analysis/       動作判斷：關節角度、拍攝方向、入鏡提示、深蹲次數
 │   ├── ui/             畫面元件：骨架、標籤、大字儀表板、數據表、曲線圖
 │   ├── platform/       裝置功能：鏡頭、螢幕保持亮著、離線、GPU、裝置支援檢查
@@ -52,7 +52,7 @@ claude-workspace/
 | | `smooth.js` | One Euro Filter 平滑：靜止時不抖、動作快時跟得上 |
 | | `ghost.js` | 擋掉 AI 腦補出來的點與「人走了還留著」的鬼骨架 |
 | | `predict.js` | 往前預測：補償 AI 計算的時間，骨架不會拖在身體後面 |
-| | `world.js` | 公尺座標穩定化：平滑＋骨頭長度限制 |
+| | `world.js` | 3D 座標穩定化：平滑＋骨頭長度限制 |
 | `analysis/` | `angles.js` | 關節角度（膝、髖、肘），肢體太短時不給角度 |
 | | `view.js` | 判斷側面、斜側面、正面拍，以及面向哪一邊 |
 | | `framing.js` | 入鏡提示（請往後退、請站到中間…），不會一直閃 |
@@ -88,7 +88,7 @@ flowchart LR
     PIPE --> PRED["往前預測<br>skeleton/predict.js"] --> DRAW["畫骨架、標籤<br>ui/draw.js、ui/labels.js"]
     PIPE --> HUD["大字儀表板、入鏡提示、深蹲<br>ui/hud.js、analysis/framing.js、analysis/squat.js"]
     AI --> REC["錄製（原始＋處理後）<br>data/recorder.js"]
-    AI --> WORLD["公尺座標穩定化<br>skeleton/world.js"] --> REC
+    AI --> WORLD["3D 座標穩定化<br>skeleton/world.js"] --> REC
 ```
 
 重點：
@@ -116,7 +116,7 @@ npm test
 
 | 檔案 | 測什麼 |
 |---|---|
-| `tests/skeleton.test.mjs` | 平滑真的變穩、壞掉的數字不會擴散、亂七八糟的輸入不會當掉；公尺座標穩定化更接近真實位置，而且骨頭長度限制比只做平滑更準 |
+| `tests/skeleton.test.mjs` | 平滑真的變穩、壞掉的數字不會擴散、亂七八糟的輸入不會當掉；3D 座標穩定化更接近真實位置，而且骨頭長度限制比只做平滑更準 |
 | `tests/analysis.test.mjs` | 角度計算、深蹲次數與深度、正面拍不計算、小幅晃動不誤算、入鏡提示（蹲低時腳被擋住不叫人往後退） |
 | `tests/data.test.mjs` | CSV／JSON 格式、讀 JSON 和讀 CSV 結果相同、壞掉的檔案給中文錯誤、3D 檢查 |
 | `tests/platform.test.mjs` | 從瀏覽器識別字串判斷 iPhone、Android、LINE 內建瀏覽器 |

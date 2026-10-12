@@ -32,7 +32,7 @@ const COLORS = { KNEE: '#2EE6A6', HIP: '#4CC3FF', ELBOW: '#FFB547' };
 const VIEW_COLORS = { side: '#2EE6A6', oblique: '#FFC857', front: '#FF5C5C', none: 'rgba(255,255,255,0.18)' };
 const shown = new Set(['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP']);
 let showRaw = false;
-let show3d = false;    // 曲線圖上加畫 3D 膝蓋角度（處理過的公尺座標算的）
+let show3d = false;    // 曲線圖上加畫 3D 膝蓋角度（處理過的 3D 座標算的）
 const KNEE3D_COLOR = '#E8EEF7';
 
 let data = null;       // 讀進來的錄製資料 { name, meta, frames: [{ t, raw }] }
@@ -284,7 +284,7 @@ function showSquats() {
     squatTable.replaceChildren(thead, tbody);
 }
 
-// ---------- 3D 檢查（公尺座標；驗證實驗 D、H） ----------
+// ---------- 3D 檢查（3D 座標；驗證實驗 D、H） ----------
 
 // 排序好的數字陣列的第 q 分位（0～1）
 function quantile(sorted, q) {
@@ -387,7 +387,7 @@ function showWorld() {
     });
     makeTable(kneeTable, ['3D 膝角', '格數', '原始', '處理過'], kBody, kBetter);
     kneeNote.textContent = sideFrames
-        ? '側面拍時畫面上的角度很準，拿來當標準答案，看 3D 公尺座標算的膝蓋角度差多少（越小越好；綠色＝比較好的那一份）。「平均」＝平均差幾度，「9 成≤」＝9 成的格子差距在這個度數以內。曲線圖可以按「3D 膝角」一起看。'
+        ? '側面拍時畫面上的角度很準，拿來當標準答案，看 3D 座標算的膝蓋角度差多少（越小越好；綠色＝比較好的那一份）。「平均」＝平均差幾度，「9 成≤」＝9 成的格子差距在這個度數以內。曲線圖可以按「3D 膝角」一起看。'
         : '這段錄影沒有判斷為側面拍的格子，沒有標準答案可以對照。正面拍的 3D 膝角準不準，請用兩支手機同時錄（實驗 H），兩個檔案各下載角度 CSV 來比較；曲線圖可以按「3D 膝角」看。';
 }
 
@@ -527,7 +527,7 @@ function buildToggles() {
         b3.className = 'toggle';
         b3.textContent = '3D 膝角';
         b3.style.color = KNEE3D_COLOR;
-        b3.title = '處理過的公尺座標算出來的膝蓋角度（白色）';
+        b3.title = '處理過的 3D 座標算出來的膝蓋角度（白色）';
         b3.setAttribute('aria-pressed', show3d);
         b3.addEventListener('click', () => {
             show3d = !show3d;

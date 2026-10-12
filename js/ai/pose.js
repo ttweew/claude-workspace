@@ -376,7 +376,7 @@ async function loadOnMain({ onProgress, attempt, watch, state, t0, tracker, down
     const pose = {
         landmarker: created.landmarker, computeMode, computeDetail, gpuName: gpu ? gpu.name : '', timings,
         background: false,
-        // 偵測一格：回傳 Promise { landmarks（33 點）, world（公尺座標） }，沒有人時兩者為 null
+        // 偵測一格：回傳 Promise { landmarks（33 點）, world（3D 座標） }，沒有人時兩者為 null
         // async：偵測出錯時變成 Promise 失敗，交給 main.js 的出錯計數（不會讓偵測迴圈停住）
         async detect(video, timeMs) {
             const r = pose.landmarker.detectForVideo(video, timeMs);

@@ -54,7 +54,7 @@ test('重播：不是本網站的檔案、時間壞掉的檔案，給清楚的�
     assert.throws(() => parseRecording(JSON.stringify(json)), /第 11 格的時間不正確/);
 });
 
-test('3D 檢查：合成資料的大腿長度約 40 公分；沒有公尺座標的舊檔案不顯示', async () => {
+test('3D 檢查：合成資料的大腿長度約 40 公分；沒有 3D 座標的舊檔案不顯示', async () => {
     const recorder = record();
     const r = await analyzeRecording(parseRecording(recorder.toJSON()), 640, 480);
     assert.ok(r.hasWorld);
