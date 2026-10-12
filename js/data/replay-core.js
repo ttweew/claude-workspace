@@ -15,7 +15,7 @@ export const SIGNED_KEYS = ANGLE_KEYS.filter(k => /_(KNEE|HIP)$/.test(k));
 export const VIEW_CODES = [null, 'side', 'oblique', 'front'];
 const POINTS = LANDMARKS.length;
 
-// 3D 檢查（公尺座標）：骨頭長度、3D 膝蓋角度
+// 3D 檢查（單位：公分）：骨頭長度、3D 膝蓋角度
 // WORLD_BONES：[代號, 中文名, 起點, 終點]；WORLD_KNEES：[代號, 中文名, 髖, 膝, 踝]
 export const WORLD_BONES = [
     ['LEFT_THIGH', '左大腿', 23, 25], ['RIGHT_THIGH', '右大腿', 24, 26],
@@ -34,13 +34,13 @@ function toPoint(q) {
     return { x, y, z: Number.isFinite(z) ? z : 0, visibility: Number.isFinite(visibility) ? visibility : 0 };
 }
 
-// 公尺座標的一個點：{ x, y, z }；有任何一個不是數字就當作壞掉（NaN），之後不拿來算
+// 3D 座標的一個點：{ x, y, z }；有任何一個不是數字就當作壞掉（NaN），之後不拿來算
 function toWorldPoint(q) {
     const v = Array.isArray(q) ? q.slice(0, 3).map(n => (n === null || n === '' ? NaN : Number(n))) : [];
     return v.length === 3 && v.every(Number.isFinite) ? { x: v[0], y: v[1], z: v[2] } : { x: NaN, y: NaN, z: NaN };
 }
 
-// 一格的公尺座標：全部都壞掉（例如 CSV 這一格的公尺座標欄位是空的）時當作這一格沒有
+// 一格的 3D 座標：全部都壞掉（例如 CSV 這一格的 3D 座標欄位是空的）時當作這一格沒有
 function toWorld(list) {
     const w = list.map(toWorldPoint);
     return w.some(q => Number.isFinite(q.x)) ? w : null;
@@ -67,7 +67,7 @@ function parseJSON(text) {
             if (lm !== null && lm !== undefined && (!Array.isArray(lm) || lm.length !== POINTS)) {
                 throw new Error('第 ' + (i + 1) + ' 格的點資料不完整（應該有 33 點），檔案可能被修改或損壞');
             }
-            // 公尺座標格式不對（舊檔案、被修改過）時當作沒有，不影響其他分析
+            // 3D 座標格式不對（舊檔案、被修改過）時當作沒有，不影響其他分析
             const w = lm && Array.isArray(f.world) && f.world.length === POINTS ? toWorld(f.world) : null;
             return { t: frameTime(f.t, i), raw: lm ? lm.map(toPoint) : null, world: w };
         })
@@ -83,7 +83,7 @@ function parseCSV(text) {
     const cols = LANDMARKS.map(([key]) => ['x', 'y', 'z', 'vis'].map(f => col(key.toLowerCase() + '_' + f)));
     if (cols.some(c => c.some(i => i < 0))) throw new Error('CSV 缺少部分點的欄位');
     const tCol = col('time_ms'), dCol = col('detected');
-    // 公尺座標欄位（wx、wy、wz）缺任何一欄就當作這個檔案沒有公尺座標
+    // 3D 座標欄位（wx、wy、wz）缺任何一欄就當作這個檔案沒有 3D 座標
     const wCols = LANDMARKS.map(([key]) => ['wx', 'wy', 'wz'].map(f => col(key.toLowerCase() + '_' + f)));
     const hasWorld = wCols.every(c => c.every(i => i >= 0));
     const rows = lines.slice(1).map(line => line.split(','));
@@ -121,7 +121,7 @@ export function needsFrameSize(meta) {
 //         hasWorld, boneRaw, boneStable, knee3dRaw, knee3dStable }
 //   沒有值（算不出來）的角度、比值、長度是 NaN；present：這一格有沒有人（經過擋鬼點）
 //   boneRaw / boneStable：WORLD_BONES 每根骨頭的 3D 長度（公尺），原始 / 處理過（js/skeleton/world.js，和錄製時存的 swx… 相同方法）
-//   knee3dRaw / knee3dStable：WORLD_KNEES 的 3D 膝蓋角度；兩端關節在畫面上看得到時才算（看不到的點，公尺座標是猜的）
+//   knee3dRaw / knee3dStable：WORLD_KNEES 的 3D 膝蓋角度；兩端關節在畫面上看得到時才算（看不到的點，3D 座標是猜的）
 export async function analyzeRecording(parsed, width, height, { lab = false, onProgress = null, pause = null } = {}) {
     const frames = parsed.frames;
     const n = frames.length, A = ANGLE_KEYS.length, S = SIGNED_KEYS.length;

@@ -102,7 +102,7 @@
                 <div class="table-wrap">
                     <table id="squatTable" class="stats"></table>
                 </div>
-                <p class="note">怎麼算一下：先站直（膝蓋 ≥ 160°）→ 蹲到膝蓋 ≤ 140° → 再站直。深度看最低的膝蓋角度：≤ 90° 蹲到位、90～110° 再低一點、超過 110° 太淺（門檻還要和老師討論）。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低的時間點。</p>
+                <p class="note">怎麼算一下：先站直（膝蓋 ≥ 160°）→ 蹲到膝蓋 ≤ 140° → 再站直。深度看最低的膝蓋角度：≤ 90° 蹲到位、90～110° 再低一點、超過 110° 太淺（90° 是老師 10/12 決定的門檻：只看髖、膝、踝三點的夾角，不用考慮地面）。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低的時間點。</p>
             </section>
 
             <section class="card" aria-labelledby="statsTitle">
@@ -113,10 +113,10 @@
                 <p class="note">「抖動」＝相鄰兩格角度平均差幾度，越小越穩。「原始」是 MediaPipe 直接輸出、沒經過平滑的點算出來的，用來和畫面上的（平滑後）比較。</p>
             </section>
 
-            <!-- 3D 檢查：檔案有公尺座標時才顯示（驗證實驗 D、H） -->
+            <!-- 3D 檢查：檔案有 3D 座標時才顯示（驗證實驗 D、H） -->
             <section id="worldCard" class="card" aria-labelledby="worldTitle" hidden>
-                <h2 id="worldTitle">3D 檢查（公尺座標） <span class="badge">驗證用</span></h2>
-                <p class="note">公尺座標的前後深度是 AI 從單一畫面猜的。這裡比較「原始」和網站「處理過」（平滑＋骨頭長度限制）兩份，看哪一份比較可信。只算畫面上看得到的關節。</p>
+                <h2 id="worldTitle">3D 檢查（單位：公分） <span class="badge">驗證用</span></h2>
+                <p class="note">3D 座標的前後深度是 AI 從單一畫面猜的。這裡比較「原始」和網站「處理過」（平滑＋骨頭長度限制）兩份，看哪一份比較可信。只算畫面上看得到的關節。</p>
                 <div class="tape-row" role="group" aria-labelledby="tapeTitle">
                     <span id="tapeTitle" class="tape-title">捲尺量的長度（公分，可不填）</span>
                     <label>大腿（髖到膝）<input id="tapeThigh" type="number" inputmode="decimal" min="10" max="100" step="0.5" placeholder="—"></label>

@@ -79,7 +79,7 @@ function kneeAt(t, depths, tempo, lead) {
 export function makeDemoRecording({ yaw = 8, depths = DEMO_DEPTHS, tempo = DEFAULT_TEMPO, lead = 1.5, gaps = [],
                                     fps = 30, width = 640, height = 480, noisePx = 1.5, seed = 7, worldNoise = 0.03 } = {}) {
     const gauss = random(seed);
-    // 公尺座標的雜訊另外用一組亂數，畫面座標才會和以前產生的完全一樣
+    // 3D 座標的雜訊另外用一組亂數，畫面座標才會和以前產生的完全一樣
     // 模仿真實的單鏡頭深度：左右上下雜訊小（0.5 公分），前後深度雜訊大（worldNoise 公尺），各點還會慢慢前後飄
     const wGauss = random(seed + 1000);
     const drift = LANDMARKS.map((_, j) => [0.5 + (j % 5) * 0.17, j * 1.3]);
@@ -126,7 +126,7 @@ export function makeDemoRecording({ yaw = 8, depths = DEMO_DEPTHS, tempo = DEFAU
             app: 'AI 智慧運動分析系統',
             model: 'synthetic',
             synthetic: true,
-            description: '合成示範資料（不是真人）：' + depths.length + ' 下深蹲，拍攝角度 ' + yaw + '°（0° = 正側面、90° = 正面），每下最低膝蓋角度 ' + depths.join('、') + '°；大腿、小腿實際長度 40 公分，公尺座標的前後深度加了模擬的雜訊',
+            description: '合成示範資料（不是真人）：' + depths.length + ' 下深蹲，拍攝角度 ' + yaw + '°（0° = 正側面、90° = 正面），每下最低膝蓋角度 ' + depths.join('、') + '°；大腿、小腿實際長度 40 公分，3D 座標的前後深度加了模擬的雜訊',
             computeMode: '—',
             videoWidth: width,
             videoHeight: height,

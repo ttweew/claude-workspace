@@ -11,7 +11,8 @@ const ANKLE = [200, 305];
 // 站著（上）與蹲到底（下）：膝蓋角度、小腿往前傾、上身往前傾（度）
 // 上面的膝蓋角度停在 168°：完全站直時頭會超出圖框
 const TOP = { knee: 168, shank: 4, torso: 6 };
-const BOTTOM = { knee: 95.1, shank: 16.14, torso: 19.36 };
+// 蹲到底停在 85°：老師 10/12 決定 90° 以下才算「蹲到位」，示意圖要示範蹲到位的樣子
+const BOTTOM = { knee: 85, shank: 19, torso: 25 };
 // 一下的節奏（秒）：往下、底部停一下、往上、站著停一下
 const DOWN = 1.3, HOLD_BOTTOM = 0.35, UP = 1.3, HOLD_TOP = 0.6;
 const PERIOD = DOWN + HOLD_BOTTOM + UP + HOLD_TOP;

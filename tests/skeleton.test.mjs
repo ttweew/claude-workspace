@@ -1,4 +1,4 @@
-// 骨架處理（js/skeleton/）：平滑、擋鬼點、整條處理流程、公尺座標穩定化
+// 骨架處理（js/skeleton/）：平滑、擋鬼點、整條處理流程、3D 座標穩定化
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PoseSmoother } from '../js/skeleton/smooth.js';
@@ -74,7 +74,7 @@ test('處理流程：側面拍的深蹲，角度和拍攝方向都算得出來',
     assert.ok(last.angles.LEFT_KNEE > 160, '站直時膝蓋接近伸直：' + last.angles.LEFT_KNEE);
 });
 
-test('公尺座標穩定化：位置比原始資料更接近真實位置', () => {
+test('3D 座標穩定化：位置比原始資料更接近真實位置', () => {
     const truth = demoFrames({ worldNoise: 0, seed: 3 });
     const noisy = demoFrames({ worldNoise: 0.04, seed: 3 });
     const stabilizer = new WorldStabilizer();
@@ -92,7 +92,7 @@ test('公尺座標穩定化：位置比原始資料更接近真實位置', () =>
     assert.ok(stableErr < rawErr * 0.9, `原始 ${(rawErr / n * 100).toFixed(2)} 公分、處理後 ${(stableErr / n * 100).toFixed(2)} 公分`);
 });
 
-test('公尺座標穩定化：不會改到原始資料；時間倒退時重新開始', () => {
+test('3D 座標穩定化：不會改到原始資料；時間倒退時重新開始', () => {
     const frames = demoFrames({ depths: [90] }).filter(f => f.world);
     const stabilizer = new WorldStabilizer();
     const copy = JSON.stringify(frames[0].world);
@@ -103,7 +103,7 @@ test('公尺座標穩定化：不會改到原始資料；時間倒退時重新�
     assert.deepEqual(back, frames[50].world.map(p => ({ ...p })), '重新開始的第一格就是原始值');
 });
 
-test('公尺座標穩定化：骨頭長度限制真的有幫助（比只做平滑更接近真實的膝蓋角度）', () => {
+test('3D 座標穩定化：骨頭長度限制真的有幫助（比只做平滑更接近真實的膝蓋角度）', () => {
     // 只做平滑、不限制骨頭長度的版本，當作比較基準
     class SmoothOnly extends WorldStabilizer {
         limitBones() {}

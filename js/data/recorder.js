@@ -27,7 +27,7 @@ function unpack(data, digits) {
 }
 const LANDMARK_DIGITS = [5, 5, 5, 3];  // x、y、z、visibility
 const SMOOTH_DIGITS = [5, 5, 5, 3, 0];   // 平滑後的 x、y、z、visibility、seen（畫面上有沒有畫出來：1／0）
-const WORLD_DIGITS = [4, 4, 4];        // 公尺座標 x、y、z
+const WORLD_DIGITS = [4, 4, 4];        // 3D 座標 x、y、z
 
 export class PoseRecorder {
     constructor() {
@@ -48,9 +48,9 @@ export class PoseRecorder {
         this.recording = false;
     }
 
-    // 錄下一格；timeMs：偵測時間，landmarks：33 點原始比例座標，world：33 點公尺座標（可能沒有）
+    // 錄下一格；timeMs：偵測時間，landmarks：33 點原始比例座標，world：33 點 3D 座標（可能沒有）
     // smoothed：平滑後的 33 點（和畫面上的骨架相同；沒有人或被擋鬼點擋掉時為 null）
-    // stableWorld：處理過的公尺座標（js/skeleton/world.js：平滑＋骨頭長度限制；沒有時為 null）
+    // stableWorld：處理過的 3D 座標（js/skeleton/world.js：平滑＋骨頭長度限制；沒有時為 null）
     // 沒偵測到人的格子也記錄（landmarks 為 null），才看得出中間斷掉多久
     // 回傳 false 表示已達時間上限、自動停止
     add(timeMs, landmarks, world, smoothed = null, stableWorld = null) {
@@ -95,7 +95,7 @@ export class PoseRecorder {
         return this.frames.map(f => this.exportFrame(f));
     }
 
-    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，然後是公尺座標、平滑後的點，最後是處理過的公尺座標
+    // CSV：一列一格畫面，欄位為 frame、time_ms、detected，接著每個點的 x、y、z、visibility，然後是 3D 座標、平滑後的點，最後是處理過的 3D 座標
     // 一小段一小段產生（每段 CHUNK 格），匯出時中間可以讓畫面喘口氣
     *csvChunks() {
         const frames = this.frames;
@@ -105,7 +105,7 @@ export class PoseRecorder {
             .concat(...names.map(n => [n + '_wx', n + '_wy', n + '_wz']))
             // 平滑後的點（加在最後面，前面的欄位和以前完全相同，舊的分析程式不用改）
             .concat(...names.map(n => [n + '_sx', n + '_sy', n + '_sz', n + '_svis', n + '_seen']))
-            // 處理過的公尺座標（平滑＋骨頭長度限制）
+            // 處理過的 3D 座標（平滑＋骨頭長度限制）
             .concat(...names.map(n => [n + '_swx', n + '_swy', n + '_swz']));
         const empty = n => new Array(n).fill('');
         // 開頭加 BOM，Excel 打開才不會亂碼
