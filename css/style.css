@@ -1034,28 +1034,59 @@ code {
     display: none;
 }
 /* 關節角度大數字：畫面下方中央，字體隨螢幕放大 */
+/* 左右兩組照鏡子的方式放：第一組在畫面左邊、第二組在右邊（哪一組是本人的左側由 hud.js 依鏡像決定）
+   直拿：放在下方左右兩角；橫拿：放在影像左右兩側的黑邊，不擋到人 */
 #hud {
     position: absolute;
-    left: 50%;
-    bottom: max(14px, env(safe-area-inset-bottom));
-    display: flex;
-    align-items: center;
-    gap: clamp(8px, 1.6vmin, 18px);
-    transform: translateX(-50%);
+    inset: 0;
     pointer-events: none;
 }
 #hud[hidden], #hud.empty {
     display: none;
 }
-/* 橫向螢幕（筆電、手機橫拿）：影像左右兩側通常是黑邊，儀表板改直放在右側，不擋到腳 */
+.hud-side {
+    position: absolute;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(8px, 1.6vmin, 18px);
+}
+.hud-side:first-child {
+    left: max(10px, env(safe-area-inset-left));
+}
+.hud-side + .hud-side {
+    right: max(10px, env(safe-area-inset-right));
+}
+/* 側面拍時，離鏡頭遠、被身體擋住的那一側數字比較不可靠：變淡，但不藏起來（深蹲次數不分左右，不跟著變淡） */
+.hud-side .metric {
+    transition: opacity 0.3s;
+}
+.hud-side.dim .metric:not(#hudRepsBox) {
+    opacity: 0.4;
+}
+/* 深蹲次數（實驗中）：直拿時放在下方中間、左右兩組之間；橫拿時排在畫面右邊那一組的最下面 */
+#hudRepsBox {
+    position: fixed;
+    left: 50%;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+}
 @media (orientation: landscape) {
-    #hud {
-        left: auto;
-        right: max(14px, env(safe-area-inset-right));
+    .hud-side {
         top: 50%;
         bottom: auto;
-        flex-direction: column;
         transform: translateY(-50%);
+    }
+    .hud-side:first-child {
+        left: max(14px, env(safe-area-inset-left));
+    }
+    .hud-side + .hud-side {
+        right: max(14px, env(safe-area-inset-right));
+    }
+    #hudRepsBox {
+        position: static;
+        transform: none;
     }
 }
 .metric {
@@ -1113,7 +1144,7 @@ code {
 #repToast.good { color: var(--accent); }
 #repToast.close { color: #FFC857; }
 #repToast.shallow { color: var(--danger); }
-/* 多了「深蹲」次數，直式手機上三格要排得下：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到） */
+/* 多了「深蹲」次數，直式手機下方要排三格（左組、次數、右組）：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到） */
 @media (orientation: portrait) {
     #hud.lab .metric {
         min-width: 3.4em;

@@ -148,13 +148,20 @@
         <div id="labels"></div>
         <!-- 入鏡提示的大字橫幅：站遠也看得到（例如「請往後退」） -->
         <div id="banner" role="status" hidden></div>
-        <!-- 大字儀表板：站遠也看得清楚的關節角度 -->
+        <!-- 大字儀表板：站遠也看得清楚的關節角度。左右兩組照鏡子的方式放：
+             第一組在畫面左邊、第二組在畫面右邊，哪一組是本人的左側由 js/ui/hud.js 依鏡像決定 -->
         <div id="hud" hidden>
             <!-- 名稱直接寫左右（左膝、左髖），不另外用小字標示是哪一側 -->
-            <div class="metric"><span id="hudKneeName" class="metric-label">左膝</span><span id="hudKnee" class="metric-value">—</span></div>
-            <div class="metric"><span id="hudHipName" class="metric-label">左髖</span><span id="hudHip" class="metric-value">—</span></div>
-            <!-- 深蹲次數：實驗中，網址加 ?lab=squat 才顯示 -->
-            <div class="metric" id="hudRepsBox" hidden><span class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
+            <div class="hud-side" data-side="LEFT">
+                <div class="metric"><span class="metric-label">左膝</span><span class="metric-value">—</span></div>
+                <div class="metric"><span class="metric-label">左髖</span><span class="metric-value">—</span></div>
+            </div>
+            <div class="hud-side" data-side="RIGHT">
+                <div class="metric"><span class="metric-label">右膝</span><span class="metric-value">—</span></div>
+                <div class="metric"><span class="metric-label">右髖</span><span class="metric-value">—</span></div>
+                <!-- 深蹲次數：實驗中，網址加 ?lab=squat 才顯示；放在畫面右邊那一組的最下面 -->
+                <div class="metric" id="hudRepsBox" hidden><span class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
+            </div>
         </div>
         <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
         <div id="repToast" role="status" hidden></div>
