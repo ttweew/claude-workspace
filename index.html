@@ -124,13 +124,14 @@
 
             <section aria-labelledby="exercisesTitle">
                 <h2 id="exercisesTitle">支援的運動</h2>
+                <!-- 每個動作一張卡片：側面示範動畫＋重點（js/pages/exercise-demos.js 依 js/ui/demo.js 的內容畫出來） -->
                 <ul class="exercises">
-                    <li>深蹲</li>
-                    <li>伏地挺身</li>
-                    <li>棒式</li>
-                    <li>弓箭步</li>
+                    <li data-exercise="squat"><h3>深蹲</h3></li>
+                    <li data-exercise="pushup"><h3>伏地挺身</h3></li>
+                    <li data-exercise="plank"><h3>棒式</h3></li>
+                    <li data-exercise="lunge"><h3>弓箭步</h3></li>
                 </ul>
-                <p class="note">動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+                <p class="note">動畫是標準姿勢的示範，開鏡頭後按右上角的「示範」也看得到。動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
@@ -185,6 +186,17 @@
             <span id="poseStatus">AI 準備中…</span>
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
         </div>
+        <!-- 動作示範（老師 10/12 回饋）：右上角的按鈕打開小視窗，先看標準姿勢再跟著做 -->
+        <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>示範</button>
+        <section id="demoPanel" hidden aria-labelledby="demoTitle">
+            <div class="demo-head">
+                <h2 id="demoTitle">動作示範</h2>
+                <button id="demoClose" type="button" aria-label="關閉示範">✕</button>
+            </div>
+            <div class="demo-tabs" role="group" aria-label="選擇動作"></div>
+            <svg id="demoArt" class="demo-art" viewBox="0 0 240 180" role="img"></svg>
+            <ul id="demoCues" class="demo-cues"></ul>
+        </section>
         <!-- 數據面板：主要關節的原始數值，以及錄製、下載 -->
         <div id="dataPanel" hidden>
             <div class="panel-head">
@@ -223,6 +235,7 @@
     <script type="module" src="js/pages/main.js"></script>
     <!-- 首頁示意圖的深蹲動畫（只在寬螢幕、看得到時才動） -->
     <script type="module" src="js/pages/hero-art.js"></script>
+    <script type="module" src="js/pages/exercise-demos.js"></script>
     <!-- 太舊的瀏覽器不支援上面的寫法，改顯示提示，不會只是按了沒反應 -->
     <script nomodule>
         document.getElementById('status').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';

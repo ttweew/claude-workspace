@@ -1,7 +1,8 @@
-// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡
+// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡；提示音；示範動畫的姿勢
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Hud } from '../js/ui/hud.js';
+import { POSES, angleAt } from '../js/ui/demo.js';
 import { LANDMARKS, P } from '../js/skeleton/landmarks.js';
 
 // 測試用的假畫面元素：只做 hud.js 用到的部分
@@ -130,4 +131,23 @@ test('提示音：站位不對「逼逼」；換成別的提示再響，但兩�
     run(null, '看不到腳，可能被擋住了', 5100, 6000);       // 蹲低時腳被擋住：不算狀況改變
     run('ok', '已偵測到全身', 6100, 7000);
     assert.deepEqual(played, ['wrong', 'wrong', 'ok']);   // 只有回到「站好了」那一次叮
+});
+
+test('示範動畫：最低點的角度符合重點字（深蹲 < 90°、伏地挺身和弓箭步約 90°），起始姿勢接近伸直', () => {
+    const angle = (id, d) => { const p = POSES[id](d); return angleAt(p.angle.from, p.angle.at, p.angle.to); };
+    assert.ok(angle('squat', 1) < 90, String(angle('squat', 1)));
+    assert.ok(Math.abs(angle('pushup', 1) - 90) <= 5, String(angle('pushup', 1)));
+    assert.ok(Math.abs(angle('lunge', 1) - 90) <= 5, String(angle('lunge', 1)));
+    for (const id of ['squat', 'pushup', 'lunge']) assert.ok(angle(id, 0) > 150, id + ' ' + angle(id, 0));
+});
+
+test('示範動畫：動的時候骨頭長度不變，腳和手不會穿過地面', () => {
+    for (const id of Object.keys(POSES)) {
+        const lengths = d => POSES[id](d).lines.map(line => line.slice(1).map((p, i) => Math.hypot(p[0] - line[i][0], p[1] - line[i][1])));
+        const first = lengths(0);
+        for (const d of [0.25, 0.5, 0.75, 1]) {
+            lengths(d).forEach((line, i) => line.forEach((len, j) => assert.ok(Math.abs(len - first[i][j]) < 0.5, `${id} 第 ${i} 條第 ${j} 節 ${len} ≠ ${first[i][j]}`)));
+            for (const p of POSES[id](d).joints) assert.ok(p[1] <= 162, `${id} 關節 ${p} 在地面下`);
+        }
+    }
 });
