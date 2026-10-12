@@ -944,19 +944,40 @@ code {
     border-color: rgba(46, 230, 166, 0.7);
     background: rgba(46, 230, 166, 0.16);
 }
-/* 窄螢幕：功能按鈕只留文字（圖示佔空間），一行才放得下；「結束」保留 ✕ */
+/* 音量關掉時，按鈕顏色變淡 */
+#toolbar #soundBtn.muted {
+    color: var(--muted);
+}
+/* 窄螢幕：功能按鈕只留文字（圖示佔空間），一行才放得下；「結束」保留 ✕
+   音量按鈕反過來：留喇叭圖示和「中」一個字，拿掉「音量」兩個字 */
 @media (max-width: 480px) {
     #toolbar .tool svg {
         display: none;
     }
+    #toolbar #soundBtn svg {
+        display: block;
+    }
+    .sound-word {
+        display: none;
+    }
 }
-/* 小螢幕（例如 iPhone SE）按鈕縮小左右留白，一行才放得下 */
+/* 手機：開關按鈕只留名詞（編號、數據、全螢幕），拿掉「顯示、隱藏、離開」；開啟中看綠色外框
+   最擠的時候（數據面板打開、錄製中、全螢幕）一行才放得下 */
+@media (max-width: 600px) {
+    .btn-verb {
+        display: none;
+    }
+}
+/* 小螢幕（例如 iPhone SE）按鈕縮小左右留白，一行才放得下（多了音量按鈕後，320 寬要再縮一點） */
 @media (max-width: 360px) {
     #toolbar {
         gap: 4px;
     }
     #toolbar button, #toolbar select {
-        padding: 0 8px;
+        padding: 0 6px;
+    }
+    #toolbar #soundBtn {
+        gap: 3px;
     }
 }
 /* 手機、平板（用手指操作）：按鈕加高到 40px，比較好按 */

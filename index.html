@@ -175,9 +175,11 @@
             <!-- 有兩顆以上鏡頭時才顯示 -->
             <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
             <!-- 功能按鈕靠右：圖示＋文字；開關類的按鈕用 aria-pressed 告訴螢幕閱讀器現在是開還是關 -->
-            <button id="labelBtn" class="tool" aria-pressed="false" title="也可以直接點畫面上的點，查看它的編號與名稱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6l8 8-6 6-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg><span class="btn-text">顯示編號</span></button>
+            <button id="labelBtn" class="tool" aria-pressed="false" title="也可以直接點畫面上的點，查看它的編號與名稱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6l8 8-6 6-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg><span class="btn-text"><span class="btn-verb">顯示</span>編號</span></button>
             <button id="dataBtn" class="tool" aria-pressed="false" title="顯示關鍵點的 x、y、z 數值，並可錄製匯出"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M10 10v9"/></svg><span class="btn-text">數據</span></button>
-            <button id="fullscreenBtn" class="tool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="btn-text">全螢幕</span></button>
+            <!-- 提示音音量：點一下換一段（關、小、中、大）；窄螢幕只留喇叭圖示和「中」這類一個字 -->
+            <button id="soundBtn" class="tool" title="提示音的音量：點一下切換 關、小、中、大，會試聽一聲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path class="sound-waves" d="M15.5 10a3 3 0 0 1 0 4M18 7.5a6.5 6.5 0 0 1 0 9"/></svg><span class="btn-text"><span class="sound-word">音量 </span><span class="sound-level">中</span></span></button>
+            <button id="fullscreenBtn" class="tool" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="btn-text">全螢幕</span></button>
         </div>
         <div id="infobar">
             <span id="poseStatus">AI 準備中…</span>
