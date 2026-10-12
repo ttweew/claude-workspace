@@ -10,10 +10,11 @@ import { PosePipeline } from '../skeleton/pipeline.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
 import { getDerivedPoints } from '../skeleton/landmarks.js';
-import { framingAdvice, FramingHint, NO_PERSON } from '../analysis/framing.js';
+import { framingAdvice, FramingHint, NO_PERSON, LEGS_BLOCKED } from '../analysis/framing.js';
 import { PoseRecorder, buildFile, downloadBlob, recordingName, MAX_SECONDS } from '../data/recorder.js';
 import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
+import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { SquatCounter, DEPTH_TEXT } from '../analysis/squat.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
@@ -37,6 +38,7 @@ const modelHint = document.getElementById('modelHint');
 const perfBtn = document.getElementById('perfBtn');
 const labelLayer = document.getElementById('labels');
 const dataBtn = document.getElementById('dataBtn');
+const soundBtn = document.getElementById('soundBtn');
 const dataPanel = document.getElementById('dataPanel');
 const dataRows = document.getElementById('dataRows');
 const viewInfo = document.getElementById('viewInfo');
@@ -99,6 +101,8 @@ const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭�
 const squat = LAB === 'squat' ? new SquatCounter() : null;
 // 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
 const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
+const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
+const framingSound = new FramingSound(name => sound.play(name));  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
@@ -124,6 +128,16 @@ function setPoseStatus(text, kind) {
     if (warn && !repToast.hidden) repToast.hidden = true;
     if (banner.hidden === warn) banner.hidden = !warn;
     if (poseStatus.hidden !== warn) poseStatus.hidden = warn;
+}
+
+// 偵測中每一格：顯示入鏡提示，狀況改變時發出提示音（離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」）
+// 「偵測中」「腳被擋住了」不是使用者站錯，不響
+function showHint(text, kind, now) {
+    setPoseStatus(text, kind);
+    const category = text === NO_PERSON.text ? 'away'
+        : kind === 'ok' ? 'ok'
+        : kind === 'warn' && text !== LEGS_BLOCKED.text ? 'wrong' : null;
+    framingSound.update(category, text, now);
 }
 
 // 畫布大小 = 影像實際顯示的大小 × 螢幕像素密度
@@ -292,6 +306,7 @@ function giveUpPose() {
 function clearPose() {
     hidePose();
     framing.reset();
+    framingSound.reset();
 }
 function hidePose() {
     ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -400,15 +415,15 @@ function showResult(result, now) {
         const hint = framing.update(framingAdvice(landmarks), now);
         // 深蹲實驗：站位沒問題、但是正面拍時，改提示側身
         const prompt = updateSquat(processed, now);
-        if (prompt && hint.kind === 'ok') setPoseStatus(prompt, 'warn');
-        else setPoseStatus(hint.text, hint.kind);
+        if (prompt && hint.kind === 'ok') showHint(prompt, 'warn', now);
+        else showHint(hint.text, hint.kind, now);
     } else {
         // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
         if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
         updateSquat(null, now);
         const hint = framing.update(NO_PERSON, now);
-        setPoseStatus(hint.text, hint.kind);
+        showHint(hint.text, hint.kind, now);
     }
     // 錄製：原始資料（未平滑、未過濾，模型輸出什麼就記什麼）＋平滑後的點（和畫面上的骨架相同），兩種都存
     // 3D 座標每一格都要處理（平滑需要連續的資料），錄製時才存
@@ -576,6 +591,7 @@ function stopStream() {
     pipeline.reset();
     worldStabilizer.reset();
     framing.reset();
+    framingSound.reset();
     resetSquat();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
@@ -632,7 +648,7 @@ async function fillCameraSelect() {
 
 // 錄製中時按鈕加上紅點提醒（面板收起來也看得到）
 function updateDataBtn() {
-    setBtnText(dataBtn, (dataPanel.hidden ? '數據' : '隱藏數據') + (recorder.recording ? ' ●' : ''));
+    setBtnText(dataBtn, dataPanel.hidden ? '' : '隱藏', '數據' + (recorder.recording ? ' ●' : ''));
     dataBtn.setAttribute('aria-pressed', String(!dataPanel.hidden));
 }
 
@@ -678,7 +694,6 @@ function hideRecNotice() {
 // 每一秒嗶一聲（站遠看不到畫面也知道），最後一聲比較長、比較高，代表開始錄
 
 let countdown = null;   // 倒數中：{ timer, end }
-let audio = null;       // 提示音（第一次按錄製時才建立：瀏覽器規定要使用者按過按鈕才能出聲）
 
 try {
     const saved = localStorage.getItem('recordCountdown');
@@ -688,21 +703,9 @@ countdownSelect.addEventListener('change', () => {
     try { localStorage.setItem('recordCountdown', countdownSelect.value); } catch (err) { /* 不能存就不記 */ }
 });
 
-// 短促的嗶聲；沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
+// 短促的嗶聲（倒數每秒一聲、開始錄製和錄滿是長音）；跟著工具列的音量，沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
 function beep(long) {
-    try {
-        if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-        if (audio.state === 'suspended') audio.resume();
-        const t = audio.currentTime, length = long ? 0.45 : 0.12;
-        const osc = audio.createOscillator(), gain = audio.createGain();
-        osc.frequency.value = long ? 1320 : 880;
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
-        osc.connect(gain).connect(audio.destination);
-        osc.start(t);
-        osc.stop(t + length + 0.02);
-    } catch (err) { /* 沒有聲音也沒關係 */ }
+    sound.play(long ? 'long' : 'count');
 }
 
 function startCountdown() {
@@ -823,17 +826,31 @@ function toggleFullscreen() {
 }
 
 // 工具列按鈕：只換文字，保留前面的圖示
-function setBtnText(button, text) {
+// 按鈕文字：verb（顯示、隱藏、離開）＋ noun（編號、數據、全螢幕）
+// 手機上只顯示 noun（style.css 的 .btn-verb），多了音量按鈕後工具列一行才放得下；開啟中的按鈕有綠色外框（aria-pressed）
+function setBtnText(button, verb, noun) {
     const span = button.querySelector('.btn-text');
-    if (span.textContent !== text) span.textContent = text;
+    if (span.textContent === verb + noun) return;
+    span.replaceChildren();
+    if (verb) {
+        const v = document.createElement('span');
+        v.className = 'btn-verb';
+        v.textContent = verb;
+        span.append(v);
+    }
+    span.append(noun);
 }
 
 function updateLabelBtn() {
-    setBtnText(labelBtn, showLabels ? '隱藏編號' : '顯示編號');
+    setBtnText(labelBtn, showLabels ? '隱藏' : '顯示', '編號');
     labelBtn.setAttribute('aria-pressed', String(showLabels));
 }
 
-startBtn.addEventListener('click', () => startCamera(cameraSelect.value));
+// 按「開啟鏡頭」的當下喚醒聲音：瀏覽器規定要使用者按過按鈕才能出聲，之後的提示音才響得出來
+startBtn.addEventListener('click', () => {
+    sound.unlock();
+    startCamera(cameraSelect.value);
+});
 stopBtn.addEventListener('click', closeCamera);
 cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
 fullscreenBtn.addEventListener('click', toggleFullscreen);
@@ -845,7 +862,9 @@ document.addEventListener('visibilitychange', () => {
     if (video.paused) video.play().catch(() => {});
 });
 document.addEventListener('fullscreenchange', () => {
-    setBtnText(fullscreenBtn, document.fullscreenElement ? '離開全螢幕' : '全螢幕');
+    const on = !!document.fullscreenElement;
+    setBtnText(fullscreenBtn, on ? '離開' : '', '全螢幕');
+    fullscreenBtn.setAttribute('aria-pressed', String(on));
 });
 labelBtn.addEventListener('click', () => {
     showLabels = !showLabels;
@@ -855,6 +874,22 @@ labelBtn.addEventListener('click', () => {
 });
 stage.addEventListener('click', pickPoint);
 dataBtn.addEventListener('click', toggleDataPanel);
+// 音量：點一下換一段（關 → 小 → 中 → 大），試聽一聲；人站遠時手機上的拉桿很難拉準，所以分四段
+// 圖示：喇叭旁邊的聲波 0～3 條，「關」是一個叉
+const SOUND_WAVES = { off: 'M16 9l5 6M21 9l-5 6', low: 'M15.5 10a3 3 0 0 1 0 4', mid: 'M15.5 10a3 3 0 0 1 0 4M18 7.5a6.5 6.5 0 0 1 0 9', high: 'M15.5 10a3 3 0 0 1 0 4M18 7.5a6.5 6.5 0 0 1 0 9M20.5 5a10 10 0 0 1 0 14' };
+function updateSoundBtn() {
+    const name = LEVEL_NAMES[sound.level];
+    const level = soundBtn.querySelector('.sound-level');
+    if (level.textContent !== name) level.textContent = name;
+    soundBtn.querySelector('.sound-waves').setAttribute('d', SOUND_WAVES[sound.level]);
+    soundBtn.setAttribute('aria-label', '提示音音量：' + name + '（點一下切換）');
+    soundBtn.classList.toggle('muted', sound.level === 'off');
+}
+soundBtn.addEventListener('click', () => {
+    sound.next();
+    updateSoundBtn();
+});
+updateSoundBtn();
 // 數據面板的表格可以收合，只留錄製列；選擇會記在瀏覽器裡
 const PANEL_KEY = 'panelCollapsed';
 function setPanelCollapsed(collapsed) {

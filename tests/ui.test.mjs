@@ -84,3 +84,50 @@ test('儀表板：側面拍時看得比較不清楚的那一側變淡；差距�
     hud.update(pose(0.5, 0.95), ANGLES);              // 換成左側看不清楚
     assert.deepEqual(dim(), [true, false]);
 });
+
+// ---------- 提示音（js/ui/sound.js）：什麼時候響、響哪一種 ----------
+import { FramingSound } from '../js/ui/sound.js';
+
+function makeSound() {
+    const played = [];
+    const s = new FramingSound(name => played.push(name));
+    // 模擬每 100 毫秒一格，從 from 到 to（毫秒）都是同一個狀況
+    const run = (category, text, from, to) => { for (let t = from; t <= to; t += 100) s.update(category, text, t); };
+    return { s, played, run };
+}
+
+test('提示音：還沒走進畫面不響；站好了「叮」一次，一直站好不會再響', () => {
+    const { played, run } = makeSound();
+    run('away', '未偵測到人體', 0, 5000);
+    assert.deepEqual(played, []);
+    run('ok', '已偵測到全身', 5100, 9000);
+    assert.deepEqual(played, ['ok']);
+});
+
+test('提示音：離開畫面 1 秒後「逼逼逼」，沒回來每 5 秒再提醒，最多 3 次', () => {
+    const { played, run } = makeSound();
+    run('ok', '已偵測到全身', 0, 1000);
+    played.length = 0;
+    run('away', '未偵測到人體', 1100, 2000);
+    assert.deepEqual(played, []);                       // 還不到 1 秒
+    run('away', '未偵測到人體', 2100, 30000);
+    assert.deepEqual(played, ['away', 'away', 'away']); // 1 秒、6 秒、11 秒，之後不再響
+    run('ok', '已偵測到全身', 30100, 31000);
+    assert.deepEqual(played.at(-1), 'ok');              // 回來站好：叮
+});
+
+test('提示音：站位不對「逼逼」；換成別的提示再響，但兩次至少隔 2 秒；腳被擋住不響', () => {
+    const { played, run } = makeSound();
+    run('ok', '已偵測到全身', 0, 1000);
+    played.length = 0;
+    run('wrong', '太近了，請往後退', 1100, 2000);
+    assert.deepEqual(played, ['wrong']);
+    run('wrong', '看不到腳，請再往後退一點', 2100, 2500);  // 換提示，但離上一次不到 2 秒
+    assert.deepEqual(played, ['wrong']);
+    run('wrong', '請站到畫面中間一點', 3200, 4000);       // 換提示，已經隔 2 秒以上
+    assert.deepEqual(played, ['wrong', 'wrong']);
+    run('ok', '已偵測到全身', 4100, 5000);
+    run(null, '看不到腳，可能被擋住了', 5100, 6000);       // 蹲低時腳被擋住：不算狀況改變
+    run('ok', '已偵測到全身', 6100, 7000);
+    assert.deepEqual(played, ['wrong', 'wrong', 'ok']);   // 只有回到「站好了」那一次叮
+});

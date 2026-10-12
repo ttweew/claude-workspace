@@ -12,7 +12,8 @@ export const NO_PERSON = { text: '未偵測到人體，請站進畫面', kind: '
 
 // 髖看得到、腳看不到，但 AI 估計的膝蓋、腳踝都在畫面裡：腳是被擋住（蹲低、坐下、側面被另一隻腳擋住），不是出了畫面
 // 這時候叫人往後退會誤導（真實錄影：蹲低時跳出「請再往後退」，最長 10 秒）
-const LEGS_BLOCKED = { text: '看不到腳，可能被擋住了', kind: 'warn' };
+// 不是使用者站錯，所以提示音不會響（js/ui/sound.js）
+export const LEGS_BLOCKED = { text: '看不到腳，可能被擋住了', kind: 'warn' };
 // 估計位置離畫面下緣至少這麼多才算在畫面裡：腳真的出了畫面時，AI 估計的腳踝通常在 1.0 以下（真實錄影 1.02）
 const IN_FRAME = 0.95;
 

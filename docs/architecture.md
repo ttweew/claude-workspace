@@ -60,6 +60,7 @@ claude-workspace/
 | `ui/` | `draw.js` | 在畫布上畫骨架 |
 | | `labels.js` | 關鍵點的編號標籤、點一下看名稱 |
 | | `hud.js` | 站遠也看得到的大字儀表板：左、右兩組照鏡子的方式放在畫面左右兩邊，被擋住的那一組變淡 |
+| | `sound.js` | 提示音：離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」，只在狀況改變時響；音量四段（關、小、中、大），錄製倒數也共用 |
 | | `datapanel.js` | 數據面板的數值表格 |
 | | `chart.js` | 重播頁的角度曲線圖 |
 | `platform/` | `camera.js` | 開關鏡頭、列出鏡頭、判斷前後鏡頭 |
@@ -120,7 +121,7 @@ npm test
 | `tests/analysis.test.mjs` | 角度計算、深蹲次數與深度、正面拍不計算、小幅晃動不誤算、入鏡提示（蹲低時腳被擋住不叫人往後退） |
 | `tests/data.test.mjs` | CSV／JSON 格式、讀 JSON 和讀 CSV 結果相同、壞掉的檔案給中文錯誤、3D 檢查 |
 | `tests/platform.test.mjs` | 從瀏覽器識別字串判斷 iPhone、Android、LINE 內建瀏覽器 |
-| `tests/ui.test.mjs` | 大字儀表板：前鏡頭左側那組在畫面左邊、後鏡頭對調；看不到顯示「—」；被擋住的那一側變淡，門檻附近不會一直閃 |
+| `tests/ui.test.mjs` | 大字儀表板：前鏡頭左側那組在畫面左邊、後鏡頭對調；看不到顯示「—」；被擋住的那一側變淡，門檻附近不會一直閃。提示音：還沒走進畫面不響、離開 1 秒後響且最多提醒 3 次、站位提示換來換去至少隔 2 秒、腳被擋住不響 |
 
 每次推送到 GitHub 時，`.github/workflows/test.yml` 會自動跑一次，結果在 GitHub 的 Actions 頁面。
 
