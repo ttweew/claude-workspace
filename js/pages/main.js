@@ -57,11 +57,7 @@ const hudRoot = document.getElementById('hud');
 const hudRepsBox = document.getElementById('hudRepsBox');  // 深蹲次數（?lab=squat 才顯示）
 const hudReps = document.getElementById('hudReps');
 const repToast = document.getElementById('repToast');
-const hud = new Hud({
-    root: hudRoot,
-    kneeName: document.getElementById('hudKneeName'), knee: document.getElementById('hudKnee'),
-    hipName: document.getElementById('hudHipName'), hip: document.getElementById('hudHip')
-});
+const hud = new Hud(hudRoot);
 
 // ---------- 狀態 ----------
 let currentStream = null;
@@ -538,6 +534,7 @@ async function startCamera(deviceId) {
     const mirror = shouldMirror(stream);
     video.classList.toggle('mirrored', mirror);
     overlay.classList.toggle('mirrored', mirror);
+    hud.setMirrored(mirror);
     // 鏡頭中途斷線（外接鏡頭被拔掉、被其他程式搶走）：回到首頁並說明原因
     stream.getVideoTracks()[0].addEventListener('ended', () => {
         if (stream !== currentStream) return;
