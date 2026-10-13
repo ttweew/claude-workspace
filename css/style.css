@@ -1246,6 +1246,69 @@ code {
 #fpsLive option {
     color: #1B2536;
 }
+/* 速度建議：自己一行（排在狀態、運算標籤下面），圓角卡片 */
+#infobar > #advice {
+    flex: 0 0 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: none;
+}
+.advice-card {
+    max-width: 380px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 200, 87, 0.6);
+    border-radius: 12px;
+    background: rgba(11, 18, 32, 0.92);
+    pointer-events: auto;
+}
+.advice-card p {
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+.advice-card strong {
+    display: block;
+    color: #FFC857;
+}
+.advice-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.advice-actions button {
+    min-height: 32px;
+    padding: 4px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    background: transparent;
+    color: #FFFFFF;
+    font: inherit;
+    cursor: pointer;
+}
+.advice-actions button[hidden] {
+    display: none;
+}
+#adviceYes {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+}
+/* 橫拿：左右兩邊是大字儀表板（每組約 8 個字寬），建議改放下方中間、兩組之間；
+   數據面板開著時儀表板收起來、右邊是面板，維持放在左上 */
+@media (orientation: landscape) {
+    #stage:not(:has(#dataPanel:not([hidden]))) .advice-card {
+        position: fixed;
+        left: calc(max(14px, env(safe-area-inset-left)) + 8 * clamp(18px, 5.5vmin, 34px) + 12px);
+        right: calc(max(14px, env(safe-area-inset-right)) + 8 * clamp(18px, 5.5vmin, 34px) + 12px);
+        bottom: max(12px, env(safe-area-inset-bottom));
+        margin: 0 auto;
+    }
+}
+/* 入鏡提示、錄製倒數、錄製提醒出現時先藏起來，不蓋住更重要的大字（提示消失後再出現） */
+#stage:has(#banner:not([hidden]), #countdown:not([hidden]), #recNotice:not([hidden])) #advice {
+    display: none;
+}
 
 /* ---------- 站遠也看得清楚：大字橫幅與大字儀表板 ---------- */
 /* 入鏡提示（例如「請往後退」）：畫面上方中央的大字，字體隨螢幕放大 */

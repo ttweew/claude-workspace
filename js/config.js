@@ -17,7 +17,8 @@ const MODELS = {
     lite: { name: 'pose_landmarker_lite', size: 5.8e6 },
     full: { name: 'pose_landmarker_full', size: 9.4e6 }
 };
-const model = MODELS[params.get('model')] || MODELS.lite;
+export const POSE_MODEL_KEY = MODELS[params.get('model')] ? params.get('model') : 'lite';  // 'lite' 或 'full'
+const model = MODELS[POSE_MODEL_KEY];
 export const POSE_MODEL_NAME = model.name;
 export const POSE_MODEL_SIZE = model.size;  // 檔案大小，用來計算下載進度
 export const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/'

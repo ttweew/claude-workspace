@@ -192,6 +192,16 @@
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數"></button>
             <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數 -->
             <select id="fpsLive" aria-label="每秒格數" hidden></select>
+            <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
+            <div id="advice" aria-live="polite" hidden>
+                <div class="advice-card">
+                    <p><strong>速度建議</strong><span id="adviceText"></span></p>
+                    <div class="advice-actions">
+                        <button id="adviceYes" type="button"></button>
+                        <button id="adviceNo" type="button">不用了</button>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- 動作示範（老師 10/12 回饋）：右上角的按鈕打開小視窗，先看標準姿勢再跟著做 -->
         <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>示範</button>
