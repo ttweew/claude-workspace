@@ -79,6 +79,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
     "videoWidth": 640,
     "videoHeight": 480,
     "cameraFrameRate": 30,
+    "aiMsPerFrame": 12,
     "displayMirrored": true,
     "userAgent": "…",
     "startedAt": "2026-10-01T07:30:12.000Z"
@@ -97,6 +98,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
 - `stableWorld`：處理過的 3D 座標（見下方「3D 座標的處理」）
 - 2026-10 以前錄的檔案沒有 `smoothed`、`stableWorld`
 - `meta.cameraFrameRate`：鏡頭設定的每秒格數（瀏覽器回報的，不知道時是 0；每秒格數選 60 以上時，用來確認鏡頭有沒有真的給那麼多格）。實際錄到每秒幾格看 `t`，因為 AI 算不完的格子會跳過；2026-10-12 以前的檔案沒有這個欄位
+- `meta.aiMsPerFrame`：開始錄製前 AI 每格算幾毫秒（最近 30 格的中位數，還沒算過時是 `null`），用來比較不同手機、不同模型的速度；2026-10-13 以前的檔案沒有這個欄位
 
 ## 3D 座標的處理（`js/skeleton/world.js`）
 

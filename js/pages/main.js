@@ -1,11 +1,12 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, LAB, PREDICT, FPS_CHOICES } from '../config.js';
+import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, POSE_MODEL_KEY, LAB, PREDICT, FPS_CHOICES } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { drawSkeleton } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
+import { SpeedMeter, ADVICE, advise, median, loadSkipped, skipAdvice } from '../ai/advisor.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
@@ -49,6 +50,10 @@ const limitNote = document.getElementById('limitNote');
 const fpsSelect = document.getElementById('fpsSelect');  // 首頁「畫面流暢度」
 const fpsLive = document.getElementById('fpsLive');      // 鏡頭畫面：點開運算標籤時出現
 const fpsHint = document.getElementById('fpsHint');
+const adviceBox = document.getElementById('advice');      // 速度建議（js/ai/advisor.js）
+const adviceText = document.getElementById('adviceText');
+const adviceYes = document.getElementById('adviceYes');
+const adviceNo = document.getElementById('adviceNo');
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -102,6 +107,12 @@ let picked = null;          // 使用者點選要查看的點與顯示期限 { i
 const fps = new FpsCounter();        // AI 每秒算幾格
 const cameraFps = new FpsCounter();  // 鏡頭每秒送來幾格（AI 最多只能算這麼多格）
 let lastCameraFrame = null;          // 上一次看到的鏡頭畫面（算鏡頭格數用）
+const recentMs = [];                 // 最近 30 格 AI 每格花幾毫秒（運算標籤點開時顯示）
+const speedMeter = new SpeedMeter(); // 速度建議：量這台裝置實際跑多快
+let measureFrom = 0;                 // 從這個時間 3 秒後才開始量（剛開鏡頭、從背景回來的幾秒比較慢，不準）
+let lastPersonAt = -Infinity;        // 最近一次畫面裡有人的時間
+let adviceDone = false;              // 這次開鏡頭已經量完、給過建議（換格數重開鏡頭會再量一次）
+let shownAdvice = null;              // 畫面上正在顯示的建議
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
@@ -261,6 +272,8 @@ function updatePerfInfo() {
             const rate = high ? (max && max + ' 格') : '每秒 ' + (cameraFps.value || '…') + ' 格' + (max && '（' + max + '）');
             const info = [size, rate].filter(Boolean).join('，');
             if (info) parts.push('鏡頭 ' + info);
+            // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
+            if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + POSE_MODEL_KEY + ' 模型）');
         }
     }
     if (currentStream && perfExpanded) {
@@ -299,6 +312,8 @@ async function restartPose(reason) {
     streamGeneration++;
     console.warn('AI 重新啟動：' + reason);
     clearPose();
+    // 重新啟動後速度可能不一樣（例如 GPU 失效改用 CPU）：重新量
+    resetSpeedMeter();
     // 5 秒內又壞掉，代表重新啟動也救不回來，不要一直重試
     if (performance.now() - lastRestart < 5000) {
         giveUpPose();
@@ -388,6 +403,7 @@ function startDetect(frameId) {
     pose.detect(video, now).then(result => {
         // 等結果的期間換了鏡頭、關了鏡頭或 AI 重新啟動：這一格作廢
         if (generation === streamGeneration && currentStream && !restarting) {
+            measureFrame(performance.now() - now, !!result.landmarks);
             try {
                 showResult(result, now);
                 failures = 0;
@@ -401,6 +417,80 @@ function startDetect(frameId) {
         done();
     });
 }
+
+// ---------- 速度建議（js/ai/advisor.js） ----------
+// 開鏡頭 3 秒後開始量，畫面裡有人的時間量滿 8 秒給一次建議；錄製中、網頁在背景時不量也不打擾
+
+function measuring() {
+    return !adviceDone && !recorder.recording && !document.hidden
+        && performance.now() - measureFrom >= ADVICE.warmupMs;
+}
+
+// 每一格：AI 這格花了幾毫秒（送出畫面到結果回來）
+function measureFrame(ms, person) {
+    recentMs.push(ms);
+    if (recentMs.length > 30) recentMs.shift();
+    if (!person) return;
+    lastPersonAt = performance.now();
+    if (measuring()) speedMeter.addFrame(ms);
+}
+
+// 每一秒：AI、鏡頭每秒幾格；量夠了就給建議
+function measureSecond() {
+    if (!measuring() || performance.now() - lastPersonAt > 500) return;
+    speedMeter.addSecond(fps.value, cameraFps.value);
+    if (!speedMeter.ready) return;
+    adviceDone = true;
+    const result = speedMeter.result();
+    const skipped = loadSkipped();
+    const advice = advise({ ...result, chosenFps: getFrameRate(), cameraMax: cameraMaxFps, model: POSE_MODEL_KEY })
+        .find(item => !skipped.includes(item.key));
+    console.info('速度量測：', result, advice ? '建議 ' + advice.key : '設定剛好，沒有建議');
+    if (advice) showAdvice(advice);
+}
+
+function showAdvice(advice) {
+    shownAdvice = advice;
+    adviceText.textContent = advice.text;
+    adviceYes.hidden = !advice.button;
+    adviceYes.textContent = advice.button || '';
+    adviceNo.textContent = advice.button ? '不用了' : '知道了';
+    adviceBox.hidden = false;
+}
+
+function hideAdvice() {
+    shownAdvice = null;
+    adviceBox.hidden = true;
+}
+
+// 重新開始量（開鏡頭、換格數、錄製、切到背景）
+function resetSpeedMeter() {
+    speedMeter.reset();
+    recentMs.length = 0;
+    adviceDone = false;
+    measureFrom = performance.now();
+    hideAdvice();
+}
+
+// 換模型要重新載入網頁：網址加上或拿掉 ?model=full（每秒格數等設定網站會記住）
+function switchModel(model) {
+    const url = new URL(location.href);
+    if (model === 'lite') url.searchParams.delete('model');
+    else url.searchParams.set('model', model);
+    location.assign(url.href);
+}
+
+adviceYes.addEventListener('click', () => {
+    const action = shownAdvice && shownAdvice.action;
+    hideAdvice();
+    if (!action) return;
+    if (action.fps) applyFps(action.fps);
+    else if (action.model) switchModel(action.model);
+});
+adviceNo.addEventListener('click', () => {
+    if (shownAdvice) skipAdvice(shownAdvice.key);
+    hideAdvice();
+});
 
 // 偵測或顯示出錯：偶爾一格出錯不用大動作，連續出錯才重新啟動 AI
 function detectFailed(err) {
@@ -421,7 +511,10 @@ function showResult(result, now) {
     }
     // 畫布和影像的長寬比例相同，座標才會對齊
     const dpr = fitOverlay();
-    if (fps.tick(now)) updatePerfInfo();
+    if (fps.tick(now)) {
+        updatePerfInfo();
+        measureSecond();
+    }
     // landmarks 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
     // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
     const raw = result.landmarks;
@@ -574,6 +667,7 @@ async function startCamera(deviceId) {
     }
     currentStream = stream;
     video.srcObject = stream;
+    measureFrom = performance.now();
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});
     statusText.textContent = '鏡頭已開啟';
@@ -627,6 +721,7 @@ function stopStream() {
     fps.reset();
     cameraFps.reset();
     lastCameraFrame = null;
+    resetSpeedMeter();
     pipeline.reset();
     worldStabilizer.reset();
     framing.reset();
@@ -815,7 +910,10 @@ function showFpsChoice() {
 }
 
 function chooseFps(select) {
-    setFrameRate(Number(select.value));
+    applyFps(Number(select.value));
+}
+function applyFps(rate) {
+    setFrameRate(rate);
     showFpsChoice();
     showLimitNote();
     updatePerfInfo();
@@ -900,6 +998,8 @@ function startRecording() {
         videoHeight: video.videoHeight,
         // 鏡頭設定的每秒格數（選了 60 格以上時，看鏡頭到底有沒有給那麼多格）
         cameraFrameRate: cameraFrameRate(currentStream),
+        // AI 每格算幾毫秒（開始錄製前最近 30 格的中位數）：比較不同手機的速度
+        aiMsPerFrame: recentMs.length ? Math.round(median(recentMs)) : null,
         // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
         displayMirrored: video.classList.contains('mirrored'),
         userAgent: navigator.userAgent
@@ -908,6 +1008,9 @@ function startRecording() {
     limitSelect.disabled = true;
     fpsLive.disabled = true;
     showLimitNote();
+    // 錄製中不跳建議；還沒量完的，停止錄製後重新量
+    if (!adviceDone) speedMeter.reset();
+    hideAdvice();
     recordBtn.textContent = '■ 停止錄製';
     recordBtn.classList.add('recording');
     updateDataBtn();
@@ -989,7 +1092,10 @@ fullscreenBtn.addEventListener('click', toggleFullscreen);
 // 切到別的 App 再回來時，瀏覽器會自動解除螢幕常亮，這裡重新開啟
 // iPhone 切回來時影像可能停在最後一格，主動繼續播放
 document.addEventListener('visibilitychange', () => {
+    // 切到背景時 AI 會停下來，回來後的頭幾秒不準：還沒量完的重新量
+    if (document.hidden && !adviceDone) speedMeter.reset();
     if (document.visibilityState !== 'visible' || !currentStream) return;
+    measureFrom = performance.now();
     keepScreenOn(updatePerfInfo);
     if (video.paused) video.play().catch(() => {});
 });
