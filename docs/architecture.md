@@ -48,6 +48,7 @@ claude-workspace/
 | `ai/` | `pose.js` | 載入 MediaPipe 與模型（兩個下載來源、逾時重試）、選 GPU 或 CPU、背景執行緒當掉時自動重啟 |
 | | `pose-worker.js` | 背景執行緒：在這裡跑 AI，主畫面不會卡 |
 | | `fps.js` | 計算每秒偵測幾格 |
+| | `model-choice.js` | AI 模型的選擇：lite、full 或自動（先用 full，這台裝置跟不上就改用 lite 並記住） |
 | | `advisor.js` | 速度建議：量 AI 每格幾毫秒、每秒幾格，建議要不要換每秒格數或模型（只建議，不自動改） |
 | `skeleton/` | `pipeline.js` | 處理流程的總管：每一格依序呼叫平滑 → 擋鬼點 → 角度 → 拍攝方向 |
 | | `landmarks.js` | 33 個關鍵點的名稱、哪些是主要關節、看不看得到 |

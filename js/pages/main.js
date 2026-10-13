@@ -1,8 +1,9 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, POSE_MODEL_KEY, LAB, PREDICT, FPS_CHOICES } from '../config.js';
+import { SHOW_LABELS_AT_START, DEBUG, MODELS, LAB, PREDICT, FPS_CHOICES } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
+import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
 import { drawSkeleton } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
@@ -50,6 +51,9 @@ const limitNote = document.getElementById('limitNote');
 const fpsSelect = document.getElementById('fpsSelect');  // 首頁「畫面流暢度」
 const fpsLive = document.getElementById('fpsLive');      // 鏡頭畫面：點開運算標籤時出現
 const fpsHint = document.getElementById('fpsHint');
+const modelSelect = document.getElementById('modelSelect');  // 首頁「AI 模型」
+const modelLive = document.getElementById('modelLive');      // 鏡頭畫面：點開運算標籤時出現
+const modelPickHint = document.getElementById('modelPickHint');
 const adviceBox = document.getElementById('advice');      // 速度建議（js/ai/advisor.js）
 const adviceText = document.getElementById('adviceText');
 const adviceYes = document.getElementById('adviceYes');
@@ -249,6 +253,8 @@ async function tryLoadPose(attempt) {
         setModelStatus('AI 模型已就緒（載入 ' + seconds + ' 秒）');
         finishLoading(true);
         updatePerfInfo();
+        showModelChoice();
+        checkModel();
         return true;
     } catch (err) {
         console.error(err);
@@ -277,7 +283,7 @@ function updatePerfInfo() {
             if (info) parts.push('鏡頭 ' + info);
             if (isAutoFps()) parts.push('每秒格數自動，目前 ' + getFrameRate() + ' 格');
             // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
-            if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + POSE_MODEL_KEY + ' 模型）');
+            if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + modelLabel() + '）');
         }
     }
     if (currentStream && perfExpanded) {
@@ -290,7 +296,7 @@ function updatePerfInfo() {
     }
     perfBtn.textContent = parts.join(' · ');
     perfBtn.hidden = false;
-    fpsLive.hidden = !(perfExpanded && currentStream);
+    fpsLive.hidden = modelLive.hidden = !(perfExpanded && currentStream);
 }
 
 // 排下一次偵測：鏡頭每送來一格新畫面，就偵測一次
@@ -457,15 +463,24 @@ function measureSecond() {
     if (!speedMeter.ready) return;
     adviceDone = true;
     const result = speedMeter.result();
-    const list = advise({ ...result, chosenFps: getFrameRate(), cameraMax: cameraMaxFps, model: POSE_MODEL_KEY });
+    const list = advise({ ...result, chosenFps: getFrameRate(), cameraMax: cameraMaxFps, model: currentModel() });
     console.info('速度量測：', result, list.map(item => item.key).join('、') || '設定剛好');
+    // AI 模型選「自動」：用 full 跟不上就改用 lite 並記住（換完重新量，每秒格數等換完再判斷）
+    const autoModel = getModelChoice() === 'auto';
+    if (autoModel && currentModel() === 'full' && list.some(item => item.key === 'lite')) {
+        rememberAutoModel('lite');
+        switchPoseModel('lite', '自動調整：AI 用 full 跟不上，改用比較快的 lite');
+        return;
+    }
     // 每秒格數選「自動」：格數不用問，直接調；只剩模型的建議給使用者決定
     if (isAutoFps()) {
         if (list.some(item => item.key === 'fps60')) applyAutoRate(60, 'AI 還有餘裕，改成每秒 60 格');
         else if (getFrameRate() > 30 && list.some(item => item.action && item.action.fps === 30)) applyAutoRate(30, 'AI 跟不上每秒 60 格，改回 30 格');
     }
     const skipped = loadSkipped();
-    const advice = list.find(item => !skipped.includes(item.key) && !(isAutoFps() && item.action && item.action.fps));
+    // 選了自動的那一項（每秒格數、模型）不用問，只建議其他的
+    const advice = list.find(item => !skipped.includes(item.key)
+        && !(isAutoFps() && item.action && item.action.fps) && !(autoModel && item.action && item.action.model));
     if (advice) showAdvice(advice);
 }
 
@@ -525,20 +540,12 @@ function resetSpeedMeter() {
     hideAdvice();
 }
 
-// 換模型要重新載入網頁：網址加上或拿掉 ?model=full（每秒格數等設定網站會記住）
-function switchModel(model) {
-    const url = new URL(location.href);
-    if (model === 'lite') url.searchParams.delete('model');
-    else url.searchParams.set('model', model);
-    location.assign(url.href);
-}
-
 adviceYes.addEventListener('click', () => {
     const action = shownAdvice && shownAdvice.action;
     hideAdvice();
     if (!action) return;
     if (action.fps) applyFps(action.fps);
-    else if (action.model) switchModel(action.model);
+    else if (action.model) chooseModel(action.model);
 });
 adviceNo.addEventListener('click', () => {
     if (shownAdvice) skipAdvice(shownAdvice.key);
@@ -985,6 +992,101 @@ fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
 fpsLive.addEventListener('change', () => chooseFps(fpsLive));
 showFpsChoice();
 
+// ---------- AI 模型（自動調整的第 3 步） ----------
+// 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）
+// 換模型不用重新載入網頁：先下載新的模型檔（下載過的有存，很快），再重新建立偵測器，畫面停 1～2 秒
+const MODEL_TEXT = { lite: 'lite（較快，建議）', full: 'full（較準、較慢）', auto: '自動（先用 full，太慢改 lite，實驗）' };
+let switchingModel = false;   // 正在換模型
+
+// 現在用的模型（AI 還沒載入時是要載入的那個）
+function currentModel() {
+    return pose ? pose.model : modelToLoad();
+}
+function modelLabel() {
+    return (getModelChoice() === 'auto' ? '自動：' : '') + currentModel() + ' 模型';
+}
+
+function fillModelOptions(select) {
+    select.replaceChildren(...MODEL_CHOICES.map(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = MODEL_TEXT[key];
+        return option;
+    }));
+    select.value = getModelChoice();
+}
+
+function showModelChoice() {
+    fillModelOptions(modelSelect);
+    fillModelOptions(modelLive);
+    modelSelect.disabled = switchingModel;
+    modelLive.disabled = switchingModel || recorder.recording;
+    const choice = getModelChoice();
+    modelPickHint.hidden = choice === 'lite';
+    modelPickHint.textContent = choice === 'full'
+        ? '比較準、鬼點比較少，但運算約慢 1.5 倍、第一次多下載 3.6 MB；開鏡頭後點運算標籤可以看 AI 每格幾毫秒'
+        : autoRemembered()
+        ? '自動：這台裝置之前量到 full 跟不上，所以用 lite（再選一次「自動」會重新判斷）'
+        : '實驗中：先用比較準的 full；開鏡頭、站進畫面後量到這台裝置跟不上，會自動改用 lite 並記住';
+    modelHint.textContent = '第一次使用需下載約 ' + Math.round((11.8e6 + MODELS[modelToLoad()].size) / 1e6) + ' MB，之後開啟會快很多';
+}
+
+function chooseModel(value) {
+    setModelChoice(value);
+    // 網址的 ?model= 只在這次有效：使用者自己選了之後拿掉，重新整理才不會又換回去
+    const url = new URL(location.href);
+    if (url.searchParams.has('model')) {
+        url.searchParams.delete('model');
+        history.replaceState(null, '', url.href);
+    }
+    showModelChoice();
+    updatePerfInfo();
+    checkModel();
+}
+modelSelect.addEventListener('change', () => chooseModel(modelSelect.value));
+modelLive.addEventListener('change', () => chooseModel(modelLive.value));
+
+// 選的模型和正在用的不一樣：換（AI 還在載入、重新啟動或正在換時，等它好了再換）
+function checkModel() {
+    if (!pose || switchingModel || restarting || poseBroken) return;
+    if (pose.model !== modelToLoad()) switchPoseModel(modelToLoad(), '');
+}
+
+// 換模型：note 是自動調整時要短暫顯示的說明
+async function switchPoseModel(key, note) {
+    if (!pose || switchingModel || restarting) return;
+    switchingModel = true;
+    restarting = true;
+    streamGeneration++;
+    clearPose();
+    resetSpeedMeter();
+    showModelChoice();
+    if (note) showAutoNote(note);
+    const from = pose.model;
+    setModelStatus('換成 ' + key + ' 模型中…');
+    try {
+        await pose.useModel(key, fraction => setModelStatus('換成 ' + key + ' 模型：下載 ' + Math.round(fraction * 100) + '%'));
+        setModelStatus('AI 模型已就緒（' + key + ' 模型）');
+    } catch (err) {
+        console.error(err);
+        if (!err.recovered) {
+            switchingModel = false;
+            showModelChoice();
+            giveUpPose();
+            return;
+        }
+        setModelStatus('換成 ' + key + ' 模型失敗，繼續用 ' + from + '（請檢查網路）');
+    }
+    failures = 0;
+    pipeline.reset();
+    resetSpeedMeter();
+    restarting = false;
+    switchingModel = false;
+    showModelChoice();
+    updatePerfInfo();
+}
+showModelChoice();
+
 // 短促的嗶聲（倒數每秒一聲、開始錄製和錄滿是長音）；跟著工具列的音量，沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
 function beep(long) {
     sound.play(long ? 'long' : 'count');
@@ -1053,7 +1155,9 @@ function startRecording() {
     hideRecNotice();
     recorder.start({
         app: 'AI 智慧運動分析系統',
-        model: POSE_MODEL_NAME,
+        model: MODELS[currentModel()].name,
+        // 使用者選的模型：'lite'、'full' 或 'auto'（自動；錄製中不會換）
+        modelChoice: getModelChoice(),
         computeMode: pose ? pose.computeMode : '',
         videoWidth: video.videoWidth,
         videoHeight: video.videoHeight,
@@ -1069,7 +1173,7 @@ function startRecording() {
     }, limitMinutes() * 60);
     // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）
     limitSelect.disabled = true;
-    fpsLive.disabled = true;
+    fpsLive.disabled = modelLive.disabled = true;
     showLimitNote();
     // 錄製中不跳建議；還沒量完的，停止錄製後重新量
     if (!adviceDone) speedMeter.reset();
@@ -1090,6 +1194,7 @@ function stopRecording(limitHit = false) {
     if (limitHit) showRecNotice('已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止', true);
     limitSelect.disabled = false;
     fpsLive.disabled = false;
+    modelLive.disabled = switchingModel;
     showLimitNote();
     recordBtn.textContent = '● 重新錄製';
     recordBtn.classList.remove('recording');

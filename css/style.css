@@ -1235,15 +1235,15 @@ code {
     margin-top: 8px;
     color: var(--text);
 }
-/* 點開運算標籤時出現的每秒格數選單 */
-#fpsLive {
+/* 點開運算標籤時出現的每秒格數、AI 模型選單 */
+#fpsLive, #modelLive {
     max-width: 100%;
     min-height: 30px;
     font: inherit;
     font-size: 16px;
     padding: 0 8px;
 }
-#fpsLive option {
+#fpsLive option, #modelLive option {
     color: #1B2536;
 }
 /* 每秒格數自動調整時的短暫說明：綠框，和速度建議（黃框）分開 */
