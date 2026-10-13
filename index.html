@@ -81,6 +81,11 @@
                     <select id="fpsSelect" aria-describedby="fpsHint"></select>
                 </label>
                 <p id="fpsHint" class="fps-hint" hidden></p>
+                <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
+                <label class="fps-pick">AI 模型
+                    <select id="modelSelect" aria-describedby="modelPickHint"></select>
+                </label>
+                <p id="modelPickHint" class="fps-hint" hidden></p>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
                 <p id="modelStatus" aria-live="polite">AI 準備中…</p>
@@ -189,9 +194,10 @@
         </div>
         <div id="infobar">
             <span id="poseStatus">AI 準備中…</span>
-            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數"></button>
-            <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數 -->
+            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數和 AI 模型"></button>
+            <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數、AI 模型 -->
             <select id="fpsLive" aria-label="每秒格數" hidden></select>
+            <select id="modelLive" aria-label="AI 模型" hidden></select>
             <!-- 每秒格數選「自動」時：換了格數短暫說明（例如「自動調整：AI 還有餘裕，改成每秒 60 格」） -->
             <span id="autoNote" role="status" hidden></span>
             <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->

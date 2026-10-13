@@ -75,6 +75,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
   "meta": {
     "app": "AI 智慧運動分析系統",
     "model": "pose_landmarker_lite",
+    "modelChoice": "lite",
     "computeMode": "GPU",
     "videoWidth": 640,
     "videoHeight": 480,
@@ -99,6 +100,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
 - `stableWorld`：處理過的 3D 座標（見下方「3D 座標的處理」）
 - 2026-10 以前錄的檔案沒有 `smoothed`、`stableWorld`
 - `meta.cameraFrameRate`：鏡頭設定的每秒格數（瀏覽器回報的，不知道時是 0；每秒格數選 60 以上時，用來確認鏡頭有沒有真的給那麼多格）。實際錄到每秒幾格看 `t`，因為 AI 算不完的格子會跳過；2026-10-12 以前的檔案沒有這個欄位
+- `meta.modelChoice`：使用者選的模型（`"lite"`、`"full"` 或 `"auto"` 自動；實際用的是 `model`，錄製中不會換）；2026-10-13 以前的檔案沒有這個欄位
 - `meta.fpsChoice`：使用者選的每秒格數（30、60、90、120 或 `"auto"` 自動；自動時錄製中不會換格數，實際的格數看 `cameraFrameRate`）；2026-10-13 以前的檔案沒有這個欄位
 - `meta.aiMsPerFrame`：開始錄製前 AI 每格算幾毫秒（最近 30 格的中位數，還沒算過時是 `null`），用來比較不同手機、不同模型的速度；2026-10-13 以前的檔案沒有這個欄位
 

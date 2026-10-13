@@ -10,19 +10,20 @@ export const MEDIAPIPE_URLS = [
 
 const params = new URLSearchParams(location.search);
 
-// 骨架模型：預設 lite（最輕量、手機也跑得動）
-// 測試用：網址加上 ?model=full 改用較大的 full 模型。模擬測試中鬼點更少，但運算約慢 1.5 倍、多下載 3.6 MB，
-// 請用實際手機比較 FPS 再決定要不要換
-const MODELS = {
+// 骨架模型：lite（最輕量、手機也跑得動，預設）、full（比較準、鬼點更少，但運算約慢 1.5 倍、多下載 3.6 MB）
+// 首頁「AI 模型」選單可以選 lite、full 或自動（js/ai/model-choice.js，會記住）
+// 網址加上 ?model=full（或 lite、auto）可以直接指定，方便測試（不會記住）
+// size：檔案大小，用來計算下載進度
+export const MODELS = {
     lite: { name: 'pose_landmarker_lite', size: 5.8e6 },
     full: { name: 'pose_landmarker_full', size: 9.4e6 }
 };
-export const POSE_MODEL_KEY = MODELS[params.get('model')] ? params.get('model') : 'lite';  // 'lite' 或 'full'
-const model = MODELS[POSE_MODEL_KEY];
-export const POSE_MODEL_NAME = model.name;
-export const POSE_MODEL_SIZE = model.size;  // 檔案大小，用來計算下載進度
-export const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/'
-    + model.name + '/float16/1/' + model.name + '.task';
+export function modelUrl(key) {
+    const name = MODELS[key].name;
+    return 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/' + name + '/float16/1/' + name + '.task';
+}
+const urlModel = params.get('model');
+export const MODEL_FROM_URL = urlModel === 'auto' || MODELS[urlModel] ? urlModel : '';
 
 // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
 export const FORCE_CPU = params.has('cpu');
