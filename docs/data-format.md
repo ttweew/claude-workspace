@@ -78,6 +78,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
     "computeMode": "GPU",
     "videoWidth": 640,
     "videoHeight": 480,
+    "cameraFrameRate": 30,
     "displayMirrored": true,
     "userAgent": "…",
     "startedAt": "2026-10-01T07:30:12.000Z"
@@ -95,6 +96,7 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
 - `smoothed`：平滑後的點（和畫面上的骨架、數據面板「平滑後」的數字相同）；`seen` 為 1 代表畫面上有畫出這個點
 - `stableWorld`：處理過的 3D 座標（見下方「3D 座標的處理」）
 - 2026-10 以前錄的檔案沒有 `smoothed`、`stableWorld`
+- `meta.cameraFrameRate`：鏡頭設定的每秒格數（瀏覽器回報的，不知道時是 0；每秒格數選 60 以上時，用來確認鏡頭有沒有真的給那麼多格）。實際錄到每秒幾格看 `t`，因為 AI 算不完的格子會跳過；2026-10-12 以前的檔案沒有這個欄位
 
 ## 3D 座標的處理（`js/skeleton/world.js`）
 

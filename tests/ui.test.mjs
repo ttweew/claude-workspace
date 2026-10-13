@@ -1,8 +1,9 @@
-// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡；提示音；示範動畫的姿勢
+// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡；提示音；示範動畫的姿勢；運算標籤的每秒格數（js/ai/fps.js）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Hud } from '../js/ui/hud.js';
 import { POSES, angleAt } from '../js/ui/demo.js';
+import { FpsCounter } from '../js/ai/fps.js';
 import { LANDMARKS, P } from '../js/skeleton/landmarks.js';
 
 // 測試用的假畫面元素：只做 hud.js 用到的部分
@@ -131,6 +132,19 @@ test('提示音：站位不對「逼逼」；換成別的提示再響，但兩�
     run(null, '看不到腳，可能被擋住了', 5100, 6000);       // 蹲低時腳被擋住：不算狀況改變
     run('ok', '已偵測到全身', 6100, 7000);
     assert.deepEqual(played, ['wrong', 'wrong', 'ok']);   // 只有回到「站好了」那一次叮
+});
+
+test('每秒格數：滿一秒才更新；鏡頭兩次叫醒之間送來 2 格時算 2 格', () => {
+    const ai = new FpsCounter(), camera = new FpsCounter();
+    ai.reset(); camera.reset();
+    ai.start = camera.start = 0;
+    let changed = false;
+    // AI 每 40 毫秒算一格（每秒 25 格）；鏡頭每秒 60 格，但程式每 33 毫秒才被叫醒一次，每次看到 2 格
+    for (let t = 40; t <= 1000; t += 40) changed = ai.tick(t);
+    for (let t = 33; t <= 1023; t += 33) camera.tick(t, 2);
+    assert.equal(changed, true);
+    assert.equal(ai.value, 25);
+    assert.ok(Math.abs(camera.value - 60) <= 1, String(camera.value));
 });
 
 test('示範動畫：最低點的角度符合重點字（深蹲 < 90°、伏地挺身和弓箭步約 90°），起始姿勢接近伸直', () => {

@@ -11,8 +11,9 @@ export class FpsCounter {
     }
 
     // 回傳 true 代表 FPS 數值剛更新，畫面需要重新顯示
-    tick(now) {
-        this.count++;
+    // frames：這次算幾格（鏡頭的格數：兩次叫醒之間可能已經送來不只一格）
+    tick(now, frames = 1) {
+        this.count += frames;
         if (now - this.start < 1000) return false;
         this.value = Math.round(this.count * 1000 / (now - this.start));
         this.count = 0;

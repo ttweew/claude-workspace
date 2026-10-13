@@ -424,7 +424,7 @@ function showSummary() {
         ['偵測到人', Math.round(detected / rows.length * 100) + '% 的格子'],
         ['拍攝方向', '側面 ' + pct(views.side) + ' · 斜側 ' + pct(views.oblique) + ' · 正面 ' + pct(views.front)],
         ['面向（畫面上）', facingText(facing)],
-        ['鏡頭畫面', width + '×' + height + (needsFrameSize() ? '（手動選擇）' : '')],
+        ['鏡頭畫面', width + '×' + height + (needsFrameSize() ? '（手動選擇）' : '') + (m.cameraFrameRate ? '，鏡頭每秒 ' + m.cameraFrameRate + ' 格' : '')],
         ['模型 · 運算', (m.model || '—') + ' · ' + (m.computeMode || '—')],
         ['錄製時間', m.startedAt && !m.synthetic ? new Date(m.startedAt).toLocaleString('zh-TW') : '—']
     ];
