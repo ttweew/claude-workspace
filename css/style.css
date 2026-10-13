@@ -380,20 +380,102 @@ h2 {
     color: var(--text);
     font-size: 16px;
 }
+/* 支援的運動：每個動作一張卡片（示範動畫＋重點）；電腦一排 4 張，手機 2×2 */
 .exercises {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
     margin: 0;
     padding: 0;
     list-style: none;
 }
-.exercises li {
-    padding: 8px 16px;
+.exercises > li {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px 14px;
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--surface);
-    font-weight: 600;
+}
+.exercises h3 {
+    order: 1;   /* 動畫在上、名稱和重點在下（HTML 裡名稱在前，沒有動畫時也看得到） */
+    margin: 8px 0 4px;
+    font-size: 16px;
+}
+.exercises .demo-art {
+    order: 0;
+}
+.exercises .demo-cues {
+    order: 2;
+}
+@media (max-width: 560px) {
+    .exercises {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .exercises > li {
+        padding: 10px 10px 12px;
+    }
+    .exercises h3 {
+        font-size: 15px;
+    }
+}
+/* 示範動畫（js/ui/demo.js）：側面火柴人、地面、角度弧線和數字 */
+.demo-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    background: var(--surface-2);
+}
+.demo-floor {
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.5;
+}
+.demo-bones {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.demo-head {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 4;
+}
+.demo-joints circle {
+    fill: #FFFFFF;
+}
+.demo-arc {
+    fill: none;
+    stroke: #FFFFFF;
+    stroke-width: 2;
+    stroke-dasharray: 3 3;
+}
+.demo-chip rect {
+    fill: #FFFFFF;
+}
+.demo-chip text {
+    fill: var(--bg);
+    font-size: 17px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+.demo-cues {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+@media (max-width: 560px) {
+    .demo-cues {
+        padding-left: 16px;
+        font-size: 13px;
+    }
 }
 .note {
     margin: 12px 0 0;
@@ -995,7 +1077,7 @@ code {
     position: absolute;
     top: calc(max(8px, env(safe-area-inset-top)) + 62px);
     left: max(8px, env(safe-area-inset-left));
-    right: max(8px, env(safe-area-inset-right));
+    right: calc(max(8px, env(safe-area-inset-right)) + 84px);   /* 右上角留給「示範」按鈕 */
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -1028,6 +1110,95 @@ code {
 #perfBtn {
     font: inherit;
     cursor: pointer;
+}
+/* 動作示範：右上角的按鈕（和狀態標籤同一列）、按下去出現的小視窗 */
+#demoBtn {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 62px);
+    right: max(8px, env(safe-area-inset-right));
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: var(--glass);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+#demoBtn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+#demoBtn[aria-expanded="true"] {
+    border-color: rgba(46, 230, 166, 0.7);
+    background: rgba(13, 110, 70, 0.9);
+}
+#demoPanel {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 100px);
+    right: max(8px, env(safe-area-inset-right));
+    width: min(300px, calc(100% - 16px));
+    max-height: calc(100% - max(8px, env(safe-area-inset-top)) - 108px);
+    overflow-y: auto;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(11, 18, 32, 0.92);
+    color: var(--text);
+}
+#demoPanel[hidden] {
+    display: none;
+}
+.demo-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.demo-head h2 {
+    margin: 0;
+    font-size: 16px;
+}
+#demoClose {
+    min-width: 36px;
+    min-height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 18px;
+    cursor: pointer;
+}
+.demo-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.demo-tabs button {
+    min-height: 34px;
+    padding: 0 2px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.demo-tabs button[aria-pressed="true"] {
+    border-color: rgba(46, 230, 166, 0.7);
+    background: rgba(46, 230, 166, 0.2);
+}
+#demoPanel .demo-cues {
+    margin-top: 8px;
+    color: var(--text);
 }
 
 /* ---------- 站遠也看得清楚：大字橫幅與大字儀表板 ---------- */
