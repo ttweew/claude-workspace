@@ -254,7 +254,14 @@ function updatePerfInfo() {
         const high = getFrameRate() > 30;
         if (high) parts.push('鏡頭 ' + (cameraFps.value || '…') + ' · AI ' + ai);
         else parts.push(ai);
-        if (perfExpanded && !high) parts.push('鏡頭每秒 ' + (cameraFps.value || '…') + ' 格');
+        // 點開時寫出鏡頭的解析度和最多每秒幾格：卡在 30 時一眼看出是鏡頭的上限（同學 10/13 筆電測試）
+        if (perfExpanded) {
+            const size = video.videoWidth ? video.videoWidth + '×' + video.videoHeight : '';
+            const max = cameraMaxFps ? '最多 ' + cameraMaxFps : '';
+            const rate = high ? (max && max + ' 格') : '每秒 ' + (cameraFps.value || '…') + ' 格' + (max && '（' + max + '）');
+            const info = [size, rate].filter(Boolean).join('，');
+            if (info) parts.push('鏡頭 ' + info);
+        }
     }
     if (currentStream && perfExpanded) {
         parts.push(!isWakeLockSupported() ? '此瀏覽器無法保持螢幕亮著'
@@ -796,9 +803,15 @@ function fillFpsOptions(select) {
 function showFpsChoice() {
     fillFpsOptions(fpsSelect);
     fillFpsOptions(fpsLive);
-    fpsHint.hidden = getFrameRate() <= 30;
-    fpsHint.textContent = '實驗中：要鏡頭支援、AI 算得夠快，手機會比較耗電、發燙；做不到時會自動用做得到的。'
-        + '開鏡頭後點運算標籤，可以看實際每秒幾格，也可以直接切換';
+    // 有選項變灰時說明原因（同學 10/13 用筆電測：只看到選不了，以為選單卡死）
+    const capped = cameraMaxFps > 0 && FPS_CHOICES.some(rate => rate > 30 && rate > cameraMaxFps);
+    const capNote = '這顆鏡頭最多每秒 ' + cameraMaxFps + ' 格，所以灰色的選不了；'
+        + '要更多格需要支援的手機或外接鏡頭（換鏡頭後會重新判斷）';
+    fpsHint.hidden = getFrameRate() <= 30 && !capped;
+    fpsHint.textContent = getFrameRate() > 30
+        ? '實驗中：要鏡頭支援、AI 算得夠快，手機會比較耗電、發燙；做不到時會自動用做得到的。'
+            + '開鏡頭後點運算標籤，可以看實際每秒幾格，也可以直接切換' + (capped ? '。' + capNote : '')
+        : capNote;
 }
 
 function chooseFps(select) {
