@@ -1246,6 +1246,10 @@ code {
 #fpsLive option {
     color: #1B2536;
 }
+/* 每秒格數自動調整時的短暫說明：綠框，和速度建議（黃框）分開 */
+#autoNote {
+    border-color: rgba(46, 230, 166, 0.6);
+}
 /* 速度建議：自己一行（排在狀態、運算標籤下面），圓角卡片 */
 #infobar > #advice {
     flex: 0 0 100%;

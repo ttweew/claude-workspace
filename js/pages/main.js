@@ -1,12 +1,12 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
 import { SHOW_LABELS_AT_START, DEBUG, POSE_MODEL_NAME, POSE_MODEL_KEY, LAB, PREDICT, FPS_CHOICES } from '../config.js';
-import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate } from '../platform/camera.js';
+import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { drawSkeleton } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
-import { SpeedMeter, ADVICE, advise, median, loadSkipped, skipAdvice } from '../ai/advisor.js';
+import { SpeedMeter, AutoFps, ADVICE, advise, median, loadSkipped, skipAdvice } from '../ai/advisor.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
@@ -54,6 +54,7 @@ const adviceBox = document.getElementById('advice');      // 速度建議（js/a
 const adviceText = document.getElementById('adviceText');
 const adviceYes = document.getElementById('adviceYes');
 const adviceNo = document.getElementById('adviceNo');
+const autoNote = document.getElementById('autoNote');  // 自動調整時短暫說明換了什麼
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -113,6 +114,8 @@ let measureFrom = 0;                 // 從這個時間 3 秒後才開始量（�
 let lastPersonAt = -Infinity;        // 最近一次畫面裡有人的時間
 let adviceDone = false;              // 這次開鏡頭已經量完、給過建議（換格數重開鏡頭會再量一次）
 let shownAdvice = null;              // 畫面上正在顯示的建議
+const secondMs = [];                 // 這一秒每格花幾毫秒（自動調每秒格數用）
+const autoFps = new AutoFps();       // 每秒格數選「自動」時：依實際速度在 30、60 之間調整
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
@@ -272,6 +275,7 @@ function updatePerfInfo() {
             const rate = high ? (max && max + ' 格') : '每秒 ' + (cameraFps.value || '…') + ' 格' + (max && '（' + max + '）');
             const info = [size, rate].filter(Boolean).join('，');
             if (info) parts.push('鏡頭 ' + info);
+            if (isAutoFps()) parts.push('每秒格數自動，目前 ' + getFrameRate() + ' 格');
             // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
             if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + POSE_MODEL_KEY + ' 模型）');
         }
@@ -421,9 +425,9 @@ function startDetect(frameId) {
 // ---------- 速度建議（js/ai/advisor.js） ----------
 // 開鏡頭 3 秒後開始量，畫面裡有人的時間量滿 8 秒給一次建議；錄製中、網頁在背景時不量也不打擾
 
+// 量得準的時候：沒在錄製、網頁在前景、開鏡頭（或換格數、從背景回來）3 秒後
 function measuring() {
-    return !adviceDone && !recorder.recording && !document.hidden
-        && performance.now() - measureFrom >= ADVICE.warmupMs;
+    return !recorder.recording && !document.hidden && performance.now() - measureFrom >= ADVICE.warmupMs;
 }
 
 // 每一格：AI 這格花了幾毫秒（送出畫面到結果回來）
@@ -432,21 +436,68 @@ function measureFrame(ms, person) {
     if (recentMs.length > 30) recentMs.shift();
     if (!person) return;
     lastPersonAt = performance.now();
-    if (measuring()) speedMeter.addFrame(ms);
+    if (!measuring()) return;
+    secondMs.push(ms);
+    if (!adviceDone) speedMeter.addFrame(ms);
 }
 
-// 每一秒：AI、鏡頭每秒幾格；量夠了就給建議
+// 每一秒：AI、鏡頭每秒幾格。還沒量完：量滿就給建議（自動時直接調整）；量完之後：自動調每秒格數
 function measureSecond() {
-    if (!measuring() || performance.now() - lastPersonAt > 500) return;
+    const ms = median(secondMs);
+    secondMs.length = 0;
+    if (!measuring() || performance.now() - lastPersonAt > 500 || !ms) return;
+    if (adviceDone) {
+        if (!isAutoFps()) return;
+        const rate = autoFps.second({ aiFps: fps.value, cameraFps: cameraFps.value, msPerFrame: ms }, getFrameRate(), cameraMaxFps);
+        if (rate === 30) applyAutoRate(30, 'AI 跟不上每秒 60 格，改回 30 格');
+        else if (rate === 60) applyAutoRate(60, 'AI 一直很有餘裕，再試每秒 60 格');
+        return;
+    }
     speedMeter.addSecond(fps.value, cameraFps.value);
     if (!speedMeter.ready) return;
     adviceDone = true;
     const result = speedMeter.result();
+    const list = advise({ ...result, chosenFps: getFrameRate(), cameraMax: cameraMaxFps, model: POSE_MODEL_KEY });
+    console.info('速度量測：', result, list.map(item => item.key).join('、') || '設定剛好');
+    // 每秒格數選「自動」：格數不用問，直接調；只剩模型的建議給使用者決定
+    if (isAutoFps()) {
+        if (list.some(item => item.key === 'fps60')) applyAutoRate(60, 'AI 還有餘裕，改成每秒 60 格');
+        else if (getFrameRate() > 30 && list.some(item => item.action && item.action.fps === 30)) applyAutoRate(30, 'AI 跟不上每秒 60 格，改回 30 格');
+    }
     const skipped = loadSkipped();
-    const advice = advise({ ...result, chosenFps: getFrameRate(), cameraMax: cameraMaxFps, model: POSE_MODEL_KEY })
-        .find(item => !skipped.includes(item.key));
-    console.info('速度量測：', result, advice ? '建議 ' + advice.key : '設定剛好，沒有建議');
+    const advice = list.find(item => !skipped.includes(item.key) && !(isAutoFps() && item.action && item.action.fps));
     if (advice) showAdvice(advice);
+}
+
+// 自動調每秒格數：直接換鏡頭的格數（不用重開鏡頭），瀏覽器不支援才重開；換完重新暖機、重新累積秒數
+async function applyAutoRate(rate, why) {
+    const stream = currentStream;
+    if (!stream || rate === getFrameRate()) return;
+    setAutoRate(rate);
+    autoFps.clear();
+    measureFrom = performance.now();
+    showAutoNote('自動調整：' + why);
+    showLimitNote();
+    updatePerfInfo();
+    try {
+        await changeFrameRate(stream, rate);
+    } catch (err) {
+        console.warn('無法直接換每秒格數，改成重開鏡頭：', err);
+        if (stream === currentStream) startCamera(activeDeviceId(stream));
+    }
+}
+
+// 自動調整時在運算標籤旁邊短暫說明換了什麼（6 秒後收起來）
+let autoNoteTimer = null;
+function showAutoNote(text) {
+    autoNote.textContent = text;
+    autoNote.hidden = false;
+    clearTimeout(autoNoteTimer);
+    autoNoteTimer = setTimeout(() => { autoNote.hidden = true; }, 6000);
+}
+function hideAutoNote() {
+    clearTimeout(autoNoteTimer);
+    autoNote.hidden = true;
 }
 
 function showAdvice(advice) {
@@ -466,7 +517,9 @@ function hideAdvice() {
 // 重新開始量（開鏡頭、換格數、錄製、切到背景）
 function resetSpeedMeter() {
     speedMeter.reset();
+    autoFps.reset();
     recentMs.length = 0;
+    secondMs.length = 0;
     adviceDone = false;
     measureFrom = performance.now();
     hideAdvice();
@@ -757,6 +810,7 @@ function showStage(on) {
 function closeCamera() {
     cameraRequest++;
     stopStream();
+    hideAutoNote();
     allowScreenOff();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     showStage(false);
@@ -882,7 +936,10 @@ showLimitNote();
 let cameraMaxFps = 0;   // 最近開的鏡頭最多每秒幾格（0：不知道）
 
 function fillFpsOptions(select) {
-    const current = getFrameRate();
+    const current = getFpsChoice();
+    const auto = document.createElement('option');
+    auto.value = 'auto';
+    auto.textContent = '自動（30～60 格，實驗）';
     select.replaceChildren(...FPS_CHOICES.map(rate => {
         const option = document.createElement('option');
         const over = rate > 30 && cameraMaxFps > 0 && rate > cameraMaxFps;
@@ -891,7 +948,7 @@ function fillFpsOptions(select) {
         // 目前選的不鎖住（不然選單會顯示空白），只寫出鏡頭最多幾格
         option.disabled = over && rate !== current;
         return option;
-    }));
+    }), auto);
     select.value = String(current);
 }
 
@@ -902,15 +959,19 @@ function showFpsChoice() {
     const capped = cameraMaxFps > 0 && FPS_CHOICES.some(rate => rate > 30 && rate > cameraMaxFps);
     const capNote = '這顆鏡頭最多每秒 ' + cameraMaxFps + ' 格，所以灰色的選不了；'
         + '要更多格需要支援的手機或外接鏡頭（換鏡頭後會重新判斷）';
-    fpsHint.hidden = getFrameRate() <= 30 && !capped;
-    fpsHint.textContent = getFrameRate() > 30
+    const choice = getFpsChoice();
+    fpsHint.hidden = choice === 30 && !capped;
+    fpsHint.textContent = choice === 'auto'
+        ? '實驗中：開鏡頭、站進畫面後，網站會依 AI 實際的速度在每秒 30～60 格之間自動調整（錄製中不會變）。'
+            + '開鏡頭後點運算標籤，可以看目前幾格' + (capped ? '。' + capNote : '')
+        : choice > 30
         ? '實驗中：要鏡頭支援、AI 算得夠快，手機會比較耗電、發燙；做不到時會自動用做得到的。'
             + '開鏡頭後點運算標籤，可以看實際每秒幾格，也可以直接切換' + (capped ? '。' + capNote : '')
         : capNote;
 }
 
 function chooseFps(select) {
-    applyFps(Number(select.value));
+    applyFps(select.value === 'auto' ? 'auto' : Number(select.value));
 }
 function applyFps(rate) {
     setFrameRate(rate);
@@ -998,6 +1059,8 @@ function startRecording() {
         videoHeight: video.videoHeight,
         // 鏡頭設定的每秒格數（選了 60 格以上時，看鏡頭到底有沒有給那麼多格）
         cameraFrameRate: cameraFrameRate(currentStream),
+        // 使用者選的每秒格數：30、60、90、120 或 'auto'（自動；錄製中不會變）
+        fpsChoice: getFpsChoice(),
         // AI 每格算幾毫秒（開始錄製前最近 30 格的中位數）：比較不同手機的速度
         aiMsPerFrame: recentMs.length ? Math.round(median(recentMs)) : null,
         // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
@@ -1011,6 +1074,7 @@ function startRecording() {
     // 錄製中不跳建議；還沒量完的，停止錄製後重新量
     if (!adviceDone) speedMeter.reset();
     hideAdvice();
+    hideAutoNote();
     recordBtn.textContent = '■ 停止錄製';
     recordBtn.classList.add('recording');
     updateDataBtn();
@@ -1096,6 +1160,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden && !adviceDone) speedMeter.reset();
     if (document.visibilityState !== 'visible' || !currentStream) return;
     measureFrom = performance.now();
+    autoFps.clear();
     keepScreenOn(updatePerfInfo);
     if (video.paused) video.play().catch(() => {});
 });
