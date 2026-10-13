@@ -36,10 +36,11 @@ export const CAMERA_RESOLUTION = RESOLUTIONS[params.get('res')] || RESOLUTIONS[4
 // 每秒格數（老師 10/12 回饋：每秒 30 格感覺很低）：使用者可以選 30、60、90、120（js/platform/camera.js）
 // 30 是預設：大部分手機鏡頭預設送每秒 30 格，AI 最多也只能算 30 格
 // 60 格以上是實驗：要鏡頭支援、AI 每格 16.7 毫秒（60 格）／8.3 毫秒（120 格）內算完、螢幕更新夠快、手機不過熱降速
-// 網址加上 ?fps=60（或 90、120）可以直接指定，方便測試（不會記住）
+// 網址加上 ?fps=60（或 90、120、auto）可以直接指定，方便測試（不會記住）
+// 'auto'（自動）：依 AI 實際的速度在 30～60 格之間自動調整（js/ai/advisor.js 的 AutoFps）
 export const FPS_CHOICES = [30, 60, 90, 120];
-const urlFps = Number(params.get('fps'));
-export const FPS_FROM_URL = FPS_CHOICES.includes(urlFps) ? urlFps : 0;
+const urlFps = params.get('fps') === 'auto' ? 'auto' : Number(params.get('fps'));
+export const FPS_FROM_URL = urlFps === 'auto' || FPS_CHOICES.includes(urlFps) ? urlFps : 0;
 
 // 網址加上 ?debug（測試模式）：一打開就顯示每個點的編號與名稱，運算標籤展開時也顯示各階段載入秒數
 export const DEBUG = params.has('debug');

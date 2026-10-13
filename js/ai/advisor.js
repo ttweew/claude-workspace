@@ -128,3 +128,58 @@ export function skipAdvice(key) {
     if (!list.includes(key)) list.push(key);
     try { localStorage.setItem(SKIP_KEY, JSON.stringify(list)); } catch (err) { /* 不能存就下次再提 */ }
 }
+
+// ---------- 自動調每秒格數（自動調整的第 2 步） ----------
+// 「畫面流暢度」選「自動」時：開鏡頭量完（同上面的速度建議）有餘裕就升到每秒 60 格，之後每秒檢查一次：
+//   60 格時最近 10 秒有 8 秒跟不上（或鏡頭給不到 45 格）→ 降回 30（降得快，動作不會一直卡）
+//   30 格時連續 60 秒都很有餘裕 → 再試一次 60（升得慢，才不會一直來回跳）；降過 2 次就不再試
+// 只看畫面裡有人、沒在錄製時的秒數（錄製中格數鎖住，數據才能比較）
+export const AUTO_FPS = {
+    window: 10,      // 看最近幾秒
+    downBad: 8,      // 其中幾秒跟不上就降
+    upGood: 60,      // 連續幾秒有餘裕才再升
+    maxDowns: 2,     // 降過幾次就不再升
+    cameraMin: 45    // 要 60 格時鏡頭至少要給到這麼多格，不然是鏡頭做不到
+};
+
+export class AutoFps {
+    constructor() {
+        this.reset();
+    }
+
+    // 開鏡頭時：重新開始
+    reset() {
+        this.samples = [];
+        this.downs = 0;
+        this.cameraCant = false;   // 鏡頭給不到 60 格：這次開鏡頭不再試
+    }
+
+    // 換了格數：之前的秒數不算
+    clear() {
+        this.samples = [];
+    }
+
+    // 每秒一筆 s：{ aiFps, cameraFps, msPerFrame }；rate：目前每秒幾格；cameraMax：鏡頭最多幾格（0 不知道）
+    // 回傳要換成的格數（30 或 60），不用換時回傳 0
+    second(s, rate, cameraMax) {
+        this.samples.push(s);
+        if (this.samples.length > AUTO_FPS.upGood) this.samples.shift();
+        if (rate > 30) {
+            const recent = this.samples.slice(-AUTO_FPS.window);
+            if (recent.length < AUTO_FPS.window) return 0;
+            const cameraShort = recent.filter(x => x.cameraFps < AUTO_FPS.cameraMin).length;
+            const behind = recent.filter(x => x.cameraFps < AUTO_FPS.cameraMin || x.aiFps < x.cameraFps * ADVICE.keepUp).length;
+            if (behind < AUTO_FPS.downBad) return 0;
+            this.downs++;
+            if (cameraShort >= AUTO_FPS.downBad) this.cameraCant = true;
+            this.samples = [];
+            return 30;
+        }
+        if (this.downs >= AUTO_FPS.maxDowns || this.cameraCant || cameraMax < 60) return 0;
+        if (this.samples.length < AUTO_FPS.upGood) return 0;
+        const roomy = this.samples.every(x => x.aiFps >= x.cameraFps * ADVICE.keepUp && x.msPerFrame < 1000 / 60 * ADVICE.headroom);
+        if (!roomy) return 0;
+        this.samples = [];
+        return 60;
+    }
+}

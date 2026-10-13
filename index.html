@@ -192,6 +192,8 @@
             <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數"></button>
             <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數 -->
             <select id="fpsLive" aria-label="每秒格數" hidden></select>
+            <!-- 每秒格數選「自動」時：換了格數短暫說明（例如「自動調整：AI 還有餘裕，改成每秒 60 格」） -->
+            <span id="autoNote" role="status" hidden></span>
             <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
             <div id="advice" aria-live="polite" hidden>
                 <div class="advice-card">

@@ -3,23 +3,38 @@
 
 import { CAMERA_RESOLUTION, FPS_CHOICES, FPS_FROM_URL } from '../config.js';
 
-// 使用者選的每秒格數（30、60、90、120），網站會記住；網址的 ?fps= 優先，但不記住
+// 使用者選的每秒格數（30、60、90、120，或 'auto' 自動），網站會記住；網址的 ?fps= 優先，但不記住
+// 自動：從每秒 30 格開始，main.js 依 AI 實際的速度用 setAutoRate() 在 30、60 之間調整
 const FPS_KEY = 'cameraFps';
-let frameRate = FPS_FROM_URL || loadFrameRate();
-function loadFrameRate() {
+let choice = FPS_FROM_URL || loadChoice();
+let autoRate = 30;   // 自動時目前用每秒幾格
+function loadChoice() {
     try {
-        const saved = Number(localStorage.getItem(FPS_KEY));
-        if (FPS_CHOICES.includes(saved)) return saved;
+        const saved = localStorage.getItem(FPS_KEY);
+        if (saved === 'auto') return 'auto';
+        if (FPS_CHOICES.includes(Number(saved))) return Number(saved);
     } catch (err) { /* 不能讀就用預設 */ }
     return 30;
 }
+// 使用者選的：30、60、90、120 或 'auto'
+export function getFpsChoice() {
+    return choice;
+}
+export function isAutoFps() {
+    return choice === 'auto';
+}
+// 現在要鏡頭給每秒幾格（自動時是目前調到的格數）
 export function getFrameRate() {
-    return frameRate;
+    return choice === 'auto' ? autoRate : choice;
 }
 export function setFrameRate(fps) {
-    if (!FPS_CHOICES.includes(fps)) return;
-    frameRate = fps;
+    if (fps !== 'auto' && !FPS_CHOICES.includes(fps)) return;
+    choice = fps;
+    autoRate = 30;
     try { localStorage.setItem(FPS_KEY, String(fps)); } catch (err) { /* 不能存就不記 */ }
+}
+export function setAutoRate(rate) {
+    autoRate = rate;
 }
 
 // 瀏覽器是否支援鏡頭功能
@@ -33,9 +48,17 @@ export function isCameraSupported() {
 // 每秒格數選 60 以上時也是 ideal：鏡頭做不到就用它做得到的，照樣能開；選 30 時不指定，和以前一樣用鏡頭預設的
 export function openCamera(deviceId) {
     const video = { width: { ideal: CAMERA_RESOLUTION[0] }, height: { ideal: CAMERA_RESOLUTION[1] } };
-    if (frameRate > 30) video.frameRate = { ideal: frameRate };
+    if (getFrameRate() > 30) video.frameRate = { ideal: getFrameRate() };
     if (deviceId) video.deviceId = { exact: deviceId };
     return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+}
+
+// 開著鏡頭直接換每秒格數（自動調整用）：不用重開鏡頭，畫面不會黑一下
+// 瀏覽器不支援時 Promise 失敗，由 main.js 改成重開鏡頭；換的時候要連解析度一起給，不然瀏覽器可能換掉解析度
+export function changeFrameRate(stream, rate) {
+    return stream.getVideoTracks()[0].applyConstraints({
+        width: { ideal: CAMERA_RESOLUTION[0] }, height: { ideal: CAMERA_RESOLUTION[1] }, frameRate: { ideal: rate }
+    });
 }
 
 // 停止鏡頭串流（鏡頭指示燈會熄滅）
