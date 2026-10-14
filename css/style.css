@@ -1246,6 +1246,10 @@ code {
 #fpsLive option, #modelLive option {
     color: #1B2536;
 }
+/* 光線太暗的提醒：和站位提示一樣用橘色 */
+#lightNote {
+    background: rgba(150, 85, 0, 0.92);
+}
 /* 每秒格數自動調整時的短暫說明：綠框，和速度建議（黃框）分開 */
 #autoNote {
     border-color: rgba(46, 230, 166, 0.6);

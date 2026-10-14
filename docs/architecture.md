@@ -59,6 +59,7 @@ claude-workspace/
 | `analysis/` | `angles.js` | 關節角度（膝、髖、肘），肢體太短時不給角度 |
 | | `view.js` | 判斷側面、斜側面、正面拍，以及面向哪一邊 |
 | | `framing.js` | 入鏡提示（請往後退、請站到中間…），不會一直閃 |
+| | `light.js` | 光線偵測：畫面平均亮度，太暗時提醒 |
 | | `squat.js` | 深蹲次數與深度（實驗中，`?lab=squat`） |
 | `ui/` | `draw.js` | 在畫布上畫骨架 |
 | | `labels.js` | 關鍵點的編號標籤、點一下看名稱 |
