@@ -425,6 +425,45 @@ h2 {
     color: var(--info);
     white-space: nowrap;
 }
+/* 首頁：這次運動的總結（關鏡頭後出現）、運動紀錄 */
+.summary {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(46, 230, 166, 0.5);
+    border-radius: 12px;
+    background: rgba(46, 230, 166, 0.08);
+}
+.summary h2 {
+    margin: 0 0 4px;
+    color: var(--accent);
+    font-size: 15px;
+}
+.summary ul, .history ul {
+    margin: 0;
+    padding-left: 1.2em;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.history {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+.history summary {
+    cursor: pointer;
+}
+.history button {
+    margin-top: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+}
 /* 支援的運動：每個動作一張卡片（示範動畫＋重點＋開始按鈕）；電腦一排 4 張，手機 2×2 */
 .exercises {
     display: grid;

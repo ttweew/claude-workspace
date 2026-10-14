@@ -78,6 +78,16 @@
                 </button>
                 <!-- 目前選的運動模式（js/analysis/workouts.js）：在下面「支援的運動」卡片按「開始」，或開鏡頭後按右上角換 -->
                 <p class="workout-pick"><span id="workoutNote">動作：自由</span> <a href="#exercisesTitle">換動作</a></p>
+                <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄只存在這台裝置上 -->
+                <div id="summary" class="summary" aria-live="polite" hidden>
+                    <h2>這次運動</h2>
+                    <ul id="summaryLines"></ul>
+                </div>
+                <details id="historyBox" class="history" hidden>
+                    <summary>運動紀錄</summary>
+                    <ul id="historyList"></ul>
+                    <button id="clearHistory" type="button">清除紀錄</button>
+                </details>
                 <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
                 <label class="fps-pick">畫面流暢度
                     <select id="fpsSelect" aria-describedby="fpsHint"></select>
