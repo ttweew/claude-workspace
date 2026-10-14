@@ -88,16 +88,22 @@
                     <ul id="historyList"></ul>
                     <button id="clearHistory" type="button">清除紀錄</button>
                 </details>
-                <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
-                <label class="fps-pick">畫面流暢度
-                    <select id="fpsSelect" aria-describedby="fpsHint"></select>
-                </label>
-                <p id="fpsHint" class="fps-hint" hidden></p>
-                <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
-                <label class="fps-pick">AI 模型
-                    <select id="modelSelect" aria-describedby="modelPickHint"></select>
-                </label>
-                <p id="modelPickHint" class="fps-hint" hidden></p>
+                <!-- 進階設定：大部分人不用動，收起來讓首頁簡單；改過的設定會寫在標題上 -->
+                <details id="advanced" class="advanced">
+                    <summary id="advancedTitle">進階設定</summary>
+                    <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
+                    <label class="fps-pick">畫面流暢度
+                        <select id="fpsSelect" aria-describedby="fpsHint"></select>
+                    </label>
+                    <p id="fpsHint" class="fps-hint" hidden></p>
+                    <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
+                    <label class="fps-pick">AI 模型
+                        <select id="modelSelect" aria-describedby="modelPickHint"></select>
+                    </label>
+                    <p id="modelPickHint" class="fps-hint" hidden></p>
+                    <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
+                    <label class="check-pick"><input type="checkbox" id="voiceToggle"> 語音提醒（唸出動作錯誤和次數）</label>
+                </details>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
                 <p id="modelStatus" aria-live="polite">AI 準備中…</p>

@@ -77,7 +77,7 @@ export function advise(m) {
         if (m.model === 'full') {
             list.push({
                 key: 'lite',
-                text: '用 full 模型時，AI 每格要 ' + ms + ' 毫秒，每秒只算到 ' + m.aiFps + ' 格。建議改用比較快的 lite 模型（網頁會重新載入）',
+                text: '用 full 模型時，AI 每格要 ' + ms + ' 毫秒，每秒只算到 ' + m.aiFps + ' 格。建議改用比較快的 lite 模型（換的時候畫面停 1～2 秒）',
                 button: '改用 lite',
                 action: { model: 'lite' }
             });
@@ -97,7 +97,7 @@ export function advise(m) {
     if (m.model === 'lite' && ms * ADVICE.fullCost < frameMs * ADVICE.headroom) {
         list.push({
             key: 'full',
-            text: 'AI 每格只要 ' + ms + ' 毫秒，還很有餘裕。可以試試比較準的 full 模型（多下載 3.6 MB，網頁會重新載入）',
+            text: 'AI 每格只要 ' + ms + ' 毫秒，還很有餘裕。可以試試比較準的 full 模型（多下載 3.6 MB，換的時候畫面停 1～2 秒）',
             button: '試試 full',
             action: { model: 'full' }
         });
