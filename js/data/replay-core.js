@@ -152,6 +152,8 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
     const pipeline = new PosePipeline();
     const stabilizer = new WorldStabilizer();
     const tracker = workout && workout !== 'free' ? new WorkoutTracker(workout) : null;
+    // 錄製時已經校正好（meta.calibration）就沿用；沒有的話從錄影裡站直不動的那段自己校正
+    if (tracker && parsed.meta) tracker.useBaseline(parsed.meta.calibration);
     for (let i = 0; i < n; i++) {
         const f = frames[i];
         out.t[i] = f.t / 1000;

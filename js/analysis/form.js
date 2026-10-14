@@ -20,10 +20,12 @@ const seen = (pose, ...ids) => ids.every(id => isVisible(pose.landmarks[P[id]]))
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // 上身和垂直線的夾角（度）：0 是上身直立，90 是上身水平；看不到肩或髖時回傳 null
-export function torsoLean(pose, side) {
+// tilt：個人校正量到的「站直時上身和畫面垂直線的夾角」（手機放歪的角度，見 calibrate.js），先扣掉
+export function torsoLean(pose, side, tilt = 0) {
     if (!seen(pose, side + '_SHOULDER', side + '_HIP')) return null;
     const s = pt(pose, side + '_SHOULDER'), h = pt(pose, side + '_HIP');
-    return Math.atan2(Math.abs(s.x - h.x), Math.abs(s.y - h.y)) * 180 / Math.PI;
+    if (h.y - s.y <= 0) return Math.atan2(Math.abs(s.x - h.x), Math.abs(s.y - h.y)) * 180 / Math.PI;
+    return Math.abs(Math.atan2(s.x - h.x, h.y - s.y) * 180 / Math.PI - tilt);
 }
 
 // 身體一直線的程度：髖部離「肩到腳踝的直線」多遠，以這條線的長度為 1
@@ -63,8 +65,8 @@ export function kneePastToe(pose, side, facing) {
     return (knee.x - pt(pose, side + '_FOOT_INDEX').x) * facing / shank;
 }
 
-// 每一格先算好要用的數字，規則只要比門檻
-export function measure(pose) {
+// 每一格先算好要用的數字，規則只要比門檻；phoneTilt：個人校正的手機傾斜角度
+export function measure(pose, phoneTilt = 0) {
     const side = clearerSide(pose.landmarks);
     const facing = pose.view ? pose.view.facing : 0;
     const front = frontLeg(pose, facing);
@@ -72,7 +74,7 @@ export function measure(pose) {
     const tilt = bodyTilt(pose.landmarks, pose.width, pose.height, side);
     return {
         side,
-        lean: torsoLean(pose, side),
+        lean: torsoLean(pose, side, phoneTilt),
         sag: hipSag(pose, side),
         heel: heelLift(pose, side),
         kneePast: front ? kneePastToe(pose, front, facing) : null,
@@ -133,6 +135,7 @@ export class FormChecker {
     reset() {
         this.states = new Map(this.rules.map(r => [r.id, { badSince: null, goodSince: null, shown: false }]));
         this.last = null;
+        this.tilt = 0;   // 個人校正的手機傾斜角度（tracker.js 校正好之後設定）
     }
 
     // pose：pipeline.process 的結果（沒有人時為 null）
@@ -143,7 +146,7 @@ export class FormChecker {
             if (!pose) this.reset();
             return out;
         }
-        const m = measure(pose);
+        const m = measure(pose, this.tilt);
         out.m = m;
         for (const rule of this.rules) {
             const st = this.states.get(rule.id);
