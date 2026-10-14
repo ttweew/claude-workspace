@@ -1,9 +1,10 @@
-// 四個動作的示範動畫（js/ui/demo.js）放到首頁和鏡頭畫面
-// 首頁「支援的運動」：每個動作一張卡片，看得到才動
-// 鏡頭畫面：右上角「示範」按鈕打開小視窗，可以切換動作，網站會記住上次看的動作
+// 四個動作的示範動畫（js/ui/demo.js）放到首頁和鏡頭畫面，也是選運動模式的地方（js/analysis/workouts.js）
+// 首頁「支援的運動」：每個動作一張卡片，看得到才動；卡片上的「開始深蹲」選好動作並開鏡頭
+// 鏡頭畫面：右上角「選擇動作」按鈕打開小視窗，選動作（也可以選「自由」，只看角度）、看示範
 // 鏡頭畫面開著時首頁的動畫被蓋住（瀏覽器仍然當作「看得到」），要停，不和 AI 搶運算
 
 import { EXERCISES, DemoFigure } from '../ui/demo.js';
+import { WORKOUTS, getWorkout, setWorkout, onWorkoutChange } from '../analysis/workouts.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const stage = document.getElementById('stage');
@@ -35,9 +36,25 @@ for (const card of document.querySelectorAll('.exercises [data-exercise]')) {
     const list = document.createElement('ul');
     list.className = 'demo-cues';
     cueList(list, exercise);
-    card.append(list);
+    // 選好這個動作並開鏡頭
+    const start = document.createElement('button');
+    start.type = 'button';
+    start.className = 'start-workout';
+    start.textContent = '開始' + exercise.name;
+    start.addEventListener('click', () => {
+        setWorkout(exercise.id);
+        const startBtn = document.getElementById('startBtn');
+        if (startBtn && !startBtn.disabled) startBtn.click();
+    });
+    card.append(list, start);
     cards.push({ card, figure: new DemoFigure(svg, exercise.id), visible: false });
 }
+// 目前選的動作：卡片加綠框
+function markCards() {
+    const id = getWorkout().id;
+    for (const c of cards) c.card.classList.toggle('selected', c.card.dataset.exercise === id);
+}
+markCards();
 
 function updateCards() {
     for (const c of cards) {
@@ -58,39 +75,45 @@ if ('IntersectionObserver' in window) {
 
 // ---------- 鏡頭畫面的「示範」視窗 ----------
 const button = document.getElementById('demoBtn');
+const buttonText = document.getElementById('demoBtnText');
 const panel = document.getElementById('demoPanel');
 const tabs = panel.querySelector('.demo-tabs');
 const art = document.getElementById('demoArt');
 const cues = document.getElementById('demoCues');
-const STORAGE_KEY = 'demoExercise';
-let current = 'squat';
-try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (byId(saved)) current = saved;
-} catch (err) { /* 不能讀就用預設 */ }
-const figure = new DemoFigure(art, current);
+let current = getWorkout().id;
+const figure = new DemoFigure(art, byId(current) ? current : 'squat');
 
-for (const exercise of EXERCISES) {
+// 「自由」放第一個：只看角度、不計次數
+for (const id of ['free', ...EXERCISES.map(e => e.id)]) {
     const tab = document.createElement('button');
     tab.type = 'button';
-    tab.dataset.exercise = exercise.id;
-    tab.textContent = exercise.name;
-    tab.addEventListener('click', () => choose(exercise.id));
+    tab.dataset.exercise = id;
+    tab.textContent = WORKOUTS[id].name;
+    tab.addEventListener('click', () => setWorkout(id));
     tabs.append(tab);
 }
 
-function choose(id) {
-    current = id;
-    try { localStorage.setItem(STORAGE_KEY, id); } catch (err) { /* 不能存就不記 */ }
+onWorkoutChange(workout => {
+    current = workout.id;
+    markCards();
     showExercise();
-}
+});
 function showExercise() {
     const exercise = byId(current);
+    const workout = WORKOUTS[current];
     for (const tab of tabs.children) tab.setAttribute('aria-pressed', String(tab.dataset.exercise === current));
-    figure.setExercise(current);
-    label(art, exercise);
-    cueList(cues, exercise);
-    if (!panel.hidden) figure.start();
+    buttonText.textContent = current === 'free' ? '選擇動作' : workout.name;
+    // 自由模式沒有示範動畫（art 是 <svg>，要用屬性藏起來）
+    art.toggleAttribute('hidden', !exercise);
+    if (exercise) {
+        figure.setExercise(current);
+        label(art, exercise);
+        cueList(cues, { cues: [...exercise.cues, '網站計算：' + workout.hint + '（請側面對著鏡頭）'] });
+        if (!panel.hidden) figure.start();
+    } else {
+        figure.stop();
+        cueList(cues, { cues: ['只顯示膝、髖角度，不計次數', '選上面的動作，就會計算次數（棒式計時）'] });
+    }
 }
 
 function setOpen(open) {
@@ -122,5 +145,5 @@ if (stage) {
 document.addEventListener('visibilitychange', () => {
     updateCards();
     if (document.hidden) figure.stop();
-    else if (!panel.hidden) figure.start();
+    else if (!panel.hidden && byId(current)) figure.start();
 });

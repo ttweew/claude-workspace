@@ -32,7 +32,8 @@ export class PosePipeline {
 
     // raw：MediaPipe 這一格的 33 點原始比例座標（沒偵測到人時為 null）；timeMs：這一格的時間
     // width、height：鏡頭畫面的像素大小
-    // 回傳 { landmarks（平滑後）, derived（髖部中心等）, angles, view }；沒有人或是鬼骨架時回傳 null
+    // 回傳 { landmarks（平滑後）, derived（髖部中心等）, angles, view, width, height }；沒有人或是鬼骨架時回傳 null
+    // width、height 一起傳回去：動作判斷算身體傾斜時要換算成像素（畫面不是正方形）
     process(raw, timeMs, width, height) {
         // 時間倒退（例如兩份錄製檔接在一起）：全部重新開始，不要拿「之後」的紀錄來判斷現在
         // （平滑程式本來就會自己重新開始，這裡讓擋鬼點、拍攝方向也一起，三者才一致）
@@ -66,7 +67,9 @@ export class PosePipeline {
             // 關節角度用平滑後的畫面座標計算，數字才不會跳
             angles: computeAngles(landmarks, width, height),
             // 拍攝方向（側面／正面）與面向
-            view: this.views.update(landmarks, timeMs, width, height)
+            view: this.views.update(landmarks, timeMs, width, height),
+            width: width,
+            height: height
         };
     }
 }

@@ -76,6 +76,8 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
                     開啟鏡頭
                 </button>
+                <!-- 目前選的運動模式（js/analysis/workouts.js）：在下面「支援的運動」卡片按「開始」，或開鏡頭後按右上角換 -->
+                <p class="workout-pick"><span id="workoutNote">動作：自由</span> <a href="#exercisesTitle">換動作</a></p>
                 <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
                 <label class="fps-pick">畫面流暢度
                     <select id="fpsSelect" aria-describedby="fpsHint"></select>
@@ -141,7 +143,7 @@
                     <li data-exercise="plank"><h3>棒式</h3></li>
                     <li data-exercise="lunge"><h3>弓箭步</h3></li>
                 </ul>
-                <p class="note">動畫是標準姿勢的示範，開鏡頭後按右上角的「示範」也看得到。動作判斷與次數計算開發中，目前可以看骨架、角度與入鏡提示。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時）；開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
@@ -170,8 +172,8 @@
             <div class="hud-side" data-side="RIGHT">
                 <div class="metric"><span class="metric-label">右膝</span><span class="metric-value">—</span></div>
                 <div class="metric"><span class="metric-label">右髖</span><span class="metric-value">—</span></div>
-                <!-- 深蹲次數：實驗中，網址加 ?lab=squat 才顯示；放在畫面右邊那一組的最下面 -->
-                <div class="metric" id="hudRepsBox" hidden><span class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
+                <!-- 次數（棒式是秒數）：選了運動模式才顯示；放在畫面右邊那一組的最下面 -->
+                <div class="metric" id="hudRepsBox" hidden><span id="hudRepsName" class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
             </div>
         </div>
         <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
@@ -214,10 +216,10 @@
             </div>
         </div>
         <!-- 動作示範（老師 10/12 回饋）：右上角的按鈕打開小視窗，先看標準姿勢再跟著做 -->
-        <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>示範</button>
+        <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel" title="選擇動作、看標準姿勢的示範"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span id="demoBtnText">選擇動作</span></button>
         <section id="demoPanel" hidden aria-labelledby="demoTitle">
             <div class="demo-head">
-                <h2 id="demoTitle">動作示範</h2>
+                <h2 id="demoTitle">選擇動作</h2>
                 <button id="demoClose" type="button" aria-label="關閉示範">✕</button>
             </div>
             <div class="demo-tabs" role="group" aria-label="選擇動作"></div>

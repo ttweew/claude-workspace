@@ -1,6 +1,6 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, MODELS, LAB, PREDICT, FPS_CHOICES } from '../config.js';
+import { SHOW_LABELS_AT_START, DEBUG, MODELS, PREDICT, FPS_CHOICES } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
@@ -18,7 +18,7 @@ import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
-import { SquatCounter, DEPTH_TEXT } from '../analysis/squat.js';
+import { getWorkout, onWorkoutChange, formatSeconds } from '../analysis/workouts.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
@@ -73,7 +73,9 @@ const panelModeNote = document.getElementById('panelModeNote');
 const panelBody = document.getElementById('panelBody');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
-const hudRepsBox = document.getElementById('hudRepsBox');  // 深蹲次數（?lab=squat 才顯示）
+const hudRepsBox = document.getElementById('hudRepsBox');  // 次數或秒數（選了運動模式才顯示）
+const hudRepsName = document.getElementById('hudRepsName');
+const workoutNote = document.getElementById('workoutNote');  // 首頁：目前選的動作
 const hudReps = document.getElementById('hudReps');
 const repToast = document.getElementById('repToast');
 const hud = new Hud(hudRoot);
@@ -129,10 +131,11 @@ lightCanvas.height = 24;
 const lightCtx = lightCanvas.getContext('2d', { willReadFrequently: true });
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
-// 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
-const squat = LAB === 'squat' ? new SquatCounter() : null;
-// 一直顯示角度的關節：先顯示下半身（深蹲、弓箭步最需要），之後依照選擇的運動切換
-const SHOWN_ANGLES = ['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP'];
+// 運動模式（js/analysis/workouts.js）：選了動作就計算次數（棒式計時），大字儀表板和骨架旁的角度跟著換
+let workout = getWorkout();
+let counter = workout.create ? workout.create() : null;
+// 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
+let shownAngleKeys = [];
 const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
 const framingSound = new FramingSound(name => sound.play(name));  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -626,15 +629,15 @@ function showResult(result, now) {
         hud.update(landmarks, angles);
         // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
         const hint = framing.update(framingAdvice(landmarks), now);
-        // 深蹲實驗：站位沒問題、但是正面拍時，改提示側身
-        const prompt = updateSquat(processed, now);
-        if (prompt && hint.kind === 'ok') showHint(prompt, 'warn', now);
+        // 運動模式：站位沒問題時，換成計算次數的提示（例如正面拍時請側身、伏地挺身請趴下）
+        const prompt = updateCounter(processed, now);
+        if (prompt && hint.kind === 'ok') showHint(prompt.text, prompt.kind, now);
         else showHint(hint.text, hint.kind, now);
     } else {
         // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
         if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
-        updateSquat(null, now);
+        updateCounter(null, now);
         const hint = framing.update(NO_PERSON, now);
         showHint(hint.text, hint.kind, now);
     }
@@ -666,37 +669,67 @@ function videoResized() {
     }
 }
 
-// ---------- 深蹲實驗功能（?lab=squat） ----------
+// ---------- 運動模式：次數、計時（js/analysis/workouts.js） ----------
 
 let toastTimer = null;
 
-// 每一格更新次數；完成一下時顯示這一下的深度。回傳要提醒使用者的話（例如請側身），沒有則為 null
-function updateSquat(processed, now) {
-    if (!squat) return null;
-    const result = squat.update(processed, now);
-    const text = String(result.reps);
+// 每一格更新次數（棒式更新秒數）；完成一下時顯示這一下的深度
+// 回傳要提醒使用者的話 { text, kind }（例如請側身、請趴下），沒有則為 null
+function updateCounter(processed, now) {
+    if (!counter) return null;
+    const result = counter.update(processed, now);
+    let text;
+    if (workout.kind === 'hold') {
+        text = formatSeconds(result.seconds);
+        // 姿勢對、正在計時：數字變綠；姿勢跑掉暫停時恢復白色
+        if (hudRepsBox.classList.contains('holding') !== result.holding) hudRepsBox.classList.toggle('holding', result.holding);
+        if (result.hold) showRepToast(workout.toast(result.hold), 'good');
+    } else {
+        text = String(result.reps);
+        if (result.rep) showRepToast(workout.toast(result.rep), result.rep.depth);
+    }
     if (hudReps.textContent !== text) hudReps.textContent = text;
-    if (result.rep) showRepToast(result.rep);
-    return result.prompt;
+    return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
 }
 
-function showRepToast(rep) {
+// kind：'good' 綠、'close' 黃、'shallow' 紅
+function showRepToast(text, kind) {
     // 數據面板打開時，大字儀表板也是收起來的（近距離看數字用），提示也不顯示，避免疊在面板上
     if (!dataPanel.hidden) return;
-    repToast.textContent = '第 ' + rep.n + ' 下 · ' + Math.round(rep.minKnee) + '° ' + DEPTH_TEXT[rep.depth];
-    repToast.className = rep.depth;
+    repToast.textContent = text;
+    repToast.className = kind;
     repToast.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { repToast.hidden = true; }, 2500);
 }
 
-function resetSquat() {
-    if (!squat) return;
-    squat.reset();
-    hudReps.textContent = '0';
+function resetCounter() {
+    if (counter) counter.reset();
+    hudReps.textContent = workout.kind === 'hold' ? '0:00' : '0';
+    hudRepsBox.classList.remove('holding');
     clearTimeout(toastTimer);
     repToast.hidden = true;
 }
+
+// 換了運動模式：大字儀表板、骨架旁的角度、次數框、首頁的說明一起換
+function showWorkout() {
+    hud.setJoints(workout.hud);
+    shownAngleKeys = workout.labels.flatMap(joint => ['LEFT_' + joint, 'RIGHT_' + joint]);
+    hudRepsBox.hidden = !counter;
+    hudRepsBox.classList.toggle('time', workout.kind === 'hold');
+    hudRepsName.textContent = workout.name;
+    hudRoot.classList.toggle('lab', !!counter);
+    workoutNote.textContent = '動作：' + workout.name + '（' + workout.hint + '）';
+    // 深蹲的錄製檔可以在重播分析看每一下的深度（之後其他動作也會加上）
+    document.getElementById('replayLink').href = workout.id === 'squat' ? 'replay.html?lab=squat' : 'replay.html';
+    resetCounter();
+    showPoseLabels();
+}
+onWorkoutChange(next => {
+    workout = next;
+    counter = next.create ? next.create() : null;
+    showWorkout();
+});
 
 // 顯示標籤：關節角度一直顯示；「顯示編號」開啟時標出主要關節；使用者點選的點另外顯示 3 秒
 function showPoseLabels() {
@@ -710,7 +743,7 @@ function showPoseLabels() {
 // 要一直顯示的關節角度
 function shownAngles() {
     const angles = {};
-    for (const key of SHOWN_ANGLES) angles[key] = lastPose.angles[key];
+    for (const key of shownAngleKeys) angles[key] = lastPose.angles[key];
     return angles;
 }
 
@@ -814,7 +847,7 @@ function stopStream() {
     worldStabilizer.reset();
     framing.reset();
     framingSound.reset();
-    resetSquat();
+    resetCounter();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
     videoSize = '';
@@ -1191,6 +1224,8 @@ function startRecording() {
         videoHeight: video.videoHeight,
         // 鏡頭設定的每秒格數（選了 60 格以上時，看鏡頭到底有沒有給那麼多格）
         cameraFrameRate: cameraFrameRate(currentStream),
+        // 選的運動模式：'free'（自由）、'squat'、'pushup'、'plank'、'lunge'
+        workout: workout.id,
         // 使用者選的每秒格數：30、60、90、120 或 'auto'（自動；錄製中不會變）
         fpsChoice: getFpsChoice(),
         // AI 每格算幾毫秒（開始錄製前最近 30 格的中位數）：比較不同手機的速度
@@ -1419,12 +1454,7 @@ if (!isCameraSupported()) {
     startBtn.disabled = true;
 }
 
-// 深蹲實驗：顯示次數，重播分析的連結也帶上 ?lab=squat
-if (squat) {
-    hudRepsBox.hidden = false;
-    hudRoot.classList.add('lab');
-    document.getElementById('replayLink').href = 'replay.html?lab=squat';
-}
+showWorkout();
 
 initPose();
 
