@@ -291,7 +291,7 @@ function showSquats() {
     const s = summarize(id, reps, 0, 0);
     squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
     squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
-    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤'] : ['第幾下', '時間', '最小角度', '判斷', '錯誤'];
+    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤'] : ['第幾下', '時間', '最小角度', '判斷', '相似度', '錯誤'];
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
     head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
@@ -303,7 +303,8 @@ function showSquats() {
         const errors = (r.errors || []).map(errorShort).join('、') || '—';
         const cells = hold
             ? [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', formatSeconds(r.seconds), errors]
-            : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''), errors];
+            : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),
+                r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', errors];
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;
