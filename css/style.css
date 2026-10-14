@@ -415,7 +415,17 @@ h2 {
     color: var(--text);
     font-size: 16px;
 }
-/* 支援的運動：每個動作一張卡片（示範動畫＋重點）；電腦一排 4 張，手機 2×2 */
+/* 首頁：目前選的動作（開啟鏡頭按鈕下面） */
+.workout-pick {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+.workout-pick a {
+    color: var(--info);
+    white-space: nowrap;
+}
+/* 支援的運動：每個動作一張卡片（示範動畫＋重點＋開始按鈕）；電腦一排 4 張，手機 2×2 */
 .exercises {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -443,6 +453,27 @@ h2 {
 .exercises .demo-cues {
     order: 2;
 }
+/* 「開始深蹲」：卡片最下面；目前選的動作卡片加上綠框 */
+.exercises .start-workout {
+    order: 3;
+    margin-top: auto;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid rgba(46, 230, 166, 0.5);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.exercises .start-workout:hover {
+    background: rgba(46, 230, 166, 0.12);
+}
+.exercises > li.selected {
+    border-color: rgba(46, 230, 166, 0.6);
+}
 @media (max-width: 560px) {
     .exercises {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -456,6 +487,9 @@ h2 {
     }
 }
 /* 示範動畫（js/ui/demo.js）：側面火柴人、地面、角度弧線和數字 */
+.demo-art[hidden] {
+    display: none;
+}
 .demo-art {
     display: block;
     width: 100%;
@@ -1450,15 +1484,33 @@ code {
     box-shadow: var(--shadow);
     pointer-events: none;
 }
+/* 棒式：姿勢對、正在計時時秒數變綠 */
+#hudRepsBox.holding .metric-value {
+    color: var(--accent);
+}
 #repToast.good { color: var(--accent); }
 #repToast.close { color: #FFC857; }
 #repToast.shallow { color: var(--danger); }
-/* 多了「深蹲」次數，直式手機下方要排三格（左組、次數、右組）：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到） */
+/* 多了次數（或棒式秒數），直式手機下方要排三格（左組、次數、右組）：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到）
+   棒式的「0:23」比次數寬，數字再小一點，三格才不會擠在一起 */
 @media (orientation: portrait) {
     #hud.lab .metric {
         min-width: 3.4em;
         padding: 0.3em 0.55em 0.25em;
-        font-size: min(clamp(18px, 5.5vmin, 34px), 4.5vw);
+        font-size: min(clamp(18px, 5.5vmin, 34px), 4.3vw);
+    }
+    #hudRepsBox.time .metric-value {
+        font-size: 1.9em;
+    }
+}
+/* 橫拿：右邊那組多一格次數變成三格，放在右上角按鈕下面開始排，字跟著螢幕高度縮小，才不會蓋到工具列和「選擇動作」按鈕 */
+@media (orientation: landscape) {
+    #hud.lab .hud-side {
+        top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+        transform: none;
+    }
+    #hud.lab .metric {
+        font-size: min(clamp(18px, 5.5vmin, 34px), max(13px, calc((100vh - 130px) / 15)));
     }
 }
 

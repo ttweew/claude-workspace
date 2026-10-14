@@ -4,6 +4,7 @@
 //   後鏡頭（請別人拍）沒有鏡像，本人的左邊在畫面右邊，兩組對調，數字永遠跟在身體同一邊
 // 看不到的一側顯示「—」，不顯示猜出來的數字
 // 側面拍時，離鏡頭遠的那一側常被身體擋住、數字比較不可靠：看得明顯比較不清楚的那一組變淡
+// 顯示哪兩個關節跟著運動模式換（js/analysis/workouts.js）：深蹲、弓箭步是膝、髖，伏地挺身是肘、髖，棒式是髖、膝
 
 import { P } from '../skeleton/landmarks.js';
 
@@ -15,22 +16,31 @@ const DIM_OFF = 0.25;
 const score = (landmarks, side) => ['SHOULDER', 'HIP', 'KNEE', 'ANKLE']
     .reduce((sum, k) => sum + (landmarks[P[side + '_' + k]].visibility || 0), 0);
 
+const JOINT_NAMES = { KNEE: '膝', HIP: '髖', ELBOW: '肘' };
+
 export class Hud {
     // root：#hud；裡面兩個 .hud-side，第一個在畫面左邊、第二個在畫面右邊
-    // 每個 .hud-side 有兩格 .metric（膝、髖），各有 .metric-label 和 .metric-value
+    // 每個 .hud-side 前兩格 .metric 是兩個關節（預設膝、髖），各有 .metric-label 和 .metric-value
     // 四個角度都算不出來時（例如太近、看不到腳）整個收起來
     constructor(root) {
         this.root = root;
         this.boxes = [...root.querySelectorAll('.hud-side')].map(box => {
-            const [knee, hip] = box.querySelectorAll('.metric');
+            const [first, second] = box.querySelectorAll('.metric');
             return {
                 box,
-                kneeName: knee.querySelector('.metric-label'), knee: knee.querySelector('.metric-value'),
-                hipName: hip.querySelector('.metric-label'), hip: hip.querySelector('.metric-value')
+                firstName: first.querySelector('.metric-label'), first: first.querySelector('.metric-value'),
+                secondName: second.querySelector('.metric-label'), second: second.querySelector('.metric-value')
             };
         });
+        this.joints = ['KNEE', 'HIP'];
         this.mirrored = true;
         this.reset();
+    }
+
+    // 要顯示的兩個關節，例如 ['ELBOW', 'HIP']
+    setJoints(joints) {
+        this.joints = joints;
+        this.show(null);
     }
 
     reset() {
@@ -61,19 +71,20 @@ export class Hud {
         const text = key => (angles && angles[key] !== null && angles[key] !== undefined ? Math.round(angles[key]) + '°' : '—');
         // 畫面左邊那組：有鏡像時是本人的左側，沒有鏡像時是右側
         const sides = this.mirrored ? ['LEFT', 'RIGHT'] : ['RIGHT', 'LEFT'];
+        const [a, b] = this.joints;
         this.boxes.forEach((els, i) => {
             const side = sides[i];
             const name = side === 'LEFT' ? '左' : '右';
             // 名稱直接帶左右（左膝、右髖），比另外一個「左側」小標籤好認
-            setText(els.kneeName, name + '膝');
-            setText(els.hipName, name + '髖');
-            setText(els.knee, text(side + '_KNEE'));
-            setText(els.hip, text(side + '_HIP'));
+            setText(els.firstName, name + JOINT_NAMES[a]);
+            setText(els.secondName, name + JOINT_NAMES[b]);
+            setText(els.first, text(side + '_' + a));
+            setText(els.second, text(side + '_' + b));
             if (els.box.dataset.side !== side) els.box.dataset.side = side;
             const dim = this.dim === side;
             if (els.box.classList.contains('dim') !== dim) els.box.classList.toggle('dim', dim);
         });
-        const empty = !angles || ['LEFT_KNEE', 'LEFT_HIP', 'RIGHT_KNEE', 'RIGHT_HIP'].every(k => angles[k] === null || angles[k] === undefined);
+        const empty = !angles || ['LEFT_' + a, 'LEFT_' + b, 'RIGHT_' + a, 'RIGHT_' + b].every(k => angles[k] === null || angles[k] === undefined);
         if (this.root.classList.contains('empty') !== empty) this.root.classList.toggle('empty', empty);
     }
 }
