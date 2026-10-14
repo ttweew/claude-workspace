@@ -95,14 +95,23 @@
                 <p id="readout" class="readout" aria-live="off"></p>
             </section>
 
-            <!-- 深蹲分析：實驗中，網址加 ?lab=squat 才顯示 -->
+            <!-- 動作分析：用錄製時選的運動模式算次數、深度、錯誤（和鏡頭畫面同一套），也可以自己選 -->
             <section id="squatCard" class="card" aria-labelledby="squatTitle" hidden>
-                <h2 id="squatTitle">深蹲分析 <span class="badge">實驗中</span></h2>
+                <h2 id="squatTitle">動作分析</h2>
+                <label class="workout-pick">分析哪個動作
+                    <select id="workoutPick">
+                        <option value="auto">錄製時選的</option>
+                        <option value="squat">深蹲</option>
+                        <option value="pushup">伏地挺身</option>
+                        <option value="plank">棒式</option>
+                        <option value="lunge">弓箭步</option>
+                    </select>
+                </label>
                 <p id="squatSummary" class="squat-summary"></p>
                 <div class="table-wrap">
                     <table id="squatTable" class="stats"></table>
                 </div>
-                <p class="note">怎麼算一下：先站直（膝蓋 ≥ 160°）→ 蹲到膝蓋 ≤ 140° → 再站直。深度看最低的膝蓋角度：≤ 90° 蹲到位、90～110° 再低一點、超過 110° 太淺（90° 是老師 10/12 決定的門檻：只看髖、膝、踝三點的夾角，不用考慮地面）。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低的時間點。</p>
+                <p id="squatNote" class="note"></p>
             </section>
 
             <section class="card" aria-labelledby="statsTitle">

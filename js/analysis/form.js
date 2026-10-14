@@ -105,6 +105,11 @@ export const FORM_RULES = {
     ]
 };
 
+// 錯誤代號 → 簡稱（例如 lean → 上身前傾）；不同動作的同一個代號簡稱相同
+const SHORT = {};
+for (const rules of Object.values(FORM_RULES)) for (const r of rules) SHORT[r.id] = r.short;
+export const errorShort = id => SHORT[id] || id;
+
 // 部位 → 要標紅的骨架連線（33 點的編號）；side：看得比較清楚的那一側，front：弓箭步的前腳
 export function redPairs(parts, m) {
     const pairs = [];

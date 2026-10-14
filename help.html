@@ -104,10 +104,43 @@
             </section>
 
             <section id="experiments" aria-labelledby="expTitle">
-                <h2 id="expTitle">驗證實驗：3D 座標準不準</h2>
+                <h2 id="expTitle">驗證實驗：網站準不準</h2>
+                <p class="prose">報告要有數字才有說服力。實驗 A 量關節角度和量角器差幾度，實驗 B 數次數有沒有算對；實驗 D、H 檢查 3D 座標（之後要不要支援正面拍）。</p>
+
+                <h3>實驗 A：關節角度準不準（量角器，兩個人）</h3>
+                <ol class="steps">
+                    <li><strong>擺好手機</strong>放 2～3 公尺外、腰的高度，側面對著鏡頭，開鏡頭、選要測的動作（例如深蹲），按「數據」打開數據面板</li>
+                    <li><strong>擺姿勢不動</strong>例如蹲到一半停住；另一個人用量角器量膝蓋（髖→膝→踝的夾角），同時按數據面板的「記下角度」</li>
+                    <li><strong>換幾個角度</strong>站直、蹲一半、蹲到底、只彎一點點，每個都記一次，最好 10 筆以上</li>
+                    <li><strong>填量角器的角度</strong>回到這一頁，在下面的表格填入每一筆量角器量到的角度，馬上算出平均差幾度；按「下載 CSV」放進報告</li>
+                </ol>
+                <div class="val-tool" id="valTool">
+                    <p id="valEmpty" class="note">還沒有記下的角度：在鏡頭畫面的數據面板按「記下角度」（只存在這台裝置上）。</p>
+                    <div class="table-wrap" id="valWrap" hidden>
+                        <table class="val-table">
+                            <thead><tr><th>#</th><th>時間</th><th>關節</th><th>網站</th><th>量角器</th><th>差距</th></tr></thead>
+                            <tbody id="valRows"></tbody>
+                        </table>
+                    </div>
+                    <p id="valStats" class="val-stats" role="status" hidden></p>
+                    <div class="val-actions" id="valActions" hidden>
+                        <button id="valCsv" type="button">下載 CSV</button>
+                        <button id="valClear" type="button">清除全部</button>
+                    </div>
+                </div>
+                <p class="note">差距＝網站－量角器。「平均差」看網站是不是固定偏大或偏小；「平均誤差」看一般差幾度。量角器本身大概有 2～3° 的誤差（關節中心不好對準），差 5° 以內可以算一樣準。</p>
+
+                <h3>實驗 B：次數算得對不對</h3>
+                <ol class="steps">
+                    <li><strong>每個動作做 10 下</strong>側面對著鏡頭，選好動作，深蹲、伏地挺身、弓箭步各做 10 下，棒式撐 30 秒；故意混幾下做錯（蹲太淺、塌腰），一個人在旁邊數</li>
+                    <li><strong>邊做邊錄</strong>按「數據」→「開始錄製」，做完下載 JSON</li>
+                    <li><strong>對答案</strong>關鏡頭後首頁會顯示「這次運動」做了幾下；把檔案丟進<a href="replay.html">重播分析</a>，「動作分析」會列出每一下的角度、判斷和錯誤，和旁邊的人數的比較</li>
+                </ol>
+
+                <h3>實驗 D、H：3D 座標準不準</h3>
                 <p class="prose">AI 除了畫面上的位置，還會猜每個點離鏡頭多遠（3D 座標）。如果夠準，之後正面拍也能算膝蓋角度，不用限制側身。下面兩個實驗用來確認，錄完把檔案丟進<a href="replay.html">重播分析</a>，看「3D 檢查」卡片就有結果，不用自己算。</p>
 
-                <h3>實驗 D：量腿長（一支手機、一個人就能做）</h3>
+                <h4>實驗 D：量腿長（一支手機、一個人就能做）</h4>
                 <div class="exp">
                     <svg class="exp-fig" viewBox="0 0 200 230" role="img" aria-labelledby="figDTitle">
                         <title id="figDTitle">側面看的腿：大腿從大腿外側最突出的骨頭量到膝蓋外側的關節縫，小腿從膝蓋關節縫量到腳踝外側突起的中心</title>
@@ -132,7 +165,7 @@
                 </div>
                 <p class="note">捲尺本身大概有 1～2 公分的誤差（骨頭位置摸不準），差不到 2 公分可以算一樣好。</p>
 
-                <h3>實驗 H：正面拍的 3D 膝角（兩支手機）</h3>
+                <h4>實驗 H：正面拍的 3D 膝角（兩支手機）</h4>
                 <div class="exp">
                     <svg class="exp-fig" viewBox="0 0 200 200" role="img" aria-labelledby="figHTitle">
                         <title id="figHTitle">從上面往下看：人站在中間、面向正面那支手機；另一支手機放在人的正側面，兩支都距離 2 到 3 公尺</title>

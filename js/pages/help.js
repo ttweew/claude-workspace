@@ -1,6 +1,8 @@
-// 使用說明頁：離線功能（打開過的頁面沒有網路也能看），以及「檢查這支手機」
+// 使用說明頁：離線功能（打開過的頁面沒有網路也能看）、「檢查這支手機」、驗證實驗 A 的比對表
 import { setupOffline } from '../platform/offline.js';
 import { checkSupport, unsupportedAdvice } from '../platform/support.js';
+import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES } from '../analysis/validate.js';
+import { downloadBlob } from '../data/recorder.js';
 
 setupOffline();
 
@@ -51,3 +53,78 @@ $('copyBtn').addEventListener('click', async () => {
         $('copyStatus').textContent = '請長按上面的文字，選「全選」再「拷貝」';
     }
 });
+
+// ---------- 驗證實驗 A：網站角度和量角器比對（js/analysis/validate.js） ----------
+function showValidation() {
+    const list = loadSnapshots();
+    $('valEmpty').hidden = list.length > 0;
+    $('valWrap').hidden = $('valActions').hidden = !list.length;
+    $('valRows').replaceChildren(...list.map((s, i) => {
+        const tr = document.createElement('tr');
+        const td = text => { const c = document.createElement('td'); c.textContent = text; return c; };
+        const d = new Date(s.time);
+        const time = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+        // 比對哪個關節：預設是記下時主要的關節，可以改
+        const pick = document.createElement('select');
+        pick.setAttribute('aria-label', '第 ' + (i + 1) + ' 筆比對的關節');
+        for (const [key, name] of Object.entries(JOINT_NAMES)) {
+            const o = document.createElement('option');
+            o.value = key;
+            o.textContent = name;
+            pick.append(o);
+        }
+        pick.value = s.joint;
+        const site = td('');
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.inputMode = 'decimal';
+        input.min = '0';
+        input.max = '360';
+        input.step = '1';
+        input.placeholder = '量到的';
+        input.setAttribute('aria-label', '第 ' + (i + 1) + ' 筆量角器的角度');
+        if (s.measured !== null && s.measured !== undefined) input.value = s.measured;
+        const diff = td('');
+        const refresh = () => {
+            const a = s.angles[s.joint];
+            site.textContent = a === null || a === undefined ? '—' : Math.round(a) + '°';
+            const ok = s.measured !== null && a !== null && a !== undefined;
+            diff.textContent = ok ? (a - s.measured > 0 ? '+' : '') + Math.round((a - s.measured) * 10) / 10 + '°' : '';
+        };
+        pick.addEventListener('change', () => { s.joint = pick.value; saveSnapshots(list); refresh(); showStats(list); });
+        input.addEventListener('input', () => {
+            const v = parseFloat(input.value);
+            s.measured = Number.isFinite(v) ? v : null;
+            saveSnapshots(list);
+            refresh();
+            showStats(list);
+        });
+        refresh();
+        const jointCell = document.createElement('td');
+        jointCell.append(pick);
+        const inputCell = document.createElement('td');
+        inputCell.append(input);
+        tr.append(td(String(i + 1)), td(time), jointCell, site, inputCell, diff);
+        return tr;
+    }));
+    showStats(list);
+}
+function showStats(list) {
+    const r = stats(list);
+    $('valStats').hidden = !list.length;
+    $('valStats').textContent = r.n
+        ? '已填 ' + r.n + ' 筆：平均誤差 ' + r.mae + '°（平均差 ' + (r.bias > 0 ? '+' : '') + r.bias + '°，標準差 ' + r.sd + '°，最大 ' + r.max + '°）；'
+            + r.within5 + '% 在 ±5° 以內、' + r.within10 + '% 在 ±10° 以內'
+        : '填入量角器的角度後，這裡會算出平均差幾度';
+}
+$('valCsv').addEventListener('click', () => {
+    const d = new Date();
+    const name = 'angle_check_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.csv';
+    downloadBlob(name, new Blob([toCSV(loadSnapshots())], { type: 'text/csv' }));
+});
+$('valClear').addEventListener('click', () => {
+    if (!confirm('清除全部記下的角度？（清除後無法復原，建議先下載 CSV）')) return;
+    clearSnapshots();
+    showValidation();
+});
+showValidation();
