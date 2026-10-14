@@ -20,6 +20,7 @@ import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, formatSeconds } from '../analysis/workouts.js';
 import { FormChecker } from '../analysis/form.js';
+import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../analysis/session.js';
 import { Voice } from '../ui/voice.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
@@ -79,6 +80,10 @@ const hudRepsBox = document.getElementById('hudRepsBox');  // 次數或秒數（
 const hudRepsName = document.getElementById('hudRepsName');
 const workoutNote = document.getElementById('workoutNote');  // 首頁：目前選的動作
 const formTip = document.getElementById('formTip');  // 動作做錯時畫面上方的紅字
+const summaryBox = document.getElementById('summary');      // 首頁：這次運動的總結
+const summaryLines = document.getElementById('summaryLines');
+const historyBox = document.getElementById('historyBox');   // 首頁：運動紀錄
+const historyList = document.getElementById('historyList');
 const hudReps = document.getElementById('hudReps');
 const repToast = document.getElementById('repToast');
 const hud = new Hud(hudRoot);
@@ -139,6 +144,7 @@ let workout = getWorkout();
 let counter = workout.create ? workout.create() : null;
 let form = new FormChecker(workout.id);   // 動作錯誤判斷（js/analysis/form.js）
 const repErrors = new Set();              // 這一下（或這一次棒式）出現過的錯誤
+let sessionStart = Date.now();            // 這次運動從什麼時候開始（開鏡頭、換動作）
 // 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
 let shownAngleKeys = [];
 const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
@@ -755,6 +761,77 @@ function resetCounter() {
     repToast.hidden = true;
 }
 
+// 鏡頭中斷（重開鏡頭）：進行中的這一下作廢、提示收起來，已經做完的次數保留
+function interruptCounter() {
+    if (counter) {
+        const hold = counter.interrupt();
+        if (hold) hold.errors = [...repErrors].map(e => e.id);
+    }
+    form.reset();
+    repErrors.clear();
+    formTip.hidden = true;
+    voice.stop();
+    clearTimeout(toastTimer);
+    repToast.hidden = true;
+}
+
+// ---------- 運動總結（js/analysis/session.js） ----------
+
+// 做完的每一下（棒式是每一次）
+function counterItems() {
+    if (!counter) return [];
+    return workout.kind === 'hold' ? counter.holds : counter.reps;
+}
+
+// 一次運動結束（關鏡頭、換動作、關網頁）：存成紀錄，首頁顯示這次的總結和上一次比較
+function finishSession() {
+    if (counter && workout.kind === 'hold' && counter.current) {
+        const hold = counter.interrupt();
+        if (hold) hold.errors = [...repErrors].map(e => e.id);
+    }
+    const s = summarize(workout.id, counterItems(), sessionStart, Date.now());
+    if (counter) counter.reset();
+    sessionStart = Date.now();
+    resetCounter();
+    if (!s) return;
+    const previous = saveSession(s);
+    showSummary(s, previous);
+}
+
+function showSummary(s, previous) {
+    const lines = [...describe(s), ...compare(s, previous)];
+    summaryLines.replaceChildren(...lines.map(text => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        return li;
+    }));
+    summaryBox.hidden = false;
+    showHistory();
+}
+
+// 最近 10 次的紀錄（新的在上面）
+function showHistory() {
+    const list = loadHistory();
+    historyBox.hidden = !list.length;
+    historyBox.querySelector('summary').textContent = '運動紀錄（' + list.length + ' 次，存在這台裝置上）';
+    historyList.replaceChildren(...list.slice(-10).reverse().map(s => {
+        const li = document.createElement('li');
+        const d = new Date(s.date);
+        li.textContent = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ' · ' + describe(s)[0];
+        return li;
+    }));
+}
+document.getElementById('clearHistory').addEventListener('click', () => {
+    clearHistory();
+    summaryBox.hidden = true;
+    showHistory();
+});
+// 直接關網頁、切走（手機把網頁收起來）也把這次記下來
+window.addEventListener('pagehide', () => {
+    if (counterItems().length) finishSession();
+});
+showHistory();
+
 // 換了運動模式：大字儀表板、骨架旁的角度、次數框、首頁的說明一起換
 function showWorkout() {
     hud.setJoints(workout.hud);
@@ -770,6 +847,7 @@ function showWorkout() {
     showPoseLabels();
 }
 onWorkoutChange(next => {
+    finishSession();
     workout = next;
     counter = next.create ? next.create() : null;
     form = new FormChecker(next.id);
@@ -832,6 +910,7 @@ async function startCamera(deviceId) {
     }
     currentStream = stream;
     video.srcObject = stream;
+    if (!counter || !counterItems().length) sessionStart = Date.now();
     measureFrom = performance.now();
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});
@@ -892,7 +971,7 @@ function stopStream() {
     worldStabilizer.reset();
     framing.reset();
     framingSound.reset();
-    resetCounter();
+    interruptCounter();
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     lastVideoTime = -1;
     videoSize = '';
@@ -923,6 +1002,7 @@ function showStage(on) {
 function closeCamera() {
     cameraRequest++;
     stopStream();
+    finishSession();
     hideAutoNote();
     allowScreenOff();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});

@@ -166,6 +166,14 @@ export class RepCounter {
         this.current = null;
         this.state = 'wait';
     }
+
+    // 鏡頭中斷（換每秒格數、換鏡頭時會重開鏡頭）：進行中的這一下作廢，已經做完的保留
+    interrupt() {
+        this.abandon();
+        this.lastSeen = null;
+        this.frontSince = null;
+        this.offSince = null;
+    }
 }
 
 export const HOLD_DEFAULTS = {
@@ -237,6 +245,15 @@ export class HoldTimer {
         out.holding = !!this.current && this.lastGood !== null && timeMs - this.lastGood <= c.graceMs;
         out.seconds = this.current ? this.current.ms / 1000 : 0;
         return out;
+    }
+
+    // 鏡頭中斷：撐到現在的這一次算結束（撐夠久才記）
+    interrupt() {
+        const hold = this.current ? this.end(this.lastTime ?? 0) : null;
+        this.lastTime = null;
+        this.offSince = null;
+        this.frontSince = null;
+        return hold;
     }
 
     end(timeMs) {
