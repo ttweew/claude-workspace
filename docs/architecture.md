@@ -60,14 +60,16 @@ claude-workspace/
 | | `view.js` | 判斷側面、斜側面、正面拍，以及面向哪一邊 |
 | | `framing.js` | 入鏡提示（請往後退、請站到中間…），不會一直閃 |
 | | `light.js` | 光線偵測：畫面平均亮度，太暗時提醒 |
+| | `form.js` | 動作錯誤判斷：每個動作常見的錯誤（上身前傾、塌腰…），要標紅的部位 |
 | | `reps.js` | 計算次數（伸直 → 彎下去 → 伸直）、計時（姿勢對時計時），四個動作共用 |
 | | `workouts.js` | 運動模式：自由、深蹲、伏地挺身、棒式、弓箭步各看哪些角度、門檻多少；使用者選的模式 |
 | | `squat.js` | 深蹲的門檻與次數（用 `reps.js`） |
-| `ui/` | `draw.js` | 在畫布上畫骨架 |
+| `ui/` | `draw.js` | 在畫布上畫骨架；做錯的部位畫成粗紅線 |
 | | `labels.js` | 關鍵點的編號標籤、點一下看名稱 |
 | | `hud.js` | 站遠也看得到的大字儀表板：左、右兩組照鏡子的方式放在畫面左右兩邊，被擋住的那一組變淡 |
 | | `demo.js` | 四個動作的示範動畫（側面火柴人＋角度）和重點字；改重點字只要改這裡 |
 | | `sound.js` | 提示音：離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」，只在狀況改變時響；音量四段（關、小、中、大），錄製倒數也共用 |
+| | `voice.js` | 語音提醒：用瀏覽器內建的語音唸出動作錯誤和次數（同一句 6 秒內不重複） |
 | | `datapanel.js` | 數據面板的數值表格 |
 | | `chart.js` | 重播頁的角度曲線圖 |
 | `platform/` | `camera.js` | 開關鏡頭、列出鏡頭、判斷前後鏡頭 |
@@ -94,7 +96,7 @@ flowchart LR
     end
     PIPE --- PIPE_IN
     PIPE --> PRED["往前預測<br>skeleton/predict.js"] --> DRAW["畫骨架、標籤<br>ui/draw.js、ui/labels.js"]
-    PIPE --> HUD["大字儀表板、入鏡提示、深蹲<br>ui/hud.js、analysis/framing.js、analysis/squat.js"]
+    PIPE --> HUD["大字儀表板、入鏡提示、次數、錯誤<br>ui/hud.js、analysis/framing.js、analysis/workouts.js、analysis/form.js"]
     AI --> REC["錄製（原始＋處理後）<br>data/recorder.js"]
     AI --> WORLD["3D 座標穩定化<br>skeleton/world.js"] --> REC
 ```
