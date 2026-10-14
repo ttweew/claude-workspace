@@ -19,6 +19,8 @@ import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, formatSeconds } from '../analysis/workouts.js';
+import { FormChecker } from '../analysis/form.js';
+import { Voice } from '../ui/voice.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
@@ -76,6 +78,7 @@ const hudRoot = document.getElementById('hud');
 const hudRepsBox = document.getElementById('hudRepsBox');  // 次數或秒數（選了運動模式才顯示）
 const hudRepsName = document.getElementById('hudRepsName');
 const workoutNote = document.getElementById('workoutNote');  // 首頁：目前選的動作
+const formTip = document.getElementById('formTip');  // 動作做錯時畫面上方的紅字
 const hudReps = document.getElementById('hudReps');
 const repToast = document.getElementById('repToast');
 const hud = new Hud(hudRoot);
@@ -134,9 +137,12 @@ const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭�
 // 運動模式（js/analysis/workouts.js）：選了動作就計算次數（棒式計時），大字儀表板和骨架旁的角度跟著換
 let workout = getWorkout();
 let counter = workout.create ? workout.create() : null;
+let form = new FormChecker(workout.id);   // 動作錯誤判斷（js/analysis/form.js）
+const repErrors = new Set();              // 這一下（或這一次棒式）出現過的錯誤
 // 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
 let shownAngleKeys = [];
 const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
+const voice = new Voice(() => sound.level);  // 語音提醒（動作錯誤、次數）：音量和提示音一樣
 const framingSound = new FramingSound(name => sound.play(name));  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
@@ -621,8 +627,10 @@ function showResult(result, now) {
             ? predictPose(landmarks, pipeline.smoother.velocity(), performance.now() - now, video.videoWidth, video.videoHeight)
             : landmarks;
         const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
+        // 動作錯誤判斷：做錯的部位畫成紅線
+        const formResult = form.update(processed, now);
         ctx.clearRect(0, 0, overlay.width, overlay.height);
-        drawSkeleton(ctx, shown, shownDerived, dpr);
+        drawSkeleton(ctx, shown, shownDerived, dpr, formResult.red);
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
         lastPose = { ...processed, raw, rawWorld, shown, shownDerived };
         showPoseLabels();
@@ -630,14 +638,18 @@ function showResult(result, now) {
         // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
         const hint = framing.update(framingAdvice(landmarks), now);
         // 運動模式：站位沒問題時，換成計算次數的提示（例如正面拍時請側身、伏地挺身請趴下）
-        const prompt = updateCounter(processed, now);
+        const prompt = updateCounter(processed, now, formResult);
         if (prompt && hint.kind === 'ok') showHint(prompt.text, prompt.kind, now);
         else showHint(hint.text, hint.kind, now);
+        // 站位沒問題時才顯示動作錯誤（站位不對時先處理站位）
+        showForm(hint.kind === 'ok' && !prompt ? formResult : null);
     } else {
         // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
         if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
-        updateCounter(null, now);
+        updateCounter(null, now, null);
+        form.update(null, now);
+        showForm(null);
         const hint = framing.update(NO_PERSON, now);
         showHint(hint.text, hint.kind, now);
     }
@@ -673,29 +685,57 @@ function videoResized() {
 
 let toastTimer = null;
 
-// 每一格更新次數（棒式更新秒數）；完成一下時顯示這一下的深度
+// 每一格更新次數（棒式更新秒數）；完成一下時顯示這一下的深度和出現過的錯誤，並唸出次數
+// formResult：這一格的動作錯誤（js/analysis/form.js）
 // 回傳要提醒使用者的話 { text, kind }（例如請側身、請趴下），沒有則為 null
-function updateCounter(processed, now) {
+function updateCounter(processed, now, formResult) {
     if (!counter) return null;
     const result = counter.update(processed, now);
+    // 做這一下的期間（彎下去到站起來；棒式是撐著的時候）出現過的錯誤都記下來
+    const during = workout.kind === 'hold' ? !!counter.current : result.state === 'down' || result.state === 'squat';
+    if (during && formResult) formResult.errors.forEach(e => repErrors.add(e));
     let text;
     if (workout.kind === 'hold') {
         text = formatSeconds(result.seconds);
         // 姿勢對、正在計時：數字變綠；姿勢跑掉暫停時恢復白色
         if (hudRepsBox.classList.contains('holding') !== result.holding) hudRepsBox.classList.toggle('holding', result.holding);
-        if (result.hold) showRepToast(workout.toast(result.hold), 'good');
+        if (result.hold) finishRep(result.hold, 'good', '撐了 ' + Math.floor(result.hold.seconds) + ' 秒');
     } else {
         text = String(result.reps);
-        if (result.rep) showRepToast(workout.toast(result.rep), result.rep.depth);
+        if (result.rep) finishRep(result.rep, result.rep.depth, result.rep.n + ' 下' + (result.rep.depth === 'good' ? '' : '，' + (result.rep.depth === 'close' ? '再低一點' : '太淺了')));
     }
+    if (!during && !result.rep && !result.hold) repErrors.clear();
     if (hudReps.textContent !== text) hudReps.textContent = text;
     return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
+}
+
+// 完成一下（或一次棒式）：記下錯誤，顯示提示、唸出來
+// 有錯誤時，深度到位也用黃色（提醒還有地方要改）
+function finishRep(rep, depth, speech) {
+    rep.errors = [...repErrors].map(e => e.id);
+    const shorts = [...repErrors].map(e => e.short);
+    repErrors.clear();
+    const kind = shorts.length && depth === 'good' ? 'close' : depth;
+    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : ''), kind);
+    voice.say(speech);
+}
+
+// 動作錯誤：畫面上方紅字（只顯示第一個），新出現的唸出來
+// 紅字和每一下的提示在同一個位置：剛做完一下時先讓那一下的提示顯示完（2.5 秒，裡面也寫了這一下的錯誤），之後紅字才回來
+function showForm(formResult) {
+    const errors = formResult ? formResult.errors : [];
+    if (formResult) formResult.started.forEach(e => voice.say(e.speech, true));
+    const text = errors.length ? errors[0].text : '';
+    if (formTip.textContent !== text) formTip.textContent = text;
+    const hidden = !text || !dataPanel.hidden || !repToast.hidden;
+    if (formTip.hidden !== hidden) formTip.hidden = hidden;
 }
 
 // kind：'good' 綠、'close' 黃、'shallow' 紅
 function showRepToast(text, kind) {
     // 數據面板打開時，大字儀表板也是收起來的（近距離看數字用），提示也不顯示，避免疊在面板上
     if (!dataPanel.hidden) return;
+    formTip.hidden = true;
     repToast.textContent = text;
     repToast.className = kind;
     repToast.hidden = false;
@@ -705,6 +745,10 @@ function showRepToast(text, kind) {
 
 function resetCounter() {
     if (counter) counter.reset();
+    form.reset();
+    repErrors.clear();
+    formTip.hidden = true;
+    voice.stop();
     hudReps.textContent = workout.kind === 'hold' ? '0:00' : '0';
     hudRepsBox.classList.remove('holding');
     clearTimeout(toastTimer);
@@ -728,6 +772,7 @@ function showWorkout() {
 onWorkoutChange(next => {
     workout = next;
     counter = next.create ? next.create() : null;
+    form = new FormChecker(next.id);
     showWorkout();
 });
 

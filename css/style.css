@@ -1376,6 +1376,29 @@ code {
 #banner[hidden] {
     display: none;
 }
+/* 動作做錯：和入鏡提示同一個位置、同樣大小的字，紅色（入鏡提示是橘色） */
+#formTip {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    left: 50%;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 0.35em 0.9em;
+    transform: translateX(-50%);
+    border: 2px solid rgba(255, 140, 140, 0.85);
+    border-radius: 18px;
+    background: rgba(180, 30, 30, 0.9);
+    color: #FFFFFF;
+    font-size: clamp(20px, 4.6vmin, 46px);
+    font-weight: 800;
+    line-height: 1.3;
+    text-align: center;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+}
+#formTip[hidden] {
+    display: none;
+}
 /* 關節角度大數字：畫面下方中央，字體隨螢幕放大 */
 /* 左右兩組照鏡子的方式放：第一組在畫面左邊、第二組在右邊（哪一組是本人的左側由 hud.js 依鏡像決定）
    直拿：放在下方左右兩角；橫拿：放在影像左右兩側的黑邊，不擋到人 */

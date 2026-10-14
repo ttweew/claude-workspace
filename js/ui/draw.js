@@ -16,6 +16,7 @@ const BODY = CONNECTIONS.filter(([a, b]) => isMainJoint(a) && isMainJoint(b));
 const DETAIL = CONNECTIONS.filter(([a, b]) => !(isMainJoint(a) && isMainJoint(b)));
 
 const GREEN = '#00FF00', RED = '#FF0000', BLUE = '#1E90FF';
+const WRONG = 'rgba(255, 40, 40, 0.9)';   // 做錯的部位：粗紅線
 
 // 一組線：兩端都看得到才畫
 function lines(ctx, points, pairs, visible, color, width) {
@@ -52,7 +53,8 @@ function dots(ctx, points, color, radius) {
 // 只畫真的看得到的點；連線兩端都看得到才畫，不在畫面裡的部位不會出現猜出來的點
 // 臉、手指、腳尖的點很密集，畫小一點、線細一點，才不會在臉上糊成一團；主要關節維持顯眼
 // scale：螢幕像素密度；線條粗細以螢幕上看到的大小為準，任何裝置看起來都一樣粗
-export function drawSkeleton(ctx, landmarks, derived, scale = 1) {
+// red：做錯的部位（js/analysis/form.js），這些連線改成粗的紅線，一眼看出哪裡要調整
+export function drawSkeleton(ctx, landmarks, derived, scale = 1, red = []) {
     const visible = landmarks.map(isVisible);
     ctx.save();
     ctx.lineCap = 'round';
@@ -64,5 +66,6 @@ export function drawSkeleton(ctx, landmarks, derived, scale = 1) {
     const trunkVisible = trunk.map(isVisible);
     lines(ctx, trunk, [[0, 1]], trunkVisible, BLUE, 3 * scale);
     dots(ctx, trunk.filter((p, i) => trunkVisible[i]), BLUE, 5.5 * scale);
+    if (red.length) lines(ctx, landmarks, red, visible, WRONG, 7 * scale);
     ctx.restore();
 }
