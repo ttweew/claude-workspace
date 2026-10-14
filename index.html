@@ -200,6 +200,8 @@
             <select id="modelLive" aria-label="AI 模型" hidden></select>
             <!-- 每秒格數選「自動」時：換了格數短暫說明（例如「自動調整：AI 還有餘裕，改成每秒 60 格」） -->
             <span id="autoNote" role="status" hidden></span>
+            <!-- 光線太暗時提醒（js/analysis/light.js）：骨架容易不準，鏡頭每秒格數也會變少 -->
+            <span id="lightNote" role="status" hidden>光線太暗：骨架可能不準、畫面變卡，請開燈或面向光源</span>
             <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
             <div id="advice" aria-live="polite" hidden>
                 <div class="advice-card">

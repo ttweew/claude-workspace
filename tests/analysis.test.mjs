@@ -115,3 +115,19 @@ test('入鏡提示：蹲到底時人沒有變小，不提示「離太遠」；�
     const far = sidePose({ NOSE: [0.5, 0.4], SHOULDER: [0.5, 0.43], HIP: [0.5, 0.5], KNEE: [0.5, 0.55], ANKLE: [0.5, 0.6] });
     assert.equal(framingAdvice(far).text, '離太遠了，可以往前一點');
 });
+
+// ---------- 光線偵測（js/analysis/light.js） ----------
+test('光線：平均亮度用人眼加權；連續 3 秒太暗才提醒、回到 60 以上才收起來', async () => {
+    const { averageLuma, LightMeter } = await import('../js/analysis/light.js');
+    assert.equal(Math.round(averageLuma(new Uint8ClampedArray([255, 255, 255, 255, 0, 0, 0, 255]))), 128);
+    assert.equal(Math.round(averageLuma(new Uint8ClampedArray([0, 255, 0, 255]))), 150, '綠色看起來比較亮');
+    const m = new LightMeter();
+    assert.equal(m.update(30), false);
+    assert.equal(m.update(30), false);
+    assert.equal(m.update(80), false, '中間亮一秒：重新算');
+    assert.equal(m.update(30), false);
+    assert.equal(m.update(30), false);
+    assert.equal(m.update(30), true, '連續 3 秒太暗');
+    assert.equal(m.update(55), true, '55 還不夠亮，不收');
+    assert.equal(m.update(65), false, '回到 60 以上收起來');
+});

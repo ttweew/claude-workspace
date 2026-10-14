@@ -19,6 +19,7 @@ import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { SquatCounter, DEPTH_TEXT } from '../analysis/squat.js';
+import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 
@@ -59,6 +60,7 @@ const adviceText = document.getElementById('adviceText');
 const adviceYes = document.getElementById('adviceYes');
 const adviceNo = document.getElementById('adviceNo');
 const autoNote = document.getElementById('autoNote');  // 自動調整時短暫說明換了什麼
+const lightNote = document.getElementById('lightNote');  // 光線太暗的提醒
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -120,6 +122,11 @@ let adviceDone = false;              // 這次開鏡頭已經量完、給過建�
 let shownAdvice = null;              // 畫面上正在顯示的建議
 const secondMs = [];                 // 這一秒每格花幾毫秒（自動調每秒格數用）
 const autoFps = new AutoFps();       // 每秒格數選「自動」時：依實際速度在 30、60 之間調整
+const lightMeter = new LightMeter(); // 光線偵測：每秒算一次畫面平均亮度（js/analysis/light.js）
+const lightCanvas = document.createElement('canvas');  // 縮成 32×24 的小圖來算亮度，很省
+lightCanvas.width = 32;
+lightCanvas.height = 24;
+const lightCtx = lightCanvas.getContext('2d', { willReadFrequently: true });
 const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方向
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 深蹲次數與深度（實驗中）：網址加 ?lab=squat 才啟用
@@ -282,6 +289,7 @@ function updatePerfInfo() {
             const info = [size, rate].filter(Boolean).join('，');
             if (info) parts.push('鏡頭 ' + info);
             if (isAutoFps()) parts.push('每秒格數自動，目前 ' + getFrameRate() + ' 格');
+            if (lightMeter.luma !== null) parts.push('畫面亮度 ' + Math.round(lightMeter.luma) + (lightMeter.dark ? '（太暗）' : ''));
             // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
             if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + modelLabel() + '）');
         }
@@ -502,6 +510,24 @@ async function applyAutoRate(rate, why) {
     }
 }
 
+// 光線偵測（每秒一次）：太暗時在運算標籤旁邊提醒，亮了就收起來
+function checkLight() {
+    if (!video.videoWidth) return;
+    let luma;
+    try {
+        lightCtx.drawImage(video, 0, 0, lightCanvas.width, lightCanvas.height);
+        luma = averageLuma(lightCtx.getImageData(0, 0, lightCanvas.width, lightCanvas.height).data);
+    } catch (err) {
+        return;  // 讀不到畫面（極少數瀏覽器）就不判斷
+    }
+    const dark = lightMeter.update(luma);
+    if (lightNote.hidden === dark) lightNote.hidden = !dark;
+}
+function resetLight() {
+    lightMeter.reset();
+    lightNote.hidden = true;
+}
+
 // 自動調整時在運算標籤旁邊短暫說明換了什麼（6 秒後收起來）
 let autoNoteTimer = null;
 function showAutoNote(text) {
@@ -572,6 +598,7 @@ function showResult(result, now) {
     // 畫布和影像的長寬比例相同，座標才會對齊
     const dpr = fitOverlay();
     if (fps.tick(now)) {
+        checkLight();
         updatePerfInfo();
         measureSecond();
     }
@@ -782,6 +809,7 @@ function stopStream() {
     cameraFps.reset();
     lastCameraFrame = null;
     resetSpeedMeter();
+    resetLight();
     pipeline.reset();
     worldStabilizer.reset();
     framing.reset();
