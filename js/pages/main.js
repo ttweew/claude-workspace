@@ -19,7 +19,10 @@ import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, formatSeconds } from '../analysis/workouts.js';
-import { FormChecker } from '../analysis/form.js';
+import { WorkoutTracker } from '../analysis/tracker.js';
+import { errorShort } from '../analysis/form.js';
+import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
+import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../analysis/session.js';
 import { Voice } from '../ui/voice.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
@@ -141,9 +144,8 @@ const pipeline = new PosePipeline();  // 平滑、擋鬼點、角度、拍攝方
 const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭長度限制（錄製時另外存一份）
 // 運動模式（js/analysis/workouts.js）：選了動作就計算次數（棒式計時），大字儀表板和骨架旁的角度跟著換
 let workout = getWorkout();
-let counter = workout.create ? workout.create() : null;
-let form = new FormChecker(workout.id);   // 動作錯誤判斷（js/analysis/form.js）
-const repErrors = new Set();              // 這一下（或這一次棒式）出現過的錯誤
+// 次數（棒式計時）＋動作錯誤（js/analysis/tracker.js）；重播分析也用同一套
+let tracker = new WorkoutTracker(workout.id);
 let sessionStart = Date.now();            // 這次運動從什麼時候開始（開鏡頭、換動作）
 // 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
 let shownAngleKeys = [];
@@ -633,10 +635,10 @@ function showResult(result, now) {
             ? predictPose(landmarks, pipeline.smoother.velocity(), performance.now() - now, video.videoWidth, video.videoHeight)
             : landmarks;
         const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
-        // 動作錯誤判斷：做錯的部位畫成紅線
-        const formResult = form.update(processed, now);
+        // 次數、動作錯誤：做錯的部位畫成紅線
+        const tracked = tracker.update(processed, now);
         ctx.clearRect(0, 0, overlay.width, overlay.height);
-        drawSkeleton(ctx, shown, shownDerived, dpr, formResult.red);
+        drawSkeleton(ctx, shown, shownDerived, dpr, tracked.form.red);
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
         lastPose = { ...processed, raw, rawWorld, shown, shownDerived };
         showPoseLabels();
@@ -644,17 +646,16 @@ function showResult(result, now) {
         // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
         const hint = framing.update(framingAdvice(landmarks), now);
         // 運動模式：站位沒問題時，換成計算次數的提示（例如正面拍時請側身、伏地挺身請趴下）
-        const prompt = updateCounter(processed, now, formResult);
+        const prompt = showCount(tracked);
         if (prompt && hint.kind === 'ok') showHint(prompt.text, prompt.kind, now);
         else showHint(hint.text, hint.kind, now);
         // 站位沒問題時才顯示動作錯誤（站位不對時先處理站位）
-        showForm(hint.kind === 'ok' && !prompt ? formResult : null);
+        showForm(hint.kind === 'ok' && !prompt ? tracked.form : null);
     } else {
         // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
         if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
-        updateCounter(null, now, null);
-        form.update(null, now);
+        showCount(tracker.update(null, now));
         showForm(null);
         const hint = framing.update(NO_PERSON, now);
         showHint(hint.text, hint.kind, now);
@@ -691,15 +692,11 @@ function videoResized() {
 
 let toastTimer = null;
 
-// 每一格更新次數（棒式更新秒數）；完成一下時顯示這一下的深度和出現過的錯誤，並唸出次數
-// formResult：這一格的動作錯誤（js/analysis/form.js）
-// 回傳要提醒使用者的話 { text, kind }（例如請側身、請趴下），沒有則為 null
-function updateCounter(processed, now, formResult) {
-    if (!counter) return null;
-    const result = counter.update(processed, now);
-    // 做這一下的期間（彎下去到站起來；棒式是撐著的時候）出現過的錯誤都記下來
-    const during = workout.kind === 'hold' ? !!counter.current : result.state === 'down' || result.state === 'squat';
-    if (during && formResult) formResult.errors.forEach(e => repErrors.add(e));
+// 每一格顯示次數（棒式顯示秒數）；完成一下時顯示這一下的深度和出現過的錯誤，並唸出次數
+// tracked：tracker.update 的結果；回傳要提醒使用者的話 { text, kind }（例如請側身、請趴下），沒有則為 null
+function showCount(tracked) {
+    const result = tracked.count;
+    if (!result) return null;
     let text;
     if (workout.kind === 'hold') {
         text = formatSeconds(result.seconds);
@@ -710,17 +707,14 @@ function updateCounter(processed, now, formResult) {
         text = String(result.reps);
         if (result.rep) finishRep(result.rep, result.rep.depth, result.rep.n + ' 下' + (result.rep.depth === 'good' ? '' : '，' + (result.rep.depth === 'close' ? '再低一點' : '太淺了')));
     }
-    if (!during && !result.rep && !result.hold) repErrors.clear();
     if (hudReps.textContent !== text) hudReps.textContent = text;
     return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
 }
 
-// 完成一下（或一次棒式）：記下錯誤，顯示提示、唸出來
+// 完成一下（或一次棒式）：顯示提示（含這一下出現過的錯誤）、唸出來
 // 有錯誤時，深度到位也用黃色（提醒還有地方要改）
 function finishRep(rep, depth, speech) {
-    rep.errors = [...repErrors].map(e => e.id);
-    const shorts = [...repErrors].map(e => e.short);
-    repErrors.clear();
+    const shorts = (rep.errors || []).map(errorShort);
     const kind = shorts.length && depth === 'good' ? 'close' : depth;
     showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : ''), kind);
     voice.say(speech);
@@ -750,9 +744,7 @@ function showRepToast(text, kind) {
 }
 
 function resetCounter() {
-    if (counter) counter.reset();
-    form.reset();
-    repErrors.clear();
+    tracker.reset();
     formTip.hidden = true;
     voice.stop();
     hudReps.textContent = workout.kind === 'hold' ? '0:00' : '0';
@@ -763,12 +755,7 @@ function resetCounter() {
 
 // 鏡頭中斷（重開鏡頭）：進行中的這一下作廢、提示收起來，已經做完的次數保留
 function interruptCounter() {
-    if (counter) {
-        const hold = counter.interrupt();
-        if (hold) hold.errors = [...repErrors].map(e => e.id);
-    }
-    form.reset();
-    repErrors.clear();
+    tracker.interrupt();
     formTip.hidden = true;
     voice.stop();
     clearTimeout(toastTimer);
@@ -777,20 +764,11 @@ function interruptCounter() {
 
 // ---------- 運動總結（js/analysis/session.js） ----------
 
-// 做完的每一下（棒式是每一次）
-function counterItems() {
-    if (!counter) return [];
-    return workout.kind === 'hold' ? counter.holds : counter.reps;
-}
-
 // 一次運動結束（關鏡頭、換動作、關網頁）：存成紀錄，首頁顯示這次的總結和上一次比較
 function finishSession() {
-    if (counter && workout.kind === 'hold' && counter.current) {
-        const hold = counter.interrupt();
-        if (hold) hold.errors = [...repErrors].map(e => e.id);
-    }
-    const s = summarize(workout.id, counterItems(), sessionStart, Date.now());
-    if (counter) counter.reset();
+    // 棒式撐到一半就結束：撐到現在的算一次
+    if (workout.kind === 'hold' && tracker.counter.current) tracker.interrupt();
+    const s = summarize(workout.id, tracker.items, sessionStart, Date.now());
     sessionStart = Date.now();
     resetCounter();
     if (!s) return;
@@ -826,9 +804,29 @@ document.getElementById('clearHistory').addEventListener('click', () => {
     summaryBox.hidden = true;
     showHistory();
 });
+// ---------- 驗證實驗：記下角度（js/analysis/validate.js） ----------
+// 擺好姿勢不動時按，記下現在的關節角度；預設比對看得比較清楚那一側的主要關節（深蹲是膝蓋、伏地挺身是手肘）
+const snapInfo = document.getElementById('snapInfo');
+function showSnapCount(text) {
+    const n = loadSnapshots().length;
+    snapInfo.textContent = text || (n ? '已記 ' + n + ' 筆，到使用說明「驗證實驗」和量角器比對' : '');
+}
+document.getElementById('snapBtn').addEventListener('click', () => {
+    if (!lastPose) {
+        showSnapCount('還沒偵測到人，站進畫面再按');
+        return;
+    }
+    const side = clearerSide(lastPose.landmarks);
+    const n = addSnapshot(makeSnapshot(lastPose, workout.id, side + '_' + workout.hud[0]));
+    const joint = (side === 'LEFT' ? '左' : '右') + { KNEE: '膝', HIP: '髖', ELBOW: '肘' }[workout.hud[0]];
+    const angle = lastPose.angles[side + '_' + workout.hud[0]];
+    showSnapCount('第 ' + n + ' 筆：' + joint + ' ' + (angle === null ? '—' : Math.round(angle) + '°') + '（到使用說明「驗證實驗」和量角器比對）');
+});
+showSnapCount();
+
 // 直接關網頁、切走（手機把網頁收起來）也把這次記下來
 window.addEventListener('pagehide', () => {
-    if (counterItems().length) finishSession();
+    if (tracker.items.length) finishSession();
 });
 showHistory();
 
@@ -836,21 +834,18 @@ showHistory();
 function showWorkout() {
     hud.setJoints(workout.hud);
     shownAngleKeys = workout.labels.flatMap(joint => ['LEFT_' + joint, 'RIGHT_' + joint]);
-    hudRepsBox.hidden = !counter;
+    hudRepsBox.hidden = !tracker.counter;
     hudRepsBox.classList.toggle('time', workout.kind === 'hold');
     hudRepsName.textContent = workout.name;
-    hudRoot.classList.toggle('lab', !!counter);
+    hudRoot.classList.toggle('lab', !!tracker.counter);
     workoutNote.textContent = '動作：' + workout.name + '（' + workout.hint + '）';
-    // 深蹲的錄製檔可以在重播分析看每一下的深度（之後其他動作也會加上）
-    document.getElementById('replayLink').href = workout.id === 'squat' ? 'replay.html?lab=squat' : 'replay.html';
     resetCounter();
     showPoseLabels();
 }
 onWorkoutChange(next => {
     finishSession();
     workout = next;
-    counter = next.create ? next.create() : null;
-    form = new FormChecker(next.id);
+    tracker = new WorkoutTracker(next.id);
     showWorkout();
 });
 
@@ -910,7 +905,7 @@ async function startCamera(deviceId) {
     }
     currentStream = stream;
     video.srcObject = stream;
-    if (!counter || !counterItems().length) sessionStart = Date.now();
+    if (!tracker.items.length) sessionStart = Date.now();
     measureFrom = performance.now();
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});

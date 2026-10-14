@@ -2,15 +2,12 @@
 // 紀錄存在這台裝置上（最多 50 次），不會上傳；首頁顯示「這次運動」和「運動紀錄」
 
 import { WORKOUTS, formatSeconds } from './workouts.js';
-import { FORM_RULES } from './form.js';
+import { errorShort } from './form.js';
 
 const KEY = 'workoutHistory';
 const MAX = 50;
 
-// 錯誤代號 → 簡稱（例如 lean → 上身前傾）；不同動作的同一個代號簡稱相同
-const SHORT = {};
-for (const rules of Object.values(FORM_RULES)) for (const r of rules) SHORT[r.id] = r.short;
-export const errorName = id => SHORT[id] || id;
+export const errorName = errorShort;
 
 // workoutId：哪個動作；items：counter.reps（計次）或 counter.holds（棒式）；startMs、endMs：開始、結束的時間（Date.now()）
 // 沒有做任何一下（或撐不到一次）回傳 null
