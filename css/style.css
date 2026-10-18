@@ -376,6 +376,54 @@ h2 {
         line-height: 1.5;
     }
 }
+/* 驗證實驗 A 的比對表 */
+.val-tool {
+    margin: 12px 0;
+}
+.val-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+.val-table th, .val-table td {
+    padding: 6px 6px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+}
+.val-table select, .val-table input {
+    min-height: 34px;
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 16px;
+}
+.val-table input {
+    width: 5.5em;
+}
+.val-stats {
+    margin: 10px 0 0;
+    color: var(--accent);
+    font-weight: 600;
+}
+.val-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.val-actions button {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+}
 /* 準備步驟：數字圓圈＋說明 */
 .steps {
     display: grid;
@@ -1834,6 +1882,14 @@ code {
 .help h3 {
     margin: 22px 0 10px;
     font-size: 18px;
+}
+.help h4 {
+    margin: 18px 0 8px;
+    font-size: 16px;
+}
+/* 比對表在手機上可以左右捲動，不撐寬整頁 */
+.help .table-wrap {
+    overflow-x: auto;
 }
 .exp {
     display: grid;

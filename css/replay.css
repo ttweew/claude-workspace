@@ -282,9 +282,31 @@
 }
 .squat-summary {
     margin: 0 0 8px;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.6;
 }
+/* 動作分析：選要分析哪個動作 */
+.workout-pick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.workout-pick select {
+    min-height: 36px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+}
+/* 有錯誤的那一下：錯誤欄用黃色 */
+.has-errors { color: #FFC857; }
 .jump-row {
     cursor: pointer;
 }

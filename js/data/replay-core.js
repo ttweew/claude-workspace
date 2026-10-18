@@ -7,7 +7,7 @@
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { ANGLES, angleAt, computeAngles, signedAngle } from '../analysis/angles.js';
 import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
-import { SquatCounter } from '../analysis/squat.js';
+import { WorkoutTracker } from '../analysis/tracker.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 
 export const ANGLE_KEYS = ANGLES.map(([key]) => key);
@@ -115,14 +115,16 @@ export function needsFrameSize(meta) {
 
 // ---------- 重算 ----------
 
-// parsed：parseRecording 的結果；width、height：鏡頭畫面大小；lab：是否計算深蹲（實驗中）
+// parsed：parseRecording 的結果；width、height：鏡頭畫面大小
+// workout：用哪個運動模式計算次數和錯誤（js/analysis/tracker.js，和鏡頭畫面同一套）；lab：舊的參數，等於 workout: 'squat'
 // onProgress(0～1)：進度；pause：每算一段就呼叫一次（主畫面執行時用來讓畫面喘口氣，背景執行緒不用）
 // 回傳：{ n, t, present, angles, signed, rawAngles, view, ratio, facing, smooth, smoothVis, rawPresent, raw, rawVis, reps,
 //         hasWorld, boneRaw, boneStable, knee3dRaw, knee3dStable }
 //   沒有值（算不出來）的角度、比值、長度是 NaN；present：這一格有沒有人（經過擋鬼點）
 //   boneRaw / boneStable：WORLD_BONES 每根骨頭的 3D 長度（公尺），原始 / 處理過（js/skeleton/world.js，和錄製時存的 swx… 相同方法）
 //   knee3dRaw / knee3dStable：WORLD_KNEES 的 3D 膝蓋角度；兩端關節在畫面上看得到時才算（看不到的點，3D 座標是猜的）
-export async function analyzeRecording(parsed, width, height, { lab = false, onProgress = null, pause = null } = {}) {
+export async function analyzeRecording(parsed, width, height, { workout = null, lab = false, onProgress = null, pause = null } = {}) {
+    if (!workout && lab) workout = 'squat';
     const frames = parsed.frames;
     const n = frames.length, A = ANGLE_KEYS.length, S = SIGNED_KEYS.length;
     const out = {
@@ -149,12 +151,12 @@ export async function analyzeRecording(parsed, width, height, { lab = false, onP
     };
     const pipeline = new PosePipeline();
     const stabilizer = new WorldStabilizer();
-    const squat = lab ? new SquatCounter() : null;
+    const tracker = workout && workout !== 'free' ? new WorkoutTracker(workout) : null;
     for (let i = 0; i < n; i++) {
         const f = frames[i];
         out.t[i] = f.t / 1000;
         const p = pipeline.process(f.raw, f.t, width, height);
-        if (squat) squat.update(p, f.t);
+        if (tracker) tracker.update(p, f.t);
         if (f.raw) {
             out.rawPresent[i] = 1;
             const ra = computeAngles(f.raw, width, height);
@@ -190,7 +192,12 @@ export async function analyzeRecording(parsed, width, height, { lab = false, onP
             if (pause) await pause();
         }
     }
-    if (squat) out.reps = squat.reps;
+    if (tracker) {
+        // 棒式撐到檔案結束：撐到最後的算一次
+        if (tracker.workout.kind === 'hold' && tracker.counter.current) tracker.interrupt();
+        out.reps = tracker.items;
+        out.workout = tracker.workout.id;
+    }
     if (onProgress) onProgress(1);
     return out;
 }

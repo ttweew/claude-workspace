@@ -9,6 +9,9 @@ import { drawChart, xToTime } from '../ui/chart.js';
 import { makeDemoRecording } from '../data/synth.js';
 import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
+import { WORKOUTS, formatSeconds } from '../analysis/workouts.js';
+import { summarize, describe } from '../analysis/session.js';
+import { errorShort } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
 import { setupOffline } from '../platform/offline.js';
@@ -19,12 +22,14 @@ const aspectRow = $('aspectRow'), aspectSelect = $('aspect');
 const result = $('result'), summary = $('summary'), synthNote = $('synthNote');
 const toggles = $('toggles'), chart = $('chart'), skeleton = $('skeleton'), readout = $('readout');
 const playBtn = $('playBtn'), mirrorBtn = $('mirrorBtn'), stats = $('stats'), csvOut = $('csvOut');
-const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable');
+const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable'), workoutPick = $('workoutPick'), squatNote = $('squatNote');
 const worldCard = $('worldCard'), boneTable = $('boneTable'), kneeTable = $('kneeTable'), kneeNote = $('kneeNote');
 const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 
-// 深蹲分析還在實驗中：網址加 ?lab=squat 才顯示（和鏡頭畫面一樣）
-const LAB_SQUAT = new URLSearchParams(location.search).get('lab') === 'squat';
+// 動作分析：用錄製時選的運動模式（檔案的 meta.workout）計算次數和錯誤，和鏡頭畫面同一套；也可以自己選
+// 網址 ?workout=pushup 或以前的 ?lab=squat 可以直接指定
+const URL_PARAMS = new URLSearchParams(location.search);
+const URL_WORKOUT = WORKOUTS[URL_PARAMS.get('workout')] ? URL_PARAMS.get('workout') : URL_PARAMS.get('lab') === 'squat' ? 'squat' : '';
 const POINTS = 33;
 
 // 曲線顏色：膝綠、髖藍、肘橘；左邊實線、右邊虛線
@@ -192,7 +197,7 @@ async function analyze() {
         const w = await getWorker();
         if (w && !parsedOnMain) {
             try {
-                r = (await ask(w, { type: 'analyze', id, width, height, lab: LAB_SQUAT }, [], progress)).result;
+                r = (await ask(w, { type: 'analyze', id, width, height, workout: chosenWorkout() }, [], progress)).result;
             } catch (err) {
                 if (!err.crashed) throw err;
                 // 背景執行緒當掉：改在主畫面重新讀取、計算（下面），使用者不用重選檔案
@@ -205,7 +210,7 @@ async function analyze() {
                 parsedOnMain = parsed;
             }
             if (id !== requestId) return;
-            r = await analyzeRecording(parsedOnMain, width, height, { lab: LAB_SQUAT, onProgress: progress, pause: breathe });
+            r = await analyzeRecording(parsedOnMain, width, height, { workout: chosenWorkout(), onProgress: progress, pause: breathe });
         }
     } catch (err) {
         if (id !== requestId) return;
@@ -214,7 +219,7 @@ async function analyze() {
         return;
     }
     if (id !== requestId) return;
-    analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps };
+    analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps, workout: r.workout || null };
     const rows = analysis.rows;
     // 一開始選在第一個有角度的格子（最前面幾格點還沒穩定，角度都是「—」）
     cursor = Math.max(0, rows.findIndex(row => row.present && Object.values(row.angles).some(a => a !== null)));
@@ -254,34 +259,61 @@ function buildRows(r) {
     return rows;
 }
 
-// ---------- 深蹲分析（實驗中） ----------
+// ---------- 動作分析（次數、深度、錯誤；js/analysis/tracker.js） ----------
+
+// 要用哪個動作分析：選單選的；選「錄製時選的」就看網址、再看檔案記錄的運動模式（自由模式不分析）
+function chosenWorkout() {
+    if (workoutPick.value !== 'auto') return workoutPick.value;
+    const recorded = data && data.meta && WORKOUTS[data.meta.workout] && data.meta.workout !== 'free' ? data.meta.workout : '';
+    return URL_WORKOUT || recorded || null;
+}
+// 「錄製時選的」那一項寫出是哪個動作
+function fillWorkoutPick() {
+    const recorded = data && data.meta && WORKOUTS[data.meta.workout] && data.meta.workout !== 'free' ? WORKOUTS[data.meta.workout].name : '';
+    workoutPick.options[0].textContent = URL_WORKOUT ? '網址指定的（' + WORKOUTS[URL_WORKOUT].name + '）'
+        : recorded ? '錄製時選的（' + recorded + '）' : '錄製時沒有選動作';
+}
+workoutPick.addEventListener('change', () => { if (data) analyze(); });
 
 function showSquats() {
-    squatCard.hidden = !LAB_SQUAT;
-    if (!LAB_SQUAT) return;
-    const reps = analysis.reps;
-    const count = d => reps.filter(r => r.depth === d).length;
-    squatSummary.textContent = reps.length
-        ? '共 ' + reps.length + ' 下：蹲到位 ' + count('good') + '、再低一點 ' + count('close') + '、太淺 ' + count('shallow')
-        : '沒有偵測到完整的深蹲（要側面拍，而且每一下都要站直再蹲下）';
-    const head = ['第幾下', '時間', '最低膝蓋', '最低髖部', '判斷'];
+    squatCard.hidden = false;
+    fillWorkoutPick();
+    const id = analysis.workout;
+    const w = id ? WORKOUTS[id] : null;
+    const reps = analysis.reps || [];
+    const hold = w && w.kind === 'hold';
+    if (!w) {
+        squatSummary.textContent = '這個檔案錄製時沒有選動作（或選了「自由」）：在上面選一個動作，就能算次數、深度和錯誤';
+        squatTable.replaceChildren();
+        squatNote.textContent = '';
+        return;
+    }
+    const s = summarize(id, reps, 0, 0);
+    squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
+    squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
+    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤'] : ['第幾下', '時間', '最小角度', '判斷', '錯誤'];
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
     head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
     thead.appendChild(htr);
     const tbody = document.createElement('tbody');
+    const depthText = id === 'squat' ? DEPTH_TEXT : { good: '到位', close: '再低一點', shallow: '太淺' };
     for (const r of reps) {
         const tr = document.createElement('tr');
-        const cells = [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.minKnee) + '°',
-            r.minHip === null ? '—' : Math.round(r.minHip) + '°', DEPTH_TEXT[r.depth] + (r.oblique ? '（斜側面）' : '')];
+        const errors = (r.errors || []).map(errorShort).join('、') || '—';
+        const cells = hold
+            ? [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', formatSeconds(r.seconds), errors]
+            : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''), errors];
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;
-            if (i === 4) td.className = 'depth-' + r.depth;
+            if (!hold && i === 3) td.className = 'depth-' + r.depth;
+            if (c !== '—' && i === cells.length - 1) td.className = 'has-errors';
             tr.appendChild(td);
         });
-        // 點一列（或用鍵盤選到後按 Enter）跳到那一下最低的時間
-        const jump = () => { stopPlaying(); selectTime(r.bottom); };
+        // 點一列（或用鍵盤選到後按 Enter）跳到那一下最低的時間（棒式跳到開始）
+        const at = hold ? r.start : r.bottom;
+        const jump = () => { stopPlaying(); selectTime(at); };
         tr.addEventListener('click', jump);
         tr.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -290,7 +322,7 @@ function showSquats() {
             }
         });
         tr.tabIndex = 0;
-        tr.title = '跳到第 ' + r.n + ' 下最低的時間點';
+        tr.title = '跳到第 ' + r.n + (hold ? ' 次開始' : ' 下最低') + '的時間點';
         tr.className = 'jump-row';
         tbody.appendChild(tr);
     }
@@ -589,7 +621,7 @@ function redraw() {
         series.push({ values: rows.map(r => r.angles[key]), color, width: 2, dash });
         if (show3d && analysis.data.hasWorld && key in rows[0].knee3d) series.push({ values: rows.map(r => r.knee3d[key]), color: KNEE3D_COLOR, width: 1.5, dash, alpha: 0.8 });
     }
-    const markers = analysis.reps.map(r => ({ t: r.bottom, label: String(r.n) }));
+    const markers = (analysis.reps || []).map(r => ({ t: r.bottom ?? r.start, label: String(r.n) }));
     // 底圖代號：檔案、顯示的關節、是否顯示原始資料；只換游標時沿用底圖
     const key = analysis.id + '|' + [...shown].join(',') + '|' + showRaw + '|' + show3d;
     drawChart(chart, { key, times, series, bands: viewBands(), markers, cursor: rows[cursor].t, yMin: 0, yMax: 200, yStep: 30 });

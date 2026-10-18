@@ -16,7 +16,7 @@ self.onmessage = async event => {
             self.postMessage({ type: 'parsed', id: m.id, meta: parsed.meta, frames: parsed.frames.length });
         } else if (m.type === 'analyze') {
             const result = await analyzeRecording(parsed, m.width, m.height, {
-                lab: m.lab,
+                workout: m.workout,
                 onProgress: f => self.postMessage({ type: 'progress', id: m.id, fraction: f })
             });
             self.postMessage({ type: 'result', id: m.id, result }, transferables(result));
