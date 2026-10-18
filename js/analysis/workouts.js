@@ -91,6 +91,9 @@ export const WORKOUTS = {
     }
 };
 export const WORKOUT_IDS = Object.keys(WORKOUTS);
+// 是不是認得的動作代號：網址、錄製檔、這台裝置存的資料都可能被改過，
+// 不能直接拿去查 WORKOUTS（例如 'constructor'、'toString' 這種 JavaScript 內建的名字查得到東西，網頁會壞掉）
+export const isWorkout = id => WORKOUT_IDS.includes(id);
 
 // 秒數 → 「0:23」
 export function formatSeconds(seconds) {
@@ -109,10 +112,10 @@ const listeners = new Set();
 function initial() {
     const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
     const fromUrl = params.get('workout') || (params.get('lab') === 'squat' ? 'squat' : '');
-    if (WORKOUTS[fromUrl]) return fromUrl;
+    if (isWorkout(fromUrl)) return fromUrl;
     try {
         const saved = localStorage.getItem(KEY);
-        if (WORKOUTS[saved]) return saved;
+        if (isWorkout(saved)) return saved;
     } catch (err) { /* 不能讀就用預設 */ }
     return 'free';
 }
@@ -121,8 +124,19 @@ export function getWorkout() {
     if (current === null) current = initial();
     return WORKOUTS[current];
 }
+// 錄製中不能換動作：錄製檔記的是開始錄的時候選的動作（meta.workout），重播分析用它算整段，中途換了會用錯的動作算
+let locked = false;
+const lockListeners = new Set();
+export function setWorkoutLocked(on) {
+    locked = on;
+    lockListeners.forEach(fn => fn(on));
+}
+export function onWorkoutLock(fn) {
+    lockListeners.add(fn);
+}
+
 export function setWorkout(id) {
-    if (!WORKOUTS[id]) return;
+    if (!isWorkout(id) || locked) return;
     current = id;
     try { localStorage.setItem(KEY, id); } catch (err) { /* 不能存就不記 */ }
     listeners.forEach(fn => fn(WORKOUTS[id]));

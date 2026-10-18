@@ -5,6 +5,7 @@
 
 const VOLUME = { off: 0, low: 0.4, mid: 0.75, high: 1 };
 const REPEAT_MS = 6000;
+const STUCK_MS = 15000;   // 一直在「講話中」超過這麼久：瀏覽器的語音卡住了（有些 Android 手機切到背景再回來會這樣），清掉重來
 const KEY = 'voiceOn';
 
 export class Voice {
@@ -12,6 +13,7 @@ export class Voice {
     constructor(getLevel) {
         this.getLevel = getLevel;
         this.lastSaid = new Map();   // 每句話上次唸的時間
+        this.lastStart = -Infinity;  // 最近一次開始講的時間（看語音有沒有卡住）
         this.enabled = true;         // 進階設定的語音開關（預設開，網站會記住）
         try { this.enabled = localStorage.getItem(KEY) !== '0'; } catch (err) { /* 不能讀就用預設 */ }
         this.voice = null;
@@ -31,6 +33,18 @@ export class Voice {
         return !!this.synth;
     }
 
+    // iPhone（Safari）要在使用者按按鈕的當下先講過一次，之後在別的時候（偵測到錯誤時）才講得出來：
+    // 按「開啟鏡頭」時唸一個空白、音量 0（聽不到）
+    unlock() {
+        if (!this.synth || this.unlocked) return;
+        this.unlocked = true;
+        try {
+            const u = new SpeechSynthesisUtterance(' ');
+            u.volume = 0;
+            this.synth.speak(u);
+        } catch (err) { /* 不支援就算了 */ }
+    }
+
     setEnabled(on) {
         this.enabled = on;
         try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (err) { /* 不能存就不記 */ }
@@ -43,6 +57,8 @@ export class Voice {
         if (!this.synth || !this.enabled || !volume || !text) return false;
         const now = performance.now();
         if (now - (this.lastSaid.get(text) ?? -Infinity) < REPEAT_MS) return false;
+        // 自我修復：最後一次開始講已經超過 15 秒，瀏覽器還說在講話中，代表卡住了；不清掉的話之後每一句都會被跳過
+        if ((this.synth.speaking || this.synth.pending) && now - this.lastStart > STUCK_MS) this.synth.cancel();
         if (!important && (this.synth.speaking || this.synth.pending)) return false;
         // 錯誤提醒最多排一句：還有沒唸的就換成這一句（舊的錯誤可能已經改正了）
         if (important && this.synth.pending) this.synth.cancel();
@@ -54,6 +70,7 @@ export class Voice {
             u.rate = 1.1;
             this.synth.speak(u);
             this.lastSaid.set(text, now);
+            this.lastStart = now;
             return true;
         } catch (err) {
             return false;  // 不支援就算了，畫面上的提示照常

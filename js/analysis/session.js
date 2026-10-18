@@ -1,7 +1,7 @@
 // 運動總結：一次運動（開鏡頭到關鏡頭，或換動作之前）做了幾下、品質怎麼樣，並和上一次同一個動作比較
 // 紀錄存在這台裝置上（最多 50 次），不會上傳；首頁顯示「這次運動」和「運動紀錄」
 
-import { WORKOUTS, formatSeconds } from './workouts.js';
+import { WORKOUTS, isWorkout, formatSeconds } from './workouts.js';
 import { errorShort } from './form.js';
 
 const KEY = 'workoutHistory';
@@ -12,7 +12,7 @@ export const errorName = errorShort;
 // workoutId：哪個動作；items：counter.reps（計次）或 counter.holds（棒式）；startMs、endMs：開始、結束的時間（Date.now()）
 // 沒有做任何一下（或撐不到一次）回傳 null
 export function summarize(workoutId, items, startMs, endMs) {
-    const w = WORKOUTS[workoutId];
+    const w = isWorkout(workoutId) ? WORKOUTS[workoutId] : null;
     if (!w || !w.kind || !items || !items.length) return null;
     const errors = {};
     let clean = 0;
@@ -23,7 +23,8 @@ export function summarize(workoutId, items, startMs, endMs) {
     }
     const s = { workout: workoutId, date: startMs, minutes: Math.max(0, (endMs - startMs) / 60000), count: items.length, clean, errors };
     if (w.kind === 'hold') {
-        s.seconds = items.map(h => Math.round(h.seconds));
+        // 無條件捨去：和鏡頭畫面上的秒數、每一次的提示（「撐了 0:12」）一樣，12.6 秒不會在總結變成 13 秒
+        s.seconds = items.map(h => Math.floor(h.seconds));
         s.best = Math.max(...s.seconds);
         s.total = s.seconds.reduce((a, b) => a + b, 0);
     } else {
@@ -85,10 +86,20 @@ export function describe(s) {
 export function loadHistory() {
     try {
         const list = JSON.parse(localStorage.getItem(KEY) || '[]');
-        return Array.isArray(list) ? list.filter(s => s && WORKOUTS[s.workout]) : [];
+        return Array.isArray(list) ? list.filter(validSession) : [];
     } catch (err) {
         return [];
     }
+}
+// 紀錄可能是舊版存的、被改過或損壞的：欄位不對的那一筆不用（不然總結、比較會出現 NaN 或讓首頁出錯）
+const isCount = v => Number.isInteger(v) && v >= 0;
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+export function validSession(s) {
+    if (!s || typeof s !== 'object' || !isWorkout(s.workout) || !WORKOUTS[s.workout].kind) return false;
+    if (!isCount(s.count) || !s.count || !isCount(s.clean) || s.clean > s.count || !isNum(s.date)) return false;
+    if (!s.errors || typeof s.errors !== 'object' || Array.isArray(s.errors) || !Object.values(s.errors).every(isCount)) return false;
+    if (WORKOUTS[s.workout].kind === 'hold') return isNum(s.best) && isNum(s.total);
+    return [s.good, s.close, s.shallow].every(isCount) && s.good + s.close + s.shallow === s.count && [s.best, s.average, s.tempo].every(isNum);
 }
 // 存一次，回傳上一次同一個動作的總結（沒有的話 null）
 export function saveSession(s) {

@@ -9,7 +9,7 @@ import { drawChart, xToTime } from '../ui/chart.js';
 import { makeDemoRecording } from '../data/synth.js';
 import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
-import { WORKOUTS, formatSeconds } from '../analysis/workouts.js';
+import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
 import { summarize, describe } from '../analysis/session.js';
 import { errorShort } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
@@ -29,7 +29,7 @@ const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 // 動作分析：用錄製時選的運動模式（檔案的 meta.workout）計算次數和錯誤，和鏡頭畫面同一套；也可以自己選
 // 網址 ?workout=pushup 或以前的 ?lab=squat 可以直接指定
 const URL_PARAMS = new URLSearchParams(location.search);
-const URL_WORKOUT = WORKOUTS[URL_PARAMS.get('workout')] ? URL_PARAMS.get('workout') : URL_PARAMS.get('lab') === 'squat' ? 'squat' : '';
+const URL_WORKOUT = isWorkout(URL_PARAMS.get('workout')) ? URL_PARAMS.get('workout') : URL_PARAMS.get('lab') === 'squat' ? 'squat' : '';
 const POINTS = 33;
 
 // 曲線顏色：膝綠、髖藍、肘橘；左邊實線、右邊虛線
@@ -264,12 +264,12 @@ function buildRows(r) {
 // 要用哪個動作分析：選單選的；選「錄製時選的」就看網址、再看檔案記錄的運動模式（自由模式不分析）
 function chosenWorkout() {
     if (workoutPick.value !== 'auto') return workoutPick.value;
-    const recorded = data && data.meta && WORKOUTS[data.meta.workout] && data.meta.workout !== 'free' ? data.meta.workout : '';
+    const recorded = data && data.meta && isWorkout(data.meta.workout) && data.meta.workout !== 'free' ? data.meta.workout : '';
     return URL_WORKOUT || recorded || null;
 }
 // 「錄製時選的」那一項寫出是哪個動作
 function fillWorkoutPick() {
-    const recorded = data && data.meta && WORKOUTS[data.meta.workout] && data.meta.workout !== 'free' ? WORKOUTS[data.meta.workout].name : '';
+    const recorded = data && data.meta && isWorkout(data.meta.workout) && data.meta.workout !== 'free' ? WORKOUTS[data.meta.workout].name : '';
     workoutPick.options[0].textContent = URL_WORKOUT ? '網址指定的（' + WORKOUTS[URL_WORKOUT].name + '）'
         : recorded ? '錄製時選的（' + recorded + '）' : '錄製時沒有選動作';
 }
@@ -795,8 +795,21 @@ function exportCSV() {
 
 // ---------- 事件 ----------
 
+// 選錯檔案（例如手機拍的影片，常常好幾 GB）：整個讀進來會讓分頁記憶體不夠而當掉
+// 網站錄的檔案 20 分鐘的 JSON 約 135 MB，超過 400 MB 一定不是，直接說明
+const MAX_FILE_MB = 400;
 function readFile(file) {
-    if (file) load(file.name, file);
+    if (!file) return;
+    if (file.size > MAX_FILE_MB * 1e6) {
+        stopPlaying();
+        requestId++;   // 還在讀的上一個檔案作廢
+        data = analysis = null;
+        result.hidden = true;
+        setStatus('檔案太大（' + Math.round(file.size / 1e6) + ' MB）：網站錄的檔案 20 分鐘約 135 MB，'
+            + '這應該不是「數據」面板下載的 JSON 或 CSV（例如是影片），請重新選擇', true);
+        return;
+    }
+    load(file.name, file);
 }
 
 fileInput.addEventListener('change', () => readFile(fileInput.files[0]));

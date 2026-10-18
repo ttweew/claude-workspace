@@ -27,7 +27,8 @@ test('站直不動 1.5 秒：記下站直的膝蓋角度和手機傾斜；一直
     const stand = demoLandmarks('squat', 0);
     const b = feed(new Calibrator(), repeat(stand, 60));
     assert.ok(b && Math.abs(b.knee - 168) <= 2, '膝蓋 ' + (b && b.knee));
-    assert.ok(Math.abs(b.tilt - 6) <= 2, '示範動畫站直時上身前傾 6°：' + b.tilt);
+    // 手機沒有歪：量到的是腿（髖部中心 → 兩腳踝中間）約 −2°，不是上身的 6°（站直時上身本來就有一點前傾，不能當成手機歪）
+    assert.ok(Math.abs(b.tilt) <= 3, '手機沒有歪，量到 ' + b.tilt);
     // 一直在蹲（不是站著不動）
     const moving = Array.from({ length: 90 }, (_, i) => demoLandmarks('squat', 0.5 + 0.5 * Math.sin(i / 5)));
     assert.equal(feed(new Calibrator(), moving), null);
@@ -96,7 +97,21 @@ test('手機放歪 12°：校正前蹲下時誤判「上身太前傾」，校正
     feed(before, reps);
     const after = new WorkoutTracker('squat');
     feed(after, [...repeat(frame(0), 60), ...reps]);
-    assert.ok(after.baseline && Math.abs(after.baseline.tilt) > 10, '量到手機傾斜 ' + JSON.stringify(after.baseline));
+    assert.ok(after.baseline && Math.abs(Math.abs(after.baseline.tilt) - 12) <= 3, '量到手機歪約 12°：' + JSON.stringify(after.baseline));
     assert.ok(before.items.some(r => r.errors.includes('lean')), '校正前誤判前傾：' + JSON.stringify(before.items.map(r => r.errors)));
     assert.ok(after.items.length === 2 && after.items.every(r => !r.errors.includes('lean')), '校正後不誤判：' + JSON.stringify(after.items.map(r => r.errors)));
+});
+
+test('站姿本來就前傾的人：手機沒歪時不扣上身的角度，前傾一樣判斷得出來', () => {
+    // 整個上半身多前傾 12°（站直時就是這樣），手機放正
+    const W = 640, H = 480;
+    const leanUpper = (lm, deg) => {
+        const hip = lm[23], a = deg * Math.PI / 180;
+        return lm.map((p, i) => (i > 22 ? p : { ...p,
+            x: hip.x + ((p.x - hip.x) * W * Math.cos(a) - (p.y - hip.y) * H * Math.sin(a)) / W,
+            y: hip.y + ((p.x - hip.x) * W * Math.sin(a) + (p.y - hip.y) * H * Math.cos(a)) / H }));
+    };
+    const b = feed(new Calibrator(), repeat(leanUpper(demoLandmarks('squat', 0), 12), 60));
+    assert.ok(b, '上身前傾 12° 還算站直，可以校正');
+    assert.ok(Math.abs(b.tilt) <= 3, '手機傾斜量的是腿：' + b.tilt);
 });

@@ -2,7 +2,7 @@
 // 和示範動作的相似度（rep.similarity，0～100，見 similarity.js）
 // 鏡頭畫面（main.js）和重播分析（js/data/replay-core.js）共用，重播算出來的結果就和當時畫面上的一樣
 
-import { WORKOUTS } from './workouts.js';
+import { WORKOUTS, isWorkout } from './workouts.js';
 import { FormChecker } from './form.js';
 import { repSimilarity } from './similarity.js';
 import { Calibrator, personalThresholds } from './calibrate.js';
@@ -12,7 +12,7 @@ const CALIBRATED = ['squat', 'lunge'];
 
 export class WorkoutTracker {
     constructor(workoutId) {
-        this.workout = WORKOUTS[workoutId] || WORKOUTS.free;
+        this.workout = isWorkout(workoutId) ? WORKOUTS[workoutId] : WORKOUTS.free;
         this.counter = this.workout.create ? this.workout.create() : null;
         this.form = new FormChecker(this.workout.id);
         this.errors = new Set();   // 這一下（或這一次棒式）出現過的錯誤規則
