@@ -716,7 +716,8 @@ function showCount(tracked) {
 function finishRep(rep, depth, speech) {
     const shorts = (rep.errors || []).map(errorShort);
     const kind = shorts.length && depth === 'good' ? 'close' : depth;
-    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : ''), kind);
+    const similar = rep.similarity === null || rep.similarity === undefined ? '' : ' · 相似 ' + rep.similarity + '%';
+    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + similar, kind);
     voice.say(speech);
 }
 

@@ -1,8 +1,10 @@
-// 一次運動的計算：次數（棒式計時）＋動作錯誤，並把做每一下期間出現過的錯誤記到那一下（rep.errors）
+// 一次運動的計算：次數（棒式計時）＋動作錯誤，並把做每一下期間出現過的錯誤記到那一下（rep.errors）、
+// 和示範動作的相似度（rep.similarity，0～100，見 similarity.js）
 // 鏡頭畫面（main.js）和重播分析（js/data/replay-core.js）共用，重播算出來的結果就和當時畫面上的一樣
 
 import { WORKOUTS } from './workouts.js';
 import { FormChecker } from './form.js';
+import { repSimilarity } from './similarity.js';
 
 export class WorkoutTracker {
     constructor(workoutId) {
@@ -47,8 +49,13 @@ export class WorkoutTracker {
         return { form, count, done };
     }
 
+    // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度，曲線算完就不留（省記憶體）
     attach(item) {
         item.errors = [...this.errors].map(e => e.id);
         this.errors.clear();
+        if (item.samples) {
+            item.similarity = repSimilarity(this.workout.id, item.samples);
+            delete item.samples;
+        }
     }
 }

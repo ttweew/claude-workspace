@@ -56,6 +56,7 @@ export class RepCounter {
         this.lastSeen = null;
         this.frontSince = null;   // 從什麼時候開始判斷成正面拍
         this.offSince = null;     // 從什麼時候開始姿勢不對
+        this.lastTop = null;      // 最近一格伸直的角度 { t, v }：每一下的曲線從這裡開始（算動作相似度用）
     }
 
     // pose：pipeline.process 的結果（沒有人時為 null）；timeMs：時間
@@ -122,14 +123,20 @@ export class RepCounter {
 
         if (value >= c.up) {
             if (this.current && this.current.reachedDown && timeMs - this.current.start >= c.minRepMs) {
+                this.current.samples.push({ t: timeMs, v: value });
                 out.rep = this.finish(timeMs);
             }
             this.current = null;
             this.state = 'stand';
+            this.lastTop = { t: timeMs, v: value };
         } else if (this.state === 'stand' || this.state === 'down' || this.state === 'squat') {
-            if (!this.current) this.current = { start: timeMs, min: value, minAux: aux, bottom: timeMs, reachedDown: false, views: new Set() };
+            if (!this.current) {
+                this.current = { start: timeMs, min: value, minAux: aux, bottom: timeMs, reachedDown: false, views: new Set(),
+                    samples: this.lastTop ? [this.lastTop] : [] };
+            }
             const cur = this.current;
             cur.views.add(view);
+            cur.samples.push({ t: timeMs, v: value });
             if (value < cur.min) {
                 cur.min = value;
                 cur.bottom = timeMs;
@@ -154,7 +161,9 @@ export class RepCounter {
             minAux: cur.minAux,
             depth: depthOf(cur.min, this.config),
             // 這一下有沒有斜側面拍的格子（角度誤差約 10°，僅供參考）
-            oblique: cur.views.has('oblique')
+            oblique: cur.views.has('oblique'),
+            // 這一下的角度曲線（算動作相似度用，見 similarity.js；算完就丟掉）
+            samples: cur.samples
         };
         if (this.config.decorate) this.config.decorate(rep);
         this.reps.push(rep);

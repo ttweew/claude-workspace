@@ -35,6 +35,9 @@ export function summarize(workoutId, items, startMs, endMs) {
         s.average = Math.round(mins.reduce((a, b) => a + b, 0) / mins.length);
         // 每一下花幾秒（從彎下去到站起來）
         s.tempo = Math.round(items.reduce((a, r) => a + (r.end - r.start), 0) / items.length * 10) / 10;
+        // 和示範動作的相似度（similarity.js）平均幾分
+        const sims = items.map(r => r.similarity).filter(v => v !== null && v !== undefined);
+        s.similarity = sims.length ? Math.round(sims.reduce((a, b) => a + b, 0) / sims.length) : null;
     }
     return s;
 }
@@ -68,7 +71,8 @@ export function describe(s) {
         lines.push(w.name + ' ' + s.count + ' 次，最久 ' + formatSeconds(s.best) + '，總共 ' + formatSeconds(s.total));
     } else {
         lines.push(w.name + ' ' + s.count + ' 下：到位 ' + s.good + '、再低一點 ' + s.close + '、太淺 ' + s.shallow);
-        lines.push('最低 ' + s.best + '°、平均 ' + s.average + '°，每下約 ' + s.tempo + ' 秒');
+        lines.push('最低 ' + s.best + '°、平均 ' + s.average + '°，每下約 ' + s.tempo + ' 秒'
+            + (s.similarity !== null && s.similarity !== undefined ? '；和示範動作相似 ' + s.similarity + '%' : ''));
     }
     const errs = Object.entries(s.errors).sort((a, b) => b[1] - a[1]);
     lines.push(errs.length
