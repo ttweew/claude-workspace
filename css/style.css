@@ -529,7 +529,20 @@ h2 {
 .history summary {
     cursor: pointer;
 }
-.history button {
+/* 雲端同步（進階設定裡）：狀態一行小字；連不上、等網路時變黃 */
+.cloud-status {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.cloud-status:empty {
+    display: none;
+}
+.cloud-status[data-state="error"], .cloud-status[data-state="waiting"] {
+    color: #FFC857;
+}
+.history button, .cloud-delete {
     margin-top: 6px;
     min-height: 32px;
     padding: 0 12px;

@@ -22,6 +22,7 @@ import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '..
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { errorShort } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
+import { cloud } from '../cloud/cloud.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../analysis/session.js';
 import { Voice } from '../ui/voice.js';
@@ -853,6 +854,8 @@ function finishSession() {
     if (!s) return;
     const previous = saveSession(s);
     showSummary(s, previous);
+    // 打開了雲端同步：這一筆存一份到雲端（沒有網路時先存在這台裝置，之後自動補傳）
+    cloud.sync(loadHistory());
 }
 
 function showSummary(s, previous) {
@@ -1265,6 +1268,7 @@ function showAdvancedTitle() {
     const model = getModelChoice();
     if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
     if (!voice.enabled) changed.push('語音關');
+    if (cloud.enabled) changed.push('雲端同步');
     advancedTitle.textContent = '進階設定' + (changed.length ? '（' + changed.join('、') + '）' : '');
 }
 voiceToggle.checked = voice.enabled;
@@ -1273,6 +1277,36 @@ voiceToggle.addEventListener('change', () => {
     voice.setEnabled(voiceToggle.checked);
     showAdvancedTitle();
 });
+
+// ---------- 雲端同步（js/cloud/cloud.js） ----------
+// 預設關閉；打開時把這台裝置的運動紀錄傳上去，之後每次運動完自動上傳；網站還沒接上 Firebase 時整段不出現
+const cloudBox = document.getElementById('cloudBox');
+const cloudToggle = document.getElementById('cloudToggle');
+const cloudStatus = document.getElementById('cloudStatus');
+const cloudDelete = document.getElementById('cloudDelete');
+cloudBox.hidden = !cloud.available;
+cloudToggle.checked = cloud.enabled;
+cloud.onStatus(s => {
+    cloudStatus.textContent = s.text;
+    cloudStatus.dataset.state = s.state;
+    cloudDelete.hidden = !cloud.hasData || s.state === 'working';
+});
+cloudToggle.addEventListener('change', () => {
+    cloud.setEnabled(cloudToggle.checked, loadHistory());
+    showAdvancedTitle();
+});
+// 刪除雲端上這台裝置的紀錄（這台裝置上的不動），同時關閉同步
+cloudDelete.addEventListener('click', async () => {
+    if (!confirm('確定要刪除雲端上這台裝置的運動紀錄嗎？這台裝置上的紀錄不會被刪掉，雲端同步也會關閉。')) return;
+    cloudToggle.checked = false;
+    cloudToggle.disabled = true;
+    await cloud.deleteAll();
+    cloudToggle.disabled = false;
+    showAdvancedTitle();
+});
+// 網路恢復、打開網頁時：補傳還沒上傳的
+window.addEventListener('online', () => cloud.sync(loadHistory()));
+cloud.sync(loadHistory());
 
 // ---------- AI 模型（自動調整的第 3 步） ----------
 // 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）

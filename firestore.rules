@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// 雲端同步的安全規則（Cloud Firestore）：在 Firebase 主控台「Firestore Database → 規則」整段貼上、按「發布」
+// 1. 每個人（每台裝置一個匿名帳號）只能讀、寫、刪自己的運動紀錄，看不到別人的
+// 2. 每一筆的欄位、型別、範圍都要對：和網站的 js/cloud/sync.js（cloudSession）同一套條件，網站送得出去的才收；
+//    被改過的資料（多餘的欄位、負的次數、不認得的動作或錯誤代號）進不來
+// 3. 其他地方一律不能讀寫
+// 改這個檔案要一起改 js/cloud/sync.js，並跑 tests/rules/（指令見 docs/firebase-setup.md）
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 一次運動的總結：users/{帳號}/sessions/{動作-開始時間}
+    match /users/{uid}/sessions/{sessionId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validSession(request.resource.data, sessionId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  function isOwner(uid) {
+    return request.auth != null && request.auth.uid == uid;
+  }
+
+  function isCount(v, max) {
+    return v is int && v >= 0 && v <= max;
+  }
+
+  function inRange(v, lo, hi) {
+    return v is number && v >= lo && v <= hi;
+  }
+
+  // 錯誤代號（js/analysis/form.js 的 FORM_RULES）→ 幾下有這個錯誤；每一種最多和次數一樣多
+  function validErrors(e, count) {
+    return e is map
+      && e.keys().hasOnly(['lean', 'heel', 'sag', 'pike', 'knee'])
+      && (!('lean' in e) || isCount(e.lean, count))
+      && (!('heel' in e) || isCount(e.heel, count))
+      && (!('sag' in e) || isCount(e.sag, count))
+      && (!('pike' in e) || isCount(e.pike, count))
+      && (!('knee' in e) || isCount(e.knee, count));
+  }
+
+  // 每一筆共同的欄位；savedAt 一定要用伺服器的時間（不能自己填）
+  function validSession(d, sessionId) {
+    return d.keys().hasAll(['v', 'workout', 'date', 'count', 'clean', 'errors', 'best', 'savedAt'])
+      && d.v == 1
+      && d.workout in ['squat', 'pushup', 'plank', 'lunge']
+      && d.date is int && d.date >= 1600000000000 && d.date <= 4100000000000
+      && sessionId == d.workout + '-' + string(d.date)
+      && isCount(d.count, 100000) && d.count >= 1
+      && isCount(d.clean, d.count)
+      && validErrors(d.errors, d.count)
+      && (!('minutes' in d) || inRange(d.minutes, 0, 100000))
+      && d.savedAt == request.time
+      && (d.workout == 'plank' ? validHold(d) : validReps(d));
+  }
+
+  // 計次的動作（深蹲、伏地挺身、弓箭步）：到位＋再低一點＋太淺＝次數；角度 0～180°
+  function validReps(d) {
+    return d.keys().hasOnly(['v', 'workout', 'date', 'minutes', 'count', 'clean', 'errors', 'savedAt',
+                             'good', 'close', 'shallow', 'best', 'average', 'tempo', 'similarity'])
+      && d.keys().hasAll(['good', 'close', 'shallow', 'average', 'tempo'])
+      && isCount(d.good, d.count) && isCount(d.close, d.count) && isCount(d.shallow, d.count)
+      && d.good + d.close + d.shallow == d.count
+      && inRange(d.best, 0, 180) && inRange(d.average, 0, 180) && d.best <= d.average
+      && inRange(d.tempo, 0, 3600)
+      && (!('similarity' in d) || d.similarity == null || inRange(d.similarity, 0, 100));
+  }
+
+  // 計時的動作（棒式）：最久不超過總共；每一次的秒數有幾個要和次數一樣
+  function validHold(d) {
+    return d.keys().hasOnly(['v', 'workout', 'date', 'minutes', 'count', 'clean', 'errors', 'savedAt',
+                             'seconds', 'best', 'total'])
+      && d.keys().hasAll(['total'])
+      && inRange(d.best, 0, 86400) && inRange(d.total, 0, 864000) && d.best <= d.total
+      && (!('seconds' in d) || (d.seconds is list && d.seconds.size() == d.count));
+  }
+}

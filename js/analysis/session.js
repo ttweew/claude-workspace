@@ -1,5 +1,5 @@
 // 運動總結：一次運動（開鏡頭到關鏡頭，或換動作之前）做了幾下、品質怎麼樣，並和上一次同一個動作比較
-// 紀錄存在這台裝置上（最多 50 次），不會上傳；首頁顯示「這次運動」和「運動紀錄」
+// 紀錄存在這台裝置上（最多 50 次）；打開「雲端同步」才會存一份到雲端（js/cloud/）；首頁顯示「這次運動」和「運動紀錄」
 
 import { WORKOUTS, isWorkout, formatSeconds } from './workouts.js';
 import { errorShort } from './form.js';

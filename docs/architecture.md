@@ -4,7 +4,7 @@
 
 ## 一、設計原則
 
-1. **影像不離開裝置**：AI 在使用者自己的手機或電腦上執行，沒有伺服器，鏡頭影像不會上傳。錄製的只有關鍵點座標，而且只會存成使用者自己下載的檔案。
+1. **影像不離開裝置**：AI 在使用者自己的手機或電腦上執行，鏡頭影像不會上傳。錄製的只有關鍵點座標，而且只會存成使用者自己下載的檔案。雲端（Firebase）只在使用者打開「雲端同步」時存運動總結的數字（`js/cloud/`）。
 2. **不需要安裝、不需要編譯**：純 HTML、CSS、JavaScript（ES 模組），直接放在 GitHub Pages 上就能用。沒有打包工具，原始碼就是實際執行的程式。
 3. **一個檔案只做一件事**：例如 `smooth.js` 只負責平滑、`angles.js` 只負責算角度。要改某個功能時，只需要看一個檔案。
 4. **畫面與計算分開**：計算的程式（`skeleton/`、`analysis/`、`data/`）不碰畫面，可以直接拿來測試，鏡頭頁和重播頁也共用同一份。
@@ -19,6 +19,8 @@ claude-workspace/
 ├── replay.html         錄製資料重播分析
 ├── help.html           使用說明
 ├── sw.js               離線功能（Service Worker；瀏覽器規定要放在網站最外層）
+├── firestore.rules     雲端資料庫的安全規則（貼到 Firebase 主控台；docs/firebase-setup.md）
+├── firebase.json       Firebase 本機模擬器的設定（開發、測試用）
 ├── css/
 │   ├── style.css       全站共用的樣式（三頁共用的導覽列、首頁、鏡頭畫面、使用說明）
 │   └── replay.css      重播分析頁專用的樣式
@@ -30,6 +32,7 @@ claude-workspace/
 │   ├── analysis/       動作判斷：關節角度、拍攝方向、入鏡提示、深蹲次數
 │   ├── ui/             畫面元件：骨架、標籤、大字儀表板、數據表、曲線圖
 │   ├── platform/       裝置功能：鏡頭、螢幕保持亮著、離線、GPU、裝置支援檢查
+│   ├── cloud/          雲端同步（Firebase）：網站只透過這裡用雲端，之後換成自己的伺服器只改這裡
 │   └── data/           錄製與重播：匯出 CSV／JSON、讀檔重算、合成示範資料
 ├── tests/              自動測試（node --test tests/）
 ├── docs/               文件（這份、資料格式、設計規劃、日後改進）
@@ -82,6 +85,9 @@ claude-workspace/
 | | `offline.js` | 註冊離線功能（`sw.js`），`?sw=0` 可移除 |
 | | `gpu.js` | 查詢 GPU 名稱 |
 | | `support.js` | 這支手機能不能用（WebGL2、相機、系統版本） |
+| `cloud/` | `config.js` | Firebase 專案的設定（還沒貼時雲端同步不出現）、Firebase 程式的版本、本機模擬器 |
+| | `sync.js` | 上傳哪些欄位（白名單）、每一筆的代號、哪幾筆還沒上傳；和 `firestore.rules` 同一套條件 |
+| | `cloud.js` | 載入 Firebase、匿名登入、上傳和補傳、刪除雲端的紀錄、給畫面看的狀態；網站其他地方只用這個檔案 |
 | `data/` | `recorder.js` | 錄製：每一格的原始與處理後資料，匯出 CSV、JSON；上限可選 5～20 分鐘 |
 | | `replay-core.js` | 重播的計算核心：讀檔、用和鏡頭頁相同的流程重算 |
 | | `replay-worker.js` | 重播的背景執行緒 |
@@ -137,6 +143,8 @@ npm test
 | `tests/platform.test.mjs` | 從瀏覽器識別字串判斷 iPhone、Android、LINE 內建瀏覽器 |
 | `tests/safety.test.mjs` | 外部來的資料（網址、錄製檔、這台裝置存的資料）被改過或損壞：`constructor` 這種內建名字不會被當成動作；壞掉的紀錄、記下的角度整理掉；量角器打錯字不算；CSV 不會被 Excel 當成公式；錄製中不能換動作 |
 | `tests/properties.test.mjs` | 數字的規則（固定的亂數，每次一樣）：隨機的速度、每秒格數、漏格，做幾下就算幾下、一格最多加 1；棒式秒數只往上加、不比真的撐住的時間多；相似度快慢不扣分、越淺越低；驗證統計和照定義算的一樣；光線、自動調每秒格數、個人校正的門檻都照規則 |
+| `tests/cloud.test.mjs` | 雲端同步：上傳的欄位只有白名單、格式不對的不上傳、和 `firestore.rules` 是同一套條件；把 Firebase 換成假的，測補傳、被拒絕時不當成傳過、逾時、上傳中關掉、同時只跑一個、刪除 |
+| `tests/rules/rules.test.mjs` | 雲端的安全規則（要開 Firebase 模擬器，指令見 [firebase-setup.md](firebase-setup.md)）：自己的收、別人的和沒登入的擋、被改過的資料每一種都擋、網站算出來的總結一定收 |
 | `tests/ui.test.mjs` | 大字儀表板：前鏡頭左側那組在畫面左邊、後鏡頭對調；看不到顯示「—」；被擋住的那一側變淡，門檻附近不會一直閃。提示音：還沒走進畫面不響、離開 1 秒後響且最多提醒 3 次、站位提示換來換去至少隔 2 秒、腳被擋住不響。每秒格數：鏡頭兩次叫醒之間送來幾格都算到。示範動畫：最低點的角度符合重點字、骨頭長度不變、不會穿過地面 |
 
 每次推送到 GitHub 時，`.github/workflows/test.yml` 會自動跑一次，結果在 GitHub 的 Actions 頁面。
@@ -166,6 +174,8 @@ npm test
 | 新增一種動作（例如伏地挺身） | 仿照 `js/analysis/squat.js` 新增一個檔案，在 `js/pages/main.js` 和 `js/data/replay-core.js` 呼叫 |
 | 錄製檔多存一個欄位 | `js/data/recorder.js`（加在最後面，舊的分析程式才不用改），並更新 `docs/data-format.md` |
 | 改顏色、版面 | `css/style.css` 最上面的顏色設定（`:root`） |
+| 雲端多存一個欄位 | `js/cloud/sync.js` 的 `cloudSession` 和 `firestore.rules` 一起改（欄位意思改了要把格式版本加 1），跑 `npm test` 和 `npm run test:rules` |
+| 換掉 Firebase（例如自己的伺服器） | `js/cloud/cloud.js`（見 [firebase-setup.md](firebase-setup.md)「之後換成自己的伺服器」） |
 
 ## 七、發布
 

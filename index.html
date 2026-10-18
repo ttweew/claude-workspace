@@ -103,6 +103,12 @@
                     <p id="modelPickHint" class="fps-hint" hidden></p>
                     <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
                     <label class="check-pick"><input type="checkbox" id="voiceToggle"> 語音提醒（唸出動作錯誤和次數）</label>
+                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
+                    <div id="cloudBox" hidden>
+                        <label class="check-pick"><input type="checkbox" id="cloudToggle" aria-describedby="cloudStatus"> 雲端同步運動紀錄（只有運動總結的數字，沒有影像）</label>
+                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
+                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
+                    </div>
                 </details>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
