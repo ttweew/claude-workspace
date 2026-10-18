@@ -9,6 +9,7 @@ import { FORM_RULES } from '../js/analysis/form.js';
 import { sessionId, cloudSession, pendingSessions, loadSynced, saveSynced, hasSynced, forgetSynced,
          CLOUD_WORKOUTS, HOLD_WORKOUTS, ERROR_IDS, SCHEMA } from '../js/cloud/sync.js';
 import { cloud, Cloud } from '../js/cloud/cloud.js';
+import { FIREBASE_CONFIG } from '../js/cloud/config.js';
 import { random } from './helpers.mjs';
 
 const store = new Map();
@@ -124,11 +125,23 @@ test('網站自己算出來的總結，一定可以上傳（四個動作各 200 
 
 test('網站還沒接上 Firebase（沒有設定）：雲端完全不動作', async () => {
     store.set('cloudSync', '1');   // 就算之前打開過
-    assert.equal(cloud.available, false);
-    assert.equal(cloud.enabled, false);
-    const status = await cloud.sync([squat()]);
+    const c = new Cloud(null);
+    assert.equal(c.available, false);
+    assert.equal(c.enabled, false);
+    const status = await c.sync([squat()]);
     assert.equal(status.state, 'off');
-    assert.equal(cloud.hasData, false);
+    assert.equal(c.hasData, false);
+    store.delete('cloudSync');
+});
+
+// 主控台複製設定時少了字、貼錯專案：網站一打開雲端同步就會失敗，在這裡先抓出來
+test('js/cloud/config.js 貼的 Firebase 設定格式對', { skip: !FIREBASE_CONFIG && '還沒貼設定' }, () => {
+    const c = FIREBASE_CONFIG;
+    assert.match(c.apiKey, /^AIza[\w-]{35}$/, 'apiKey：AIza 開頭、共 39 個字');
+    assert.match(c.projectId, /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/, 'projectId：小寫英文、數字、減號，6～30 個字');
+    assert.equal(c.authDomain, c.projectId + '.firebaseapp.com');
+    assert.match(c.appId, /^1:\d+:web:[0-9a-f]+$/, 'appId：網頁應用程式的代號');
+    assert.equal(cloud.available, true, '有設定：首頁「進階設定」會出現雲端同步');
 });
 
 // ---------- 雲端這一層的流程（js/cloud/cloud.js）：把 Firebase 換成假的，測排隊、補傳、被拒絕、逾時、關閉、刪除 ----------
@@ -168,8 +181,8 @@ function gate() {
 }
 function cloudWith(fb, { connect } = {}) {
     store.delete('cloudSynced');
-    const c = new Cloud();
-    c.available = true;
+    store.delete('cloudSync');   // 每個測試都從「關閉」開始，和 js/cloud/config.js 有沒有貼設定無關
+    const c = new Cloud({ projectId: 'demo-test' });   // 有設定；連線換成假的，不會真的連到 Firebase
     c.timeoutMs = 50;
     c.connect = connect || (async () => fb.conn);
     return c;

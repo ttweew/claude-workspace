@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "test:rules": "node --test tests/rules/*.test.mjs",
+    "test:live": "node tests/live/firebase.mjs",
     "start": "python3 -m http.server 8000"
   },
   "engines": {

@@ -33,8 +33,10 @@ function explain(err) {
 }
 
 export class Cloud {
-    constructor() {
-        this.available = !!CONFIG;   // 網站有沒有接上 Firebase（js/cloud/config.js 有沒有貼設定）
+    // config：Firebase 的設定，平常用 js/cloud/config.js 的（測試可以傳 null，當作網站還沒接上 Firebase）
+    constructor(config = CONFIG) {
+        this.config = config;
+        this.available = !!config;   // 網站有沒有接上 Firebase（js/cloud/config.js 有沒有貼設定）
         this.enabled = false;        // 使用者有沒有打開（網站會記住）
         try { this.enabled = this.available && localStorage.getItem(KEY) === '1'; } catch (err) { /* 不能讀就當作關閉 */ }
         this.listeners = new Set();
@@ -71,7 +73,7 @@ export class Cloud {
                     import(FIREBASE_SDK + '/firebase-auth.js'),
                     import(FIREBASE_SDK + '/firebase-firestore.js')
                 ]), this.timeoutMs, '下載 Firebase');
-                const app = appLib.getApps().length ? appLib.getApp() : appLib.initializeApp(CONFIG);
+                const app = appLib.getApps().length ? appLib.getApp() : appLib.initializeApp(this.config);
                 const auth = authLib.getAuth(app);
                 const db = fs.getFirestore(app);
                 if (EMULATOR && !this.emulated) {

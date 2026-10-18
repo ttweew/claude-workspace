@@ -112,7 +112,7 @@ AI 偵測每一格要花幾十毫秒。以前在主畫面運算，這段時間�
 npm test
 ```
 
-只需要 Node.js 20 以上，不用安裝任何套件，約 2 秒跑完。測試內容包括平滑、擋鬼點、3D 座標穩定化、角度、深蹲判斷、CSV／JSON 格式、壞掉的檔案、裝置判斷，見 [docs/architecture.md](docs/architecture.md) 的「怎麼測試」。每次推送到 GitHub 時也會自動跑一次（Actions 頁面的「Tests」），同時在 Firebase 的本機模擬器上測雲端的安全規則（`npm run test:rules`，指令見 [docs/firebase-setup.md](docs/firebase-setup.md)）。
+只需要 Node.js 20 以上，不用安裝任何套件，約 2 秒跑完。測試內容包括平滑、擋鬼點、3D 座標穩定化、角度、深蹲判斷、CSV／JSON 格式、壞掉的檔案、裝置判斷，見 [docs/architecture.md](docs/architecture.md) 的「怎麼測試」。每次推送到 GitHub 時也會自動跑一次（Actions 頁面的「Tests」），同時在 Firebase 的本機模擬器上測雲端的安全規則（`npm run test:rules`，指令見 [docs/firebase-setup.md](docs/firebase-setup.md)）。真的 Firebase 專案的設定用 `npm run test:live` 檢查。
 
 ## 更新網站
 
