@@ -660,7 +660,14 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
         // 偵測一格：複製一份鏡頭畫面送到背景執行緒；同時只會有一格在處理
         async detect(video, timeMs) {
             if (pending) throw new Error('上一格還在處理');
-            const bitmap = await createImageBitmap(video);
+            let bitmap;
+            try {
+                bitmap = await createImageBitmap(video);
+            } catch (err) {
+                // 抓不到鏡頭畫面（畫面還沒準備好、鏡頭停住了）：不是 AI 的問題，main.js 交給鏡頭的自我修復處理
+                err.frame = true;
+                throw err;
+            }
             return new Promise((resolve, reject) => {
                 const id = ++nextId;
                 pending = { id, resolve, reject };

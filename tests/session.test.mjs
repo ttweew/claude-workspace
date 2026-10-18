@@ -1,7 +1,8 @@
 // 運動總結（js/analysis/session.js）：次數、深度、錯誤統計、和上一次比較、紀錄
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../js/analysis/session.js';
+import { summarize, compare, describe, saveSession, loadHistory, clearHistory, validSession } from '../js/analysis/session.js';
+import { formatSeconds } from '../js/analysis/workouts.js';
 
 const store = new Map();
 globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
@@ -21,10 +22,12 @@ test('深蹲：次數、深度、最低和平均角度、每下秒數、錯誤�
     assert.equal(lines[2], '要注意：上身前傾 2 下、腳跟離地 1 下');
 });
 
-test('棒式：次數、最久、總共', () => {
+test('棒式：次數、最久、總共（秒數無條件捨去，和鏡頭畫面、每一次的提示一樣）', () => {
     const s = summarize('plank', [{ seconds: 32.4, errors: ['sag'] }, { seconds: 45.6, errors: [] }], 0, 60000);
-    assert.deepEqual([s.count, s.best, s.total], [2, 46, 78]);
-    assert.equal(describe(s)[0], '棒式 2 次，最久 0:46，總共 1:18');
+    // 45.6 秒：鏡頭畫面和提示都寫「0:45」（formatSeconds 捨去），總結也要是 0:45，不能變成 0:46
+    assert.deepEqual([s.count, s.best, s.total], [2, 45, 77]);
+    assert.equal(describe(s)[0], '棒式 2 次，最久 0:45，總共 1:17');
+    assert.equal(formatSeconds(45.6), '0:45');
 });
 
 test('沒有做任何一下、自由模式：不記', () => {

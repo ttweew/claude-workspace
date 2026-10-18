@@ -4,7 +4,7 @@
 // 鏡頭畫面開著時首頁的動畫被蓋住（瀏覽器仍然當作「看得到」），要停，不和 AI 搶運算
 
 import { EXERCISES, DemoFigure } from '../ui/demo.js';
-import { WORKOUTS, getWorkout, setWorkout, onWorkoutChange } from '../analysis/workouts.js';
+import { WORKOUTS, getWorkout, setWorkout, onWorkoutChange, onWorkoutLock } from '../analysis/workouts.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const stage = document.getElementById('stage');
@@ -97,6 +97,12 @@ onWorkoutChange(workout => {
     current = workout.id;
     markCards();
     showExercise();
+});
+// 錄製中不能換動作（js/analysis/workouts.js）：其他動作的按鈕變灰，並說明原因
+const lockNote = document.getElementById('demoLock');
+onWorkoutLock(on => {
+    for (const tab of tabs.children) tab.disabled = on && tab.dataset.exercise !== current;
+    lockNote.hidden = !on;
 });
 function showExercise() {
     const exercise = byId(current);

@@ -18,7 +18,7 @@ import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
-import { getWorkout, onWorkoutChange, formatSeconds } from '../analysis/workouts.js';
+import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { errorShort } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
@@ -308,7 +308,7 @@ function updatePerfInfo() {
             const info = [size, rate].filter(Boolean).join('，');
             if (info) parts.push('鏡頭 ' + info);
             if (isAutoFps()) parts.push('每秒格數自動，目前 ' + getFrameRate() + ' 格');
-            if (tracker.baseline) parts.push('校正：站直膝 ' + tracker.baseline.knee + '°、傾斜 ' + tracker.baseline.tilt + '°');
+            if (tracker.baseline) parts.push('校正：站直膝 ' + tracker.baseline.knee + '°、手機傾斜 ' + Math.abs(tracker.baseline.tilt).toFixed(1) + '°');
             if (lightMeter.luma !== null) parts.push('畫面亮度 ' + Math.round(lightMeter.luma) + (lightMeter.dark ? '（太暗）' : ''));
             // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
             if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + modelLabel() + '）');
@@ -399,6 +399,7 @@ function detectPose(time, frame) {
     frameRequest = null;
     if (!currentStream) return;
     scheduleDetect();
+    noteCameraFrame(frame);
     if (!pose || restarting) return;
     const lostReason = pose.lostReason();
     if (lostReason) {
@@ -445,15 +446,77 @@ function startDetect(frameId) {
             try {
                 showResult(result, now);
                 failures = 0;
+                frameFailures = 0;
             } catch (err) {
                 detectFailed(err);
             }
         }
         done();
     }, err => {
-        if (generation === streamGeneration && currentStream && !restarting) detectFailed(err);
+        if (generation === streamGeneration && currentStream && !restarting) {
+            if (err && err.frame) frameFailed(err);
+            else detectFailed(err);
+        }
         done();
     });
+}
+
+// ---------- 鏡頭畫面停住了：自我修復 ----------
+// 鏡頭開著、網頁在前景，卻一直沒有新畫面（iPhone 省電模式、從背景切回來時畫面可能停在最後一格；鏡頭驅動偶爾卡住）：
+// 骨架、次數都停在最後一格，使用者會以為網站當掉。先試著繼續播放；還是沒有就重新開啟同一顆鏡頭（錄製中會先停止，錄到的保留）
+// 重開過還是停住：不再一直重開，請使用者關掉鏡頭重開
+const FROZEN = { playMs: 3000, restartMs: 8000, retryMs: 30000 };
+let lastFrameKey = null;      // 上一格鏡頭畫面（看是不是新畫面）
+let lastFrameAt = 0;          // 最近一次收到新畫面的時間
+let frozenRestartAt = -Infinity;   // 最近一次因為畫面停住而重開鏡頭的時間
+let frozenTold = false;
+let frameFailures = 0;        // 連續抓不到鏡頭畫面的次數（js/ai/pose.js 的 err.frame）
+function noteCameraFrame(frame) {
+    const key = frame ? frame.presentedFrames : video.currentTime;
+    if (key === lastFrameKey) return;
+    lastFrameKey = key;
+    lastFrameAt = performance.now();
+    frozenTold = false;
+}
+function resetFrozenWatch() {
+    lastFrameKey = null;
+    lastFrameAt = performance.now();
+    frameFailures = 0;
+}
+let frozenTick = performance.now();
+setInterval(() => {
+    // 這個檢查本身晚了很久才執行（電腦睡眠、網頁整個卡住）：那段時間沒有畫面是正常的，重新計時，不要誤判成鏡頭停住
+    const tick = performance.now();
+    const late = tick - frozenTick > 2500;
+    frozenTick = tick;
+    if (late) resetFrozenWatch();
+    if (!currentStream || document.hidden || late) return;
+    const idle = performance.now() - lastFrameAt;
+    if (idle < FROZEN.playMs) return;
+    if (video.paused) video.play().catch(() => {});
+    if (idle < FROZEN.restartMs || frozenTold) return;
+    fixCamera('鏡頭畫面停住 ' + Math.round(idle / 1000) + ' 秒');
+}, 1000);
+
+// 重開同一顆鏡頭；剛重開過（30 秒內）還是不行，就不再一直重開，請使用者自己關掉重開
+function fixCamera(why) {
+    if (performance.now() - frozenRestartAt < FROZEN.retryMs) {
+        frozenTold = true;
+        setPoseStatus('鏡頭畫面停住了，請關閉鏡頭再重新開啟', 'error');
+        return;
+    }
+    frozenRestartAt = performance.now();
+    console.warn(why + '，重新開啟鏡頭');
+    showAutoNote('鏡頭畫面停住了，自動重新開啟鏡頭');
+    startCamera(activeDeviceId(currentStream));
+}
+
+// 抓不到鏡頭畫面（不是 AI 的問題）：偶爾一格不用管，連續 10 格就當作鏡頭停住了
+// 以前算成 AI 出錯，會重新啟動 AI、最後說「AI 無法使用」，其實要重開的是鏡頭
+function frameFailed(err) {
+    if (frameFailures === 0) console.warn(err);
+    frameFailures++;
+    if (frameFailures === MAX_FAILURES && !frozenTold) fixCamera('連續 ' + frameFailures + ' 格抓不到鏡頭畫面');
 }
 
 // ---------- 速度建議（js/ai/advisor.js） ----------
@@ -548,9 +611,9 @@ function resetLight() {
     lightNote.hidden = true;
 }
 
-// 個人校正的說明：站直時膝蓋幾度；手機歪超過 3° 才提
+// 個人校正的說明：站直時膝蓋幾度；手機歪超過 3° 才提（量的是腿，見 js/analysis/calibrate.js 的 phoneTilt）
 function calibrationText(b) {
-    return '已依你的站姿校正：站直時膝蓋 ' + b.knee + '°' + (Math.abs(b.tilt) >= 3 ? '、手機（或站姿）傾斜約 ' + Math.round(Math.abs(b.tilt)) + '°' : '');
+    return '已依你的站姿校正：站直時膝蓋 ' + b.knee + '°' + (Math.abs(b.tilt) >= 3 ? '、手機傾斜約 ' + Math.round(Math.abs(b.tilt)) + '°' : '');
 }
 
 // 自動調整時在運算標籤旁邊短暫說明換了什麼（6 秒後收起來）
@@ -733,9 +796,12 @@ function finishRep(rep, depth, speech) {
 
 // 動作錯誤：畫面上方紅字（只顯示第一個），新出現的唸出來
 // 紅字和每一下的提示在同一個位置：剛做完一下時先讓那一下的提示顯示完（2.5 秒，裡面也寫了這一下的錯誤），之後紅字才回來
+// 「新出現」是指這次能顯示時才出現的：錯誤開始時剛好在提示站位（例如請側身），站位好了、紅字出現時才唸
+let formShown = new Set();
 function showForm(formResult) {
     const errors = formResult ? formResult.errors : [];
-    if (formResult) formResult.started.forEach(e => voice.say(e.speech, true));
+    errors.forEach(e => { if (!formShown.has(e.id)) voice.say(e.speech, true); });
+    formShown = new Set(errors.map(e => e.id));
     const text = errors.length ? errors[0].text : '';
     if (formTip.textContent !== text) formTip.textContent = text;
     const hidden = !text || !dataPanel.hidden || !repToast.hidden;
@@ -757,6 +823,7 @@ function showRepToast(text, kind) {
 function resetCounter() {
     tracker.reset();
     formTip.hidden = true;
+    formShown.clear();
     voice.stop();
     hudReps.textContent = workout.kind === 'hold' ? '0:00' : '0';
     hudRepsBox.classList.remove('holding');
@@ -768,6 +835,7 @@ function resetCounter() {
 function interruptCounter() {
     tracker.interrupt();
     formTip.hidden = true;
+    formShown.clear();
     voice.stop();
     clearTimeout(toastTimer);
     repToast.hidden = true;
@@ -836,8 +904,9 @@ document.getElementById('snapBtn').addEventListener('click', () => {
 showSnapCount();
 
 // 直接關網頁、切走（手機把網頁收起來）也把這次記下來
+// 棒式撐到一半（還沒有做完的一次）也要記：finishSession 會把撐到現在的算一次
 window.addEventListener('pagehide', () => {
-    if (tracker.items.length) finishSession();
+    if (tracker.items.length || (workout.kind === 'hold' && tracker.counter.current)) finishSession();
 });
 showHistory();
 
@@ -918,6 +987,7 @@ async function startCamera(deviceId) {
     video.srcObject = stream;
     if (!tracker.items.length) sessionStart = Date.now();
     measureFrom = performance.now();
+    resetFrozenWatch();
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});
     statusText.textContent = '鏡頭已開啟';
@@ -1388,8 +1458,9 @@ function startRecording() {
         displayMirrored: video.classList.contains('mirrored'),
         userAgent: navigator.userAgent
     }, limitMinutes() * 60);
-    // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）
+    // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）、不能換動作
     limitSelect.disabled = true;
+    setWorkoutLocked(true);
     fpsLive.disabled = modelLive.disabled = true;
     showLimitNote();
     // 錄製中不跳建議；還沒量完的，停止錄製後重新量
@@ -1407,6 +1478,7 @@ function startRecording() {
 // limitHit：錄滿上限自動停止（其他情況：按停止、關鏡頭、換鏡頭、畫面轉向）
 function stopRecording(limitHit = false) {
     recorder.stop();
+    setWorkoutLocked(false);
     recLimitHit = limitHit;
     if (limitHit) showRecNotice('已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止', true);
     limitSelect.disabled = false;
@@ -1470,6 +1542,7 @@ function updateLabelBtn() {
 // 按「開啟鏡頭」的當下喚醒聲音：瀏覽器規定要使用者按過按鈕才能出聲，之後的提示音才響得出來
 startBtn.addEventListener('click', () => {
     sound.unlock();
+    voice.unlock();
     startCamera(cameraSelect.value);
 });
 stopBtn.addEventListener('click', closeCamera);
@@ -1482,6 +1555,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden && !adviceDone) speedMeter.reset();
     if (document.visibilityState !== 'visible' || !currentStream) return;
     measureFrom = performance.now();
+    resetFrozenWatch();
     autoFps.clear();
     keepScreenOn(updatePerfInfo);
     if (video.paused) video.play().catch(() => {});

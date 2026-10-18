@@ -1,7 +1,7 @@
 // 使用說明頁：離線功能（打開過的頁面沒有網路也能看）、「檢查這支手機」、驗證實驗 A 的比對表
 import { setupOffline } from '../platform/offline.js';
 import { checkSupport, unsupportedAdvice } from '../platform/support.js';
-import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES } from '../analysis/validate.js';
+import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES, MEASURE_RANGE, validMeasure } from '../analysis/validate.js';
 import { downloadBlob } from '../data/recorder.js';
 
 setupOffline();
@@ -78,23 +78,27 @@ function showValidation() {
         const input = document.createElement('input');
         input.type = 'number';
         input.inputMode = 'decimal';
-        input.min = '0';
-        input.max = '360';
+        input.min = String(MEASURE_RANGE[0]);
+        input.max = String(MEASURE_RANGE[1]);
         input.step = '1';
         input.placeholder = '量到的';
         input.setAttribute('aria-label', '第 ' + (i + 1) + ' 筆量角器的角度');
-        if (s.measured !== null && s.measured !== undefined) input.value = s.measured;
+        if (validMeasure(s.measured)) input.value = s.measured;
         const diff = td('');
+        // 網站角度寫到小數第 1 位（記下時就是這個精度）：寫成整數的話，92.4° 對 90° 會看到「92°」卻差「+2.4°」
         const refresh = () => {
             const a = s.angles[s.joint];
-            site.textContent = a === null || a === undefined ? '—' : Math.round(a) + '°';
-            const ok = s.measured !== null && a !== null && a !== undefined;
-            diff.textContent = ok ? (a - s.measured > 0 ? '+' : '') + Math.round((a - s.measured) * 10) / 10 + '°' : '';
+            site.textContent = a === null || a === undefined ? '—' : a.toFixed(1) + '°';
+            const ok = validMeasure(s.measured) && a !== null && a !== undefined;
+            const d = ok ? Math.round((a - s.measured) * 10) / 10 : null;
+            diff.textContent = ok ? (d > 0 ? '+' : '') + d.toFixed(1) + '°' : '';
         };
         pick.addEventListener('change', () => { s.joint = pick.value; saveSnapshots(list); refresh(); showStats(list); });
         input.addEventListener('input', () => {
             const v = parseFloat(input.value);
-            s.measured = Number.isFinite(v) ? v : null;
+            // 0～180° 以外（打錯字，例如 900）不算進統計，框變紅提醒
+            s.measured = validMeasure(v) ? v : null;
+            input.setAttribute('aria-invalid', String(input.value !== '' && s.measured === null));
             saveSnapshots(list);
             refresh();
             showStats(list);

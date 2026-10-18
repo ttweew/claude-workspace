@@ -428,6 +428,10 @@ h2 {
 .val-table input {
     width: 5.5em;
 }
+/* 0～180° 以外（打錯字）：框變紅，不算進統計 */
+.val-table input[aria-invalid="true"] {
+    border-color: var(--danger);
+}
 .val-stats {
     margin: 10px 0 0;
     color: var(--accent);
@@ -1371,6 +1375,15 @@ code {
     font-size: 13px;
     white-space: nowrap;
     cursor: pointer;
+}
+.demo-tabs button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.demo-lock {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 13px;
 }
 .demo-tabs button[aria-pressed="true"] {
     border-color: rgba(46, 230, 166, 0.7);
