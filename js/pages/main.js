@@ -151,6 +151,8 @@ let sessionStart = Date.now();            // 這次運動從什麼時候開始�
 let shownAngleKeys = [];
 const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
 const voice = new Voice(() => sound.level);  // 語音提醒（動作錯誤、次數）：音量和提示音一樣
+const voiceToggle = document.getElementById('voiceToggle');
+const advancedTitle = document.getElementById('advancedTitle');
 const framingSound = new FramingSound(name => sound.play(name));  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
@@ -1152,6 +1154,7 @@ function fillFpsOptions(select) {
 function showFpsChoice() {
     fillFpsOptions(fpsSelect);
     fillFpsOptions(fpsLive);
+    showAdvancedTitle();
     // 有選項變灰時說明原因（同學 10/13 用筆電測：只看到選不了，以為選單卡死）
     const capped = cameraMaxFps > 0 && FPS_CHOICES.some(rate => rate > 30 && rate > cameraMaxFps);
     const capNote = '這顆鏡頭最多每秒 ' + cameraMaxFps + ' 格，所以灰色的選不了；'
@@ -1182,6 +1185,25 @@ fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
 fpsLive.addEventListener('change', () => chooseFps(fpsLive));
 showFpsChoice();
 
+// ---------- 進階設定（首頁收起來的一列） ----------
+// 改過的設定寫在標題上（例如「進階設定（每秒 60 格、full 模型）」），收起來也知道現在用什麼
+function showAdvancedTitle() {
+    const changed = [];
+    const fpsChoice = getFpsChoice();
+    if (fpsChoice === 'auto') changed.push('每秒格數自動');
+    else if (fpsChoice !== 30) changed.push('每秒 ' + fpsChoice + ' 格');
+    const model = getModelChoice();
+    if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
+    if (!voice.enabled) changed.push('語音關');
+    advancedTitle.textContent = '進階設定' + (changed.length ? '（' + changed.join('、') + '）' : '');
+}
+voiceToggle.checked = voice.enabled;
+voiceToggle.disabled = !voice.supported;
+voiceToggle.addEventListener('change', () => {
+    voice.setEnabled(voiceToggle.checked);
+    showAdvancedTitle();
+});
+
 // ---------- AI 模型（自動調整的第 3 步） ----------
 // 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）
 // 換模型不用重新載入網頁：先下載新的模型檔（下載過的有存，很快），再重新建立偵測器，畫面停 1～2 秒
@@ -1209,6 +1231,7 @@ function fillModelOptions(select) {
 function showModelChoice() {
     fillModelOptions(modelSelect);
     fillModelOptions(modelLive);
+    showAdvancedTitle();
     modelSelect.disabled = switchingModel;
     modelLive.disabled = switchingModel || recorder.recording;
     const choice = getModelChoice();

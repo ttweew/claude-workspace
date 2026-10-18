@@ -223,6 +223,30 @@ button:focus-visible, select:focus-visible {
     outline: 3px solid var(--info);
     outline-offset: 2px;
 }
+/* 進階設定：收起來的一列，點開才看到每秒格數、AI 模型、語音 */
+.advanced {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.advanced > summary {
+    min-height: 32px;
+    padding: 4px 0;
+    cursor: pointer;
+}
+.check-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--text);
+    font-size: 15px;
+}
+.check-pick input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
 /* 畫面流暢度（每秒格數）：開啟鏡頭按鈕下面一列；字級 16px，iPhone 點選時才不會自動放大畫面 */
 .fps-pick {
     display: flex;
