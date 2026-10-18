@@ -21,13 +21,16 @@ js/
   ui/                 畫面元件：骨架、編號標籤、大字儀表板、數據表、曲線圖
   platform/           裝置功能：鏡頭、螢幕保持亮著、離線、GPU、這支手機能不能用
   data/               錄製與重播：匯出 CSV／JSON、讀檔重算、合成示範資料
-tests/                自動測試（npm test）
+  cloud/              雲端同步（Firebase）：預設關閉，打開才存運動總結的數字；之後換伺服器只改這裡
+firestore.rules       雲端資料庫的安全規則（firebase.json：本機模擬器的設定）
+tests/                自動測試（npm test；雲端的安全規則：npm run test:rules）
 docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
-                      design-plan.md（版面規劃）、roadmap.md（日後改進）
+                      design-plan.md（版面規劃）、roadmap.md（日後改進）、firebase-setup.md（雲端同步）
 .github/workflows/    自動化：deploy.yml（發布網站）、test.yml（每次推送都跑測試）
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
+雲端同步用 Firebase（Authentication＋Cloud Firestore），一樣從官方網址載入；只有使用者在「進階設定」打開雲端同步才會下載。Firebase 專案的設定和測試方式見 [docs/firebase-setup.md](docs/firebase-setup.md)。
 
 ## 測試用網址參數
 
@@ -109,7 +112,7 @@ AI 偵測每一格要花幾十毫秒。以前在主畫面運算，這段時間�
 npm test
 ```
 
-只需要 Node.js 20 以上，不用安裝任何套件，約 2 秒跑完。測試內容包括平滑、擋鬼點、3D 座標穩定化、角度、深蹲判斷、CSV／JSON 格式、壞掉的檔案、裝置判斷，見 [docs/architecture.md](docs/architecture.md) 的「怎麼測試」。每次推送到 GitHub 時也會自動跑一次（Actions 頁面的「Tests」）。
+只需要 Node.js 20 以上，不用安裝任何套件，約 2 秒跑完。測試內容包括平滑、擋鬼點、3D 座標穩定化、角度、深蹲判斷、CSV／JSON 格式、壞掉的檔案、裝置判斷，見 [docs/architecture.md](docs/architecture.md) 的「怎麼測試」。每次推送到 GitHub 時也會自動跑一次（Actions 頁面的「Tests」），同時在 Firebase 的本機模擬器上測雲端的安全規則（`npm run test:rules`，指令見 [docs/firebase-setup.md](docs/firebase-setup.md)）。
 
 ## 更新網站
 
