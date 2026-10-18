@@ -35,6 +35,14 @@ mkdir -p $S/fb && cd $S/fb && npm init -y >/dev/null && npm install --no-audit -
 
 瀏覽器用環境裡的 Chromium（`/opt/pw-browsers/chromium`）。
 
+`fbreal/browser_real.py`（真的 Firebase 專案，經過環境的代理連網）要讓 Chromium 信任代理的憑證；這個環境原本的瀏覽器憑證庫是空的，要自己加（只加代理的 3 張）：
+
+```
+apt-get install -y libnss3-tools
+python3 -c "import re;p=re.findall(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',open('/root/.ccr/ca-bundle.crt').read(),re.S);[open(f'/tmp/proxy{i}.pem','w').write(c+'\\n') for i,c in enumerate(p[-3:])]"
+for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i /tmp/proxy$i.pem; done
+```
+
 ## 主要的測試
 
 - `reg2.sh`：完整回歸測試，約 50 分鐘。結果和 `reg_r22.txt` 比對：
@@ -42,4 +50,5 @@ mkdir -p $S/fb && cd $S/fb && npm init -y >/dev/null && npm install --no-audit -
   - 要有 39 個 PASS。
   - 擋鬼點評估那一段（`awk '/^5,6c5,6/,/擋鬼點評估差異如上/'`）的 md5 要是 `f2f5250e138b2bf6ea05b7e5d62db9da`。
 - 各功能的測試：`prBcheck`～`prHcheck`、`pr9check`～`pr11check`、`audit2/`（惡意輸入、亂按、畫面停住、長時間運行）、`fbcheck/`（雲端同步，要先開 Firebase 模擬器）。
+- 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

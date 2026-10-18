@@ -129,6 +129,8 @@ code { font-family: var(--font-mono); font-size: 0.92em; padding: 1px 5px; borde
 }
 .meter span { display: block; height: 100%; border-radius: inherit; background: var(--done); }
 .meter span.part { background: var(--doing); }
+/* 狀態文字長的時候換行，不要超出卡片（字型還沒載入、改用系統字型時比較寬） */
+.layer .chip { white-space: normal; }
 
 /* 8 階段進度軌 */
 .track {
@@ -281,11 +283,11 @@ a { color: var(--accent); }
       <table>
         <thead><tr><th>日期</th><th>網站開發</th><th>組員</th><th>狀態</th></tr></thead>
         <tbody>
-          <tr><td class="stage">10/18（日）</td><td>地基審查：找到並修好 15 個問題（PR #80）；後端第 1 步：雲端同步運動紀錄，Firebase（PR #81）</td><td>決定後端用 Firebase</td><td><span class="chip done">#80 完成</span> <span class="chip doing">#81 測試中</span></td></tr>
+          <tr><td class="stage">10/18（日）</td><td>地基審查：找到並修好 15 個問題（PR #80）；後端第 1 步：雲端同步運動紀錄，Firebase（PR #81）；每天自動開工的規則（PR #82）；Firebase 專案建好、網站接上（真的專案測過，回歸測試中）</td><td>決定後端用 Firebase；建好 Firebase 專案（原本排 10/20，提前完成）</td><td><span class="chip done">#80、#81、#82 完成</span> <span class="chip doing">Firebase 接上：合併前測試中</span></td></tr>
           <tr class="week"><td colspan="4">第 1 週：實測準備、雲端</td></tr>
-          <tr><td class="stage">10/19（一）</td><td>實測任務卡＋「複製手機資訊」按鈕（手機型號、瀏覽器、AI 每格幾毫秒，一鍵複製貼到群組）；開始寫開發日誌</td><td>看任務卡、決定實測日期</td><td><span class="chip todo">還沒做</span></td></tr>
-          <tr><td class="stage">10/20（二）</td><td>計次準確率：關鏡頭後填「實際做了幾下」，自動算出每個動作準不準</td><td>建 Firebase 專案，把設定給我</td><td><span class="chip todo">還沒做</span></td></tr>
-          <tr><td class="stage">10/21（三）</td><td>Firebase 正式接上、真手機測試（還沒拿到設定：把瀏覽器測試工具整理進專案）</td><td>實測（建議 10/21～10/23 其中一天，約 60 分鐘）</td><td><span class="chip todo">還沒做</span></td></tr>
+          <tr><td class="stage">10/19（一）</td><td>首頁改版：先選動作（四個大按鈕，按了就開鏡頭；自由模式改成小字）、語音和雲端同步開關拿到外面、第一次運動完問要不要雲端同步；實測任務卡；開始寫開發日誌</td><td>試用新首頁、回報；看任務卡、決定實測日期</td><td><span class="chip todo">還沒做</span></td></tr>
+          <tr><td class="stage">10/20（二）</td><td>提示全部改成講話（站位、錄製倒數）＋說話規則（一次一句、先講重要的、錯誤連續兩下才講、在一下做完的空檔講）；計次準確率：關鏡頭後填「實際做了幾下」；「複製手機資訊」按鈕</td><td>試聽語音、回報（建 Firebase 專案：<span class="ok">✓</span> 10/18 已完成）</td><td><span class="chip todo">還沒做</span></td></tr>
+          <tr><td class="stage">10/21（三）</td><td>把瀏覽器測試工具整理進專案（Firebase 已在 10/18 接上）</td><td>實測（建議 10/21～10/23 其中一天，約 60 分鐘）；開始前大家先打開雲端同步</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">10/22（四）</td><td>實測當天在線上，有問題當天修（還沒實測：測試工具續）</td><td>同上</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">10/23（五）</td><td>用真人數字調門檻（還沒實測：門檻集中到一個設定檔，之後改數字就好）</td><td>錄影放雲端硬碟</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">10/24（六）</td><td>實測結果寫進驗證實驗、路線圖</td><td>—</td><td><span class="chip todo">還沒做</span></td></tr>
@@ -295,8 +297,8 @@ a { color: var(--accent); }
           <tr><td class="stage">10/27（二）</td><td>疲勞分析：同一組的前段和後段比（變慢、變淺、錯誤變多、相似度下降）</td><td>試用、回報</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">10/28（三）</td><td>流暢度：每一下的節奏穩不穩</td><td>試用、回報</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">10/29（四）</td><td>穩定度：棒式時髖部晃動、深蹲和弓箭步時身體晃動</td><td>試用、回報</td><td><span class="chip todo">還沒做</span></td></tr>
-          <tr><td class="stage">10/30（五）</td><td>成長曲線：運動紀錄畫成圖（雲端上的也算）</td><td>試用、回報</td><td><span class="chip todo">還沒做</span></td></tr>
-          <tr><td class="stage">10/31（六）</td><td>重播分析頁也顯示疲勞、流暢度、穩定度</td><td>標記錄影裡每一下做對或做錯</td><td><span class="chip todo">還沒做</span></td></tr>
+          <tr><td class="stage">10/30（五）</td><td><strong>AI 教練</strong>：每組做完，Gemini 看這組的數字（疲勞、流暢度、錯誤），講兩三句建議；只送數字，沒網路時改用固定句子</td><td>在 Firebase 主控台開 AI 功能（步驟我給）；試用、回報</td><td><span class="chip todo">還沒做</span></td></tr>
+          <tr><td class="stage">10/31（六）</td><td>成長曲線：運動紀錄畫成圖（雲端上的也算）；重播分析頁也顯示疲勞、流暢度、穩定度</td><td>標記錄影裡每一下做對或做錯</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr><td class="stage">11/1（日）</td><td>第 2 週小結：簡報、進度地圖</td><td>同上</td><td><span class="chip todo">還沒做</span></td></tr>
           <tr class="week"><td colspan="4">第 3 週：AI 模型＋報告（計畫書目標 3）</td></tr>
           <tr><td class="stage">11/2（一）</td><td>AI 模型的資料：從錄影抽出每一下的特徵＋組員標的對錯（還沒標記：先用合成資料把流程做通）</td><td>—</td><td><span class="chip todo">還沒做</span></td></tr>
@@ -316,7 +318,7 @@ a { color: var(--accent); }
         <ol>
           <li><strong>實測聚會的日期</strong>：建議 10/21～10/23，約 60 分鐘；第 2、3 週都靠這批資料</li>
           <li><strong>錄影檔怎麼交</strong>：建議放 Google Drive 共用資料夾</li>
-          <li><strong>後端</strong>：<span class="ok">✓</span> 10/18 決定用 Firebase（之後要不要改成自己的伺服器再討論）。請組員建立 Firebase 專案，步驟在專案的 docs/firebase-setup.md，約 10 分鐘</li>
+          <li><strong>後端</strong>：<span class="ok">✓</span> 10/18 決定用 Firebase（之後要不要改成自己的伺服器再討論），同一天建好專案 <code>ai-sport-analysis-bf82e</code>（匿名登入、資料庫 asia-east1、安全規則）</li>
         </ol>
       </div>
       <div class="panel">
@@ -324,6 +326,7 @@ a { color: var(--accent); }
         <ol>
           <li>真人驗證：角度誤差、次數、錯誤門檻</li>
           <li>疲勞分析</li>
+          <li>AI 教練（老師希望多加 AI）</li>
           <li>AI 模型試做</li>
           <li>後端的下一步：Google 登入、老師看全班的資料</li>
         </ol>

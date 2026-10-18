@@ -1,5 +1,5 @@
 # Firebase 雲端同步（js/cloud/）：真的開網頁，接 Firebase 本機模擬器（firebase emulators:start，在專案資料夾執行）
-#  0. 網站還沒接上 Firebase（沒有 ?cloud=emulator）：整段不出現、不連任何 Firebase 網址
+#  0. 沒有 ?cloud=emulator：還沒貼設定時整段不出現；貼了設定時出現但預設關閉；都不連任何 Firebase 網址
 #  1. 打開 → 運動 → 關鏡頭：雲端有這一筆，數字和這台裝置的紀錄一樣
 #  2. 重新整理：同一個匿名帳號、自動同步、不會變兩筆
 #  3. 沒有網路：先存在這台裝置；網路恢復自動補傳
@@ -117,7 +117,11 @@ with sync_playwright() as p:
     FIREBASE_HOSTS = ('gstatic.com/firebasejs', 'firestore.googleapis.com', 'identitytoolkit.googleapis.com', 'securetoken.googleapis.com', ':9099', ':8080')
     fb = [u for u in ctx.urls if any(h in u for h in FIREBASE_HOSTS)]
     print('  （其他外部請求：', sorted({u.split('/')[2] for u in ctx.urls if not u.startswith(base)}), '）')
-    check(pg.is_hidden('#cloudBox') and not fb and not ctx.errs, f'沒有設定：雲端那一段不出現、沒有連 Firebase（{len(fb)} 個請求）')
+    if 'FIREBASE_CONFIG = null' in open(ROOT + '/js/cloud/config.js', encoding='utf8').read():
+        check(pg.is_hidden('#cloudBox') and not fb and not ctx.errs, f'沒有設定：雲端那一段不出現、沒有連 Firebase（{len(fb)} 個請求）')
+    else:   # 已經接上真的專案：出現但預設關閉，沒打開就不連 Firebase
+        check(pg.is_visible('#cloudBox') and not pg.is_checked('#cloudToggle') and not fb and not ctx.errs,
+              f'有設定、還沒打開：雲端那一段出現、預設關閉、沒有連 Firebase（{len(fb)} 個請求）')
     ctx.close()
 
     # 1. 打開 → 運動 → 關鏡頭
