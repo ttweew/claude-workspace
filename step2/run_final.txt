@@ -1,0 +1,121 @@
+PASS [normal] perf='CPU · FPS 計算中' 2.5s final='AI 模型已就緒（載入 2.4 秒）' retried=False fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.6s AI 準備中：下載 AI 檔案…', '0.6s AI 準備中：下載 AI 檔案…', '1.9s AI 準備中：啟動 AI 運算…', '2.2s AI 準備中：最後準備中…', '2.5s AI 模型已就緒（載入 2.4 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true']
+    warning: W1002 13:27:52.934000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:27:53.151000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:27:53.187000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: [.WebGL-0x2abc05aff000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+    warning: W1002 13:27:53.475000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+    warning: [.WebGL-0x2abc05aff000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+    warning: [.WebGL-0x2abc05aff000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+PASS [model] perf='CPU · FPS 計算中' 22.3s final='AI 模型已就緒（載入 3.1 秒）' retried=True fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.6s AI 準備中：下載 AI 檔案…', '0.6s AI 準備中：下載 AI 檔案…', '17.1s AI 載入失敗，2 秒後自動重試…', '19.8s AI 準備中：下載 AI 檔案…', '19.9s AI 準備中：下載 AI 檔案…', '21.6s AI 準備中：啟動 AI 運算…', '21.9s AI 準備中：最後準備中…', '22.3s AI 模型已就緒（載入 3.1 秒）']
+   log: ['model fetch #0 signal=true', 'model #0 stalled at 1048576', 'engine fetch #0 signal=true', 'model #0 aborted', 'model fetch #1 signal=true', 'engine fetch #1 signal=true']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    warning: W1002 13:28:15.568999 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:28:15.860000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:28:15.911000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:28:16.287000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [engine] perf='CPU · FPS 計算中' 22.5s final='AI 模型已就緒（載入 2.4 秒）' retried=True fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.2s AI 準備中…', '0.7s AI 準備中：下載 AI 檔案…', '0.8s AI 準備中：下載 AI 檔案…', '18.2s AI 載入失敗，2 秒後自動重試…', '20.5s AI 準備中：下載 AI 檔案…', '20.6s AI 準備中：下載 AI 檔案…', '22.0s AI 準備中：啟動 AI 運算…', '22.2s AI 準備中：最後準備中…', '22.5s AI 模型已就緒（載入 2.4 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true', 'engine #0 stalled at 2031616', 'engine #0 aborted', 'engine fetch #1 signal=true', 'engine #1 rejected AbortError', 'model fetch #1 signal=true', 'engine fetch #2 signal=true']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    error: wasm streaming compile failed: TypeError: WebAssembly compilation aborted: Network error: Failed to read from a ReadableStream.
+    error: falling back to ArrayBuffer instantiation
+    error: failed to asynchronously prepare wasm: both async and sync fetching of the wasm failed
+    error: Aborted(both async and sync fetching of the wasm failed)
+    warning: W1002 13:28:38.848000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:28:39.041999 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+PASS [import] perf='CPU · FPS 計算中' 22.0s final='AI 模型已就緒（載入 21.8 秒）' retried=False fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '20.2s AI 準備中：下載 AI 檔案…', '21.5s AI 準備中：啟動 AI 運算…', '21.7s AI 準備中：最後準備中…', '22.0s AI 模型已就緒（載入 21.8 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true']
+   hung: ['vision_bundle.mjs']
+    warning: MediaPipe 下載失敗，改用下一個來源： https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1 Error: 下載逾時（20 秒）
+    at http://127.0.0.1:8790/js/pose.js:154:49
+    warning: W1002 13:29:01.351000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:29:01.556000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:01.604999 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:01.944000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [loader] perf='CPU · FPS 計算中' 20.1s final='AI 模型已就緒（載入 1.9 秒）' retried=True fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '0.5s AI 準備中：下載 AI 檔案…', '16.1s AI 載入失敗，2 秒後自動重試…', '18.5s AI 準備中：下載 AI 檔案…', '18.5s AI 準備中：下載 AI 檔案…', '19.5s AI 準備中：啟動 AI 運算…', '19.7s AI 準備中：最後準備中…', '20.1s AI 模型已就緒（載入 1.9 秒）']
+   log: ['model fetch #0 signal=true', 'model fetch #1 signal=true', 'engine fetch #0 signal=true']
+   hung: ['vision_wasm_internal.js']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    warning: W1002 13:29:21.928000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:29:22.132000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:22.172000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:22.476000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+Task was destroyed but it is pending!
+task: <Task pending name='Task-142' coro=<Page._on_route() running at /usr/local/lib/python3.11/dist-packages/playwright/_impl/_page.py:310> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[Connection.dispatch.<locals>._done_callback() at /usr/local/lib/python3.11/dist-packages/playwright/_impl/_connection.py:542]>
+Task was destroyed but it is pending!
+task: <Task pending name='Task-181' coro=<Page._on_route() running at /usr/local/lib/python3.11/dist-packages/playwright/_impl/_page.py:310> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[Connection.dispatch.<locals>._done_callback() at /usr/local/lib/python3.11/dist-packages/playwright/_impl/_connection.py:542]>
+PASS [slow] perf='CPU · FPS 計算中' 33.4s final='AI 模型已就緒（載入 33.3 秒）' retried=False fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.6s AI 準備中…', '0.8s AI 準備中：下載 AI 檔案…', '33.1s AI 準備中：啟動 AI 運算…', '33.1s AI 準備中：最後準備中…', '33.4s AI 模型已就緒（載入 33.3 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true', 'model #0 pause 10000ms at 2031616', 'model #0 resumed']
+    warning: W1002 13:29:55.831000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:29:56.049999 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:56.088000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:29:56.350000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [hidden] perf='CPU · FPS 計算中' 26.0s final='AI 模型已就緒（載入 25.9 秒）' retried=False fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.6s AI 準備中：下載 AI 檔案…', '0.6s AI 準備中：下載 AI 檔案…', '25.7s AI 準備中：啟動 AI 運算…', '25.7s AI 準備中：最後準備中…', '26.0s AI 模型已就緒（載入 25.9 秒）']
+   log: ['model fetch #0 signal=true', 'model #0 pause 25000ms at 5777746', 'engine fetch #0 signal=true', 'model #0 resumed']
+    warning: W1002 13:30:22.324000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:30:22.529999 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:30:22.587000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:30:22.884000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [gpu_model] perf='GPU · 2 FPS' 25.7s final='AI 模型已就緒（載入 6.6 秒）' retried=True fetchRestored=True detect='175°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '0.5s AI 準備中：下載 AI 檔案…', '17.1s AI 載入失敗，2 秒後自動重試…', '19.5s AI 準備中：下載 AI 檔案…', '19.5s AI 準備中：下載 AI 檔案…', '20.8s AI 準備中：啟動 GPU 加速…', '21.0s AI 準備中：最後準備中…', '25.7s AI 模型已就緒（載入 6.6 秒）']
+   log: ['model fetch #0 signal=true', 'model #0 stalled at 1048576', 'engine fetch #0 signal=true', 'model #0 aborted', 'model fetch #1 signal=true', 'engine fetch #1 signal=true']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    warning: GPU 無法使用，改用 CPU： AbortError: aborted
+    warning: W1002 13:30:44.079000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    warning: W1002 13:30:50.011000 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [gpu_engine] perf='GPU · 2 FPS' 25.7s final='AI 模型已就緒（載入 6.6 秒）' retried=True fetchRestored=True detect='175°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '0.5s AI 準備中：下載 AI 檔案…', '17.1s AI 載入失敗，2 秒後自動重試…', '17.1s AI 載入失敗，2 秒後自動重試…', '19.5s AI 準備中：下載 AI 檔案…', '19.6s AI 準備中：下載 AI 檔案…', '20.9s AI 準備中：啟動 GPU 加速…', '21.2s AI 準備中：最後準備中…', '25.7s AI 模型已就緒（載入 6.6 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true', 'engine #0 stalled at 2031616', 'engine #0 aborted', 'engine fetch #1 signal=true', 'engine #1 rejected AbortError', 'engine fetch #2 signal=true', 'engine #2 rejected AbortError', 'engine fetch #3 signal=true', 'engine #3 rejected AbortError', 'model fetch #1 signal=true', 'engine fetch #4 signal=true']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    error: wasm streaming compile failed: TypeError: WebAssembly compilation aborted: Network error: Failed to read from a ReadableStream.
+    error: falling back to ArrayBuffer instantiation
+    error: failed to asynchronously prepare wasm: both async and sync fetching of the wasm failed
+    error: Aborted(both async and sync fetching of the wasm failed)
+    warning: GPU 無法使用，改用 CPU： RuntimeError: Aborted(both async and sync fetching of the wasm failed). Build with -sASSERTIONS for more info.
+    at abort (https://cdn.jsdeli
+    error: wasm streaming compile failed: AbortError: signal is aborted without reason
+    error: falling back to ArrayBuffer instantiation
+PASS [gpu_normal] perf='GPU · 2 FPS' 6.8s final='AI 模型已就緒（載入 6.7 秒）' retried=False fetchRestored=True detect='175°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '0.5s AI 準備中：下載 AI 檔案…', '1.7s AI 準備中：啟動 GPU 加速…', '1.9s AI 準備中：最後準備中…', '6.8s AI 模型已就緒（載入 6.7 秒）']
+   log: ['model fetch #0 signal=true', 'engine fetch #0 signal=true']
+    warning: W1002 13:31:22.072999 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    warning: W1002 13:31:28.052999 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+PASS [twice] perf='CPU · FPS 計算中' 43.3s final='AI 模型已就緒（載入 2.2 秒）' retried=True fetchRestored=True detect='174°'
+   status: ['0.0s AI 準備中…', '0.0s AI 準備中…', '0.0s AI 準備中…', '0.1s AI 準備中…', '0.5s AI 準備中：下載 AI 檔案…', '0.6s AI 準備中：下載 AI 檔案…', '17.1s AI 載入失敗，2 秒後自動重試…', '19.4s AI 準備中：下載 AI 檔案…', '19.4s AI 準備中：下載 AI 檔案…', '36.1s AI 載入失敗，5 秒後自動重試…', '41.6s AI 準備中：下載 AI 檔案…', '41.6s AI 準備中：下載 AI 檔案…', '42.7s AI 準備中：啟動 AI 運算…', '42.9s AI 準備中：最後準備中…', '43.3s AI 模型已就緒（載入 2.2 秒）']
+   log: ['model fetch #0 signal=true', 'model #0 stalled at 524288', 'engine fetch #0 signal=true', 'model #0 aborted', 'model fetch #1 signal=true', 'model #1 stalled at 524288', 'engine fetch #1 signal=true', 'model #1 aborted', 'model fetch #2 signal=true', 'engine fetch #2 signal=true']
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    error: Error: 下載停住了：超過 15 秒沒有收到任何資料
+    at http://127.0.0.1:8790/js/pose.js:222:17
+    at http://127.0.0.1:8790/js/pose.js:27:13
+    warning: W1002 13:32:12.904000 2196592 gl_context.cc:1119] OpenGL error checking is disabled
+    error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+    warning: W1002 13:32:13.144000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:32:13.176000 2196592 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feed
+    warning: W1002 13:32:13.464999 2196592 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE
+{'normal': True, 'model': True, 'engine': True, 'import': True, 'loader': True, 'slow': True, 'hidden': True, 'gpu_model': True, 'gpu_engine': True, 'gpu_normal': True, 'twice': True}

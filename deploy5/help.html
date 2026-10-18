@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="AI 智慧運動分析系統使用說明：怎麼擺手機、畫面上每個東西的意思、錄製與重播、常見問題">
+    <meta name="theme-color" content="#0B1220">
+    <title>使用說明 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css?v=abcdef12">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+    <div class="page help">
+        <header class="help-head">
+            <h1>使用說明</h1>
+            <p class="intro">第一次使用？照著「擺好手機」做，大約 1 分鐘就能開始。影像只在你自己的裝置上處理，不會上傳。</p>
+            <ul class="toc" aria-label="這一頁的內容">
+                <li><a href="#check">檢查這支手機</a></li>
+                <li><a href="#setup">擺好手機</a></li>
+                <li><a href="#screen">畫面上的東西</a></li>
+                <li><a href="#record">錄製與重播</a></li>
+                <li><a href="#experiments">驗證實驗</a></li>
+                <li><a href="#faq">常見問題</a></li>
+                <li><a href="#privacy">隱私</a></li>
+            </ul>
+        </header>
+
+        <main>
+            <section id="check" aria-labelledby="checkTitle">
+                <h2 id="checkTitle">檢查這支手機</h2>
+                <p class="prose">不確定這支手機能不能用？按下面的按鈕，馬上列出系統、瀏覽器和各項功能支不支援（只在這支手機上檢查，不會傳出任何資料）。</p>
+                <div class="check-card">
+                    <button id="checkBtn" type="button" class="check-btn">檢查這支手機</button>
+                    <div id="checkResult" hidden>
+                        <p id="checkVerdict" class="check-verdict" role="status"></p>
+                        <dl id="checkList" class="check-list"></dl>
+                        <p id="checkAdvice" class="note" hidden></p>
+                        <p class="note">想知道實際速度：開啟鏡頭、站進畫面，左上角會顯示「GPU · 30 FPS」這種標籤（每秒分析幾格，15 以上就很順）。</p>
+                        <button id="copyBtn" type="button">複製檢查結果</button>
+                        <span id="copyStatus" class="note" role="status"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="setup" aria-labelledby="setupTitle">
+                <h2 id="setupTitle">擺好手機</h2>
+                <ol class="steps">
+                    <li><strong>距離 2～3 公尺</strong>手機或筆電放在約 2～3 公尺外，從頭到腳都要在畫面裡</li>
+                    <li><strong>高度約在腰部</strong>太高或太低都會讓角度變形；可以用椅子、書堆墊高</li>
+                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，膝蓋、髖部的角度最準；正面拍時角度誤差會很大</li>
+                    <li><strong>光線充足、背景單純</strong>避免背光（人站在窗戶前），背景不要有其他人走動</li>
+                </ol>
+            </section>
+
+            <section id="screen" aria-labelledby="screenTitle">
+                <h2 id="screenTitle">畫面上的東西</h2>
+                <dl class="glossary">
+                    <div><dt><span class="swatch" style="background:#00FF00"></span>綠色線、紅色點</dt><dd>AI 找到的骨架。看不清楚的部位不會畫出來，不會在沒有身體的地方亂畫</dd></div>
+                    <div><dt><span class="swatch" style="background:#1E90FF"></span>藍色線</dt><dd>軀幹（肩膀中心到髖部中心），用來判斷身體前傾的程度</dd></div>
+                    <div><dt><span class="chip-demo">93°</span>白色角度標籤</dt><dd>膝蓋、髖部目前彎曲的角度；站直約 180°，蹲越低數字越小</dd></div>
+                    <div><dt><span class="chip-demo big">121°</span>大字儀表板</dt><dd>站遠也看得清楚的角度，自動選看得比較清楚的那一側（靠近鏡頭的那側）</dd></div>
+                    <div><dt><span class="chip-demo ok">已偵測到全身</span>綠色提示</dt><dd>站位沒問題，可以開始運動</dd></div>
+                    <div><dt><span class="chip-demo warn">請往後退</span>橘色大字</dt><dd>需要調整站位：往前、往後、站到中間，或改成側面拍</dd></div>
+                    <div><dt><span class="chip-demo">CPU · 30 FPS</span>運算標籤</dt><dd>AI 用 GPU 還是 CPU 計算、每秒分析幾格畫面；點一下看詳細資訊</dd></div>
+                </dl>
+                <p class="note">看不懂某個點是哪裡？直接點畫面上的點，會顯示它的編號與名稱；或按「顯示編號」標出所有主要關節。</p>
+            </section>
+
+            <section id="record" aria-labelledby="recordTitle">
+                <h2 id="recordTitle">錄製與重播</h2>
+                <ol class="steps">
+                    <li><strong>按「數據」→「開始錄製」</strong>錄下每一格 33 個關鍵點的位置（不是影片），最多 5 分鐘。按下後會先倒數（預設 5 秒，每秒嗶一聲），讓你有時間走到定位；旁邊的選單可以改成 3、10 秒或不倒數</li>
+                    <li><strong>停止後下載</strong>CSV 可以用 Excel 打開；JSON 給重播分析或之後的後端使用</li>
+                    <li><strong>到「重播分析」選檔案</strong>畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
+                </ol>
+                <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
+            </section>
+
+            <section id="experiments" aria-labelledby="expTitle">
+                <h2 id="expTitle">驗證實驗：公尺座標準不準</h2>
+                <p class="prose">AI 除了畫面上的位置，還會猜每個點離鏡頭多遠（公尺座標）。如果夠準，之後正面拍也能算膝蓋角度，不用限制側身。下面兩個實驗用來確認，錄完把檔案丟進<a href="replay.html">重播分析</a>，看「3D 檢查」卡片就有結果，不用自己算。</p>
+
+                <h3>實驗 D：量腿長（一支手機、一個人就能做）</h3>
+                <div class="exp">
+                    <svg class="exp-fig" viewBox="0 0 200 230" role="img" aria-labelledby="figDTitle">
+                        <title id="figDTitle">側面看的腿：大腿從大腿外側最突出的骨頭量到膝蓋外側的關節縫，小腿從膝蓋關節縫量到腳踝外側突起的中心</title>
+                        <path class="fig-body" d="M70 20 L64 112 L76 200 M64 112 L58 112"/>
+                        <path class="fig-limb" d="M70 30 L66 112 L78 200 L108 204"/>
+                        <circle class="fig-joint" cx="70" cy="30" r="6"/>
+                        <circle class="fig-joint" cx="66" cy="112" r="6"/>
+                        <circle class="fig-joint" cx="78" cy="200" r="6"/>
+                        <path class="fig-tape" d="M100 30 L100 112 M94 30 L106 30 M94 112 L106 112"/>
+                        <path class="fig-tape2" d="M118 112 L118 200 M112 112 L124 112 M112 200 L124 200"/>
+                        <text class="fig-text" x="128" y="66">大腿</text>
+                        <text class="fig-text" x="128" y="84">髖→膝</text>
+                        <text class="fig-text2" x="132" y="154">小腿</text>
+                        <text class="fig-text2" x="132" y="172">膝→踝</text>
+                    </svg>
+                    <ol class="steps">
+                        <li><strong>用捲尺量腿長</strong>大腿：大腿外側最突出的骨頭（手扠腰往下摸到的硬骨頭）量到膝蓋外側的關節縫；小腿：膝蓋關節縫量到腳踝外側突起的中心。各量兩次取平均，記下來</li>
+                        <li><strong>側面錄一段深蹲</strong>手機放 2～3 公尺外、腰的高度，側身對鏡頭。按「數據」→「開始錄製」，倒數時走到定位，做 5 下深蹲，停止後下載 JSON</li>
+                        <li><strong>站遠一點再錄一次</strong>例如 4 公尺。兩次距離都準，才代表公尺座標可以信任</li>
+                        <li><strong>看結果</strong>到重播分析頁選檔案，在「3D 檢查」填入捲尺量的長度。看「原始」和「處理過」哪一份和捲尺差比較少（綠色），兩次距離的結果是否接近</li>
+                    </ol>
+                </div>
+                <p class="note">捲尺本身大概有 1～2 公分的誤差（骨頭位置摸不準），差不到 2 公分可以算一樣好。</p>
+
+                <h3>實驗 H：正面拍的 3D 膝角（兩支手機）</h3>
+                <div class="exp">
+                    <svg class="exp-fig" viewBox="0 0 200 200" role="img" aria-labelledby="figHTitle">
+                        <title id="figHTitle">從上面往下看：人站在中間、面向正面那支手機；另一支手機放在人的正側面，兩支都距離 2 到 3 公尺</title>
+                        <circle class="fig-person" cx="120" cy="64" r="16"/>
+                        <path class="fig-arrow" d="M120 84 L120 104 M113 97 L120 104 L127 97"/>
+                        <text class="fig-small" x="130" y="100">面向</text>
+                        <rect class="fig-phone" x="20" y="51" width="16" height="26" rx="3"/>
+                        <rect class="fig-phone" x="112" y="164" width="16" height="26" rx="3"/>
+                        <path class="fig-tape" d="M40 64 L100 64"/>
+                        <path class="fig-tape2" d="M120 112 L120 158"/>
+                        <text class="fig-text" x="10" y="98">側面</text>
+                        <text class="fig-text2" x="136" y="184">正面</text>
+                        <text class="fig-small" x="42" y="56">2～3 公尺</text>
+                    </svg>
+                    <ol class="steps">
+                        <li><strong>擺兩支手機</strong>一支放正側面、一支放正前方，都 2～3 公尺、腰的高度</li>
+                        <li><strong>兩支都開始錄</strong>兩支都選「倒數 10 秒」，先後按「開始錄製」（差幾秒沒關係），走到中間</li>
+                        <li><strong>拍手當對時記號</strong>開始深蹲前，雙手在胸前拍一下，之後對齊兩個檔案的時間用。接著做 5 下深蹲，兩支都停止，各下載 JSON，記得哪個檔案是側面</li>
+                        <li><strong>看結果</strong>側面那支的畫面角度當標準答案；正面那支在重播分析頁按曲線圖的「3D 膝角」，看每一下最低的角度和側面那支差多少（也可以下載「角度 CSV」用 Excel 比）</li>
+                    </ol>
+                </div>
+                <p class="note">結果請記下來告訴我們（手機型號、距離、差幾公分或幾度），我們再決定要不要支援正面拍。</p>
+            </section>
+
+            <section id="faq" aria-labelledby="faqTitle">
+                <h2 id="faqTitle">常見問題</h2>
+                <div class="faq">
+                    <details>
+                        <summary>哪些手機可以用？</summary>
+                        <p>iPhone：iOS 15 以上（iPhone 6s 以後的機型都能更新到）；iOS 17 以上最順（AI 在背景運算）。Android：最新版 Chrome，大部分手機都可以。最準的方法是在這一頁最上面按「檢查這支手機」。</p>
+                    </details>
+                    <details>
+                        <summary>第一次打開很慢？</summary>
+                        <p>第一次需要下載約 18 MB 的 AI 檔案。下載完會存在裝置裡，之後打開幾乎馬上就能用，沒有網路也可以用。</p>
+                    </details>
+                    <details>
+                        <summary>一直顯示「未偵測到人體」？</summary>
+                        <p>確認從頭到腳都在畫面裡、光線夠亮、背景沒有其他人。人太小（太遠）或只拍到上半身時也會偵測不到。</p>
+                    </details>
+                    <details>
+                        <summary>角度看起來不準？</summary>
+                        <p>改成側面拍。正面拍時，大腿往鏡頭方向彎，畫面上看起來的角度會比實際大很多；畫面上也會提示「請側身」。</p>
+                    </details>
+                    <details>
+                        <summary>在 LINE、Instagram 裡打開沒辦法開鏡頭？</summary>
+                        <p>App 內建的瀏覽器常常不允許使用相機。請點右上角選單，改用 Chrome 或 Safari 開啟。</p>
+                    </details>
+                    <details>
+                        <summary>畫面很卡、手機發燙？</summary>
+                        <p>點運算標籤看是 GPU 還是 CPU。CPU 比較吃力，可以關掉其他 App，或改用筆電。</p>
+                    </details>
+                    <details>
+                        <summary>網站怪怪的，想重新來過？</summary>
+                        <p>在網址後面加上 <code>?sw=0</code> 打開一次，會清掉存在裝置裡的檔案，回到第一次使用的狀態。</p>
+                    </details>
+                </div>
+            </section>
+
+            <section id="privacy" aria-labelledby="privacyTitle">
+                <h2 id="privacyTitle">隱私</h2>
+                <p class="prose">所有分析都在你自己的手機或電腦上完成，鏡頭影像不會上傳到任何地方。錄製的資料只有關鍵點的座標（不是影片），而且只會存成你自己下載的檔案；重播分析讀檔案也只在瀏覽器裡處理。</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品</p>
+        </footer>
+    </div>
+    <script type="module" src="js/pages/help.js?v=abcdef12"></script>
+</body>
+</html>

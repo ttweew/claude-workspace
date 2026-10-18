@@ -1,0 +1,4 @@
+panout gt found True detected frames 219 / 240 []
+empty gt found False detected frames 0 / 240 []
+dark gt found True detected frames 240 / 240 []
+close gt found True detected frames 240 / 240 []

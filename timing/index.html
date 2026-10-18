@@ -1,0 +1,12 @@
+<!DOCTYPE html><html><body><script type="module">
+const U='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+const M='https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+const t0=performance.now(); const log={};
+const v=await import(U+'/vision_bundle.mjs'); log.import=performance.now()-t0;
+const fs=await v.FilesetResolver.forVisionTasks(U+'/wasm'); log.fileset=performance.now()-t0;
+const pl=await v.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:M,delegate:'CPU'},runningMode:'VIDEO',numPoses:1}); log.create=performance.now()-t0;
+const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').fillRect(0,0,640,480);
+let t=performance.now(); pl.detectForVideo(c,t); log.firstDetect=performance.now()-t;
+t=performance.now(); pl.detectForVideo(c,t+1); log.secondDetect=performance.now()-t;
+window.LOG=log;
+</script></body></html>

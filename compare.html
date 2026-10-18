@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:20px;background:#fff;font-family:"Noto Sans CJK TC","Noto Sans TC",sans-serif;width:1980px}
+h2{margin:18px 0 8px;font-size:26px} .row{display:flex;gap:12px} figure{margin:0;width:384px}
+img{width:384px;border:1px solid #ccc;display:block} figcaption{font-size:20px;margin-bottom:4px;font-weight:600}
+.note{font-size:20px;color:#444;margin:4px 0 0}
+</style>
+<h2>改之前：只算骨架模型的百分比（模擬手機網路，同一時間點截圖）</h2>
+<div class="row" id="b"></div>
+<p class="note">百分比只代表 5.8 MB 的模型，另外 11.8 MB 的 AI 引擎與 GPU 啟動都沒算進去</p>
+<h2>改之後：進度條（兩個檔案一起算），不顯示數字，下方說明第一次比較久</h2>
+<div class="row" id="a"></div>
+<h2>改之後：下載完成後的階段（無法算進度，用文字說明＋亮光持續流動）</h2>
+<div class="row" id="s"></div>
+<script>
+const add=(id,items)=>items.forEach(([f,c])=>document.getElementById(id).insertAdjacentHTML('beforeend',`<figure><figcaption>${c}</figcaption><img src="${f}"></figure>`));
+add('b',[["pb_before_2.png","3 秒"],["pb_before_7.png","8 秒"],["pb_before_13.png","14 秒"],["pb_before_18.png","19 秒"],["pb_before_19.png","完成"]]);
+add('a',[["pb_after_2.png","3 秒"],["pb_after_7.png","8 秒"],["pb_after_13.png","14 秒"],["pb_after_18.png","19 秒"],["pb_after_19.png","完成（變綠後淡出）"]]);
+add('s',[["pb_mock_start.png","啟動 GPU 加速"],["pb_mock_warmup.png","最後準備中"]]);
+</script>

@@ -1,0 +1,17 @@
+import { FramingHint } from '/home/user/claude-workspace/js/analysis/framing.js';
+let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
+const OK = { text: '已偵測到全身', kind: 'ok' }, CLOSE = { text: '太近了，請往後退，讓全身入鏡', kind: 'warn' }, CHECK = { text: '偵測中…', kind: '' };
+const run = seq => { const h = new FramingHint(); return seq.map(([a, t]) => h.update(a, t).text); };
+let r = run([[CHECK, 0], [CHECK, 33], [OK, 66], [OK, 100]]);
+ok(r.join() === '偵測中…,偵測中…,已偵測到全身,已偵測到全身', '剛出現：偵測中 → 馬上正常：' + r.join());
+r = run([[CHECK, 0], [CLOSE, 66], [CLOSE, 400], [CLOSE, 700]]);
+ok(r.join() === '偵測中…,偵測中…,偵測中…,太近了，請往後退，讓全身入鏡', '真的太近：持續 0.6 秒才提示：' + r.join());
+r = run([[CLOSE, 0], [CLOSE, 300], [OK, 400]]);
+ok(r[2] === '已偵測到全身', '太近（還沒提示）就變正常：馬上正常：' + r.join());
+r = run([[OK, 0], [CLOSE, 100], [CLOSE, 500], [CLOSE, 750]]);
+ok(r.join() === '已偵測到全身,已偵測到全身,已偵測到全身,太近了，請往後退，讓全身入鏡', '正常 → 太近：一樣要 0.6 秒：' + r.join());
+r = run([[CHECK, 0], [CHECK, 300], [CHECK, 700], [CHECK, 1400], [OK, 1500]]);
+ok(r[4] === '已偵測到全身', '一直偵測中（光線暗）之後正常：馬上換上：' + r.join());
+r = run([[OK, 0], [CLOSE, 100], [OK, 200], [CLOSE, 300], [OK, 400]]);
+ok(r.every(x => x === '已偵測到全身'), '提示在兩者間跳動：維持原本：' + r.join());
+console.log(fail ? fail + ' FAILED' : 'ALL PASS');

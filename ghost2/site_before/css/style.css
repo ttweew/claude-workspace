@@ -1,0 +1,762 @@
+/* AI 智慧運動分析系統：全站樣式 */
+
+/* ---------- 設計基礎：顏色、圓角、陰影都集中在這裡，改一個地方全站一起變 ---------- */
+:root {
+    --bg: #0B1220;              /* 頁面底色：深藍黑，和鏡頭畫面的黑色一致 */
+    --surface: #121B2E;         /* 卡片 */
+    --surface-2: #18243B;       /* 卡片上的元素 */
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #EAF0F7;            /* 主要文字 */
+    --muted: #9DABBE;           /* 次要文字 */
+    --accent: #2EE6A6;          /* 品牌色：活力綠，也代表「姿勢正確」 */
+    --accent-ink: #052B1E;      /* 綠色按鈕上的深色字 */
+    --info: #4CC3FF;            /* 編號、資訊 */
+    --danger: #FF5C5C;          /* 錯誤、錄製中 */
+    --glass: rgba(11, 18, 32, 0.72);  /* 鏡頭畫面上的半透明底 */
+    --radius: 14px;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    --font: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background:
+        radial-gradient(1200px 600px at 85% -10%, rgba(46, 230, 166, 0.14), transparent 60%),
+        radial-gradient(900px 500px at -10% 20%, rgba(76, 195, 255, 0.10), transparent 60%),
+        var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 首頁內容寬度：手機滿版、電腦最寬 1040px 置中
+   env(safe-area-inset-*)：手機橫拿時，避開 iPhone 瀏海與圓角 */
+.page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: max(40px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+
+/* ---------- 首頁：主視覺 ---------- */
+.hero {
+    display: grid;
+    gap: 18px;
+    align-content: start;
+    padding-bottom: 36px;
+}
+/* 示意圖：手機上省略，寬螢幕放在右側 */
+.hero-art {
+    display: none;
+}
+@media (min-width: 860px) {
+    .hero {
+        grid-template-columns: minmax(0, 1fr) 360px;
+        column-gap: 48px;
+    }
+    .hero > :not(.hero-art) {
+        grid-column: 1;
+    }
+    .hero-art {
+        display: block;
+        grid-column: 2;
+        grid-row: 1 / span 4;
+        align-self: center;
+        width: 100%;
+        height: auto;
+    }
+}
+.art-bg {
+    fill: var(--surface);
+    stroke: var(--line);
+}
+.art-frame {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 3;
+    stroke-linecap: round;
+    opacity: 0.6;
+}
+.art-bones path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.art-arc {
+    fill: none;
+    stroke: #FFFFFF;
+    stroke-width: 3;
+    stroke-dasharray: 4 4;
+}
+.art-head {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 6;
+}
+.art-joints circle {
+    fill: #FFFFFF;
+    stroke: var(--bg);
+    stroke-width: 3;
+}
+.art-chip rect {
+    fill: #FFFFFF;
+}
+.art-chip text {
+    fill: var(--bg);
+    font-size: 22px;
+    font-weight: 800;
+    text-anchor: middle;
+}
+.art-status rect {
+    fill: rgba(13, 110, 70, 0.9);
+    stroke: rgba(46, 230, 166, 0.6);
+}
+.art-status text {
+    fill: #FFFFFF;
+    font-size: 14px;
+    text-anchor: middle;
+}
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+}
+.brand-mark {
+    width: 32px;
+    height: 32px;
+    flex: none;
+}
+.brand-mark rect {
+    fill: var(--surface-2);
+}
+.brand-mark g {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+}
+h1 {
+    margin: 0;
+    font-size: clamp(30px, 6.5vw, 52px);
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    color: #FFFFFF;
+}
+h1 .accent {
+    color: var(--accent);
+}
+.intro {
+    max-width: 560px;
+    margin: 0;
+    color: var(--muted);
+    font-size: clamp(15px, 2.2vw, 18px);
+}
+
+/* 開啟鏡頭與 AI 載入狀態 */
+.start-card {
+    max-width: 440px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(18, 27, 46, 0.8);
+    box-shadow: var(--shadow);
+}
+#startBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(46, 230, 166, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+#startBtn svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+#startBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 30px rgba(46, 230, 166, 0.45);
+}
+#startBtn:active {
+    transform: translateY(0);
+}
+#startBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+}
+button:focus-visible, select:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+#status, #modelStatus {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+#status {
+    color: var(--text);
+}
+/* AI 載入進度條：條內的亮光持續流動，就算進度暫時沒變，也看得出網頁還在運作 */
+#modelProgress {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-2);
+}
+#modelProgress .fill {
+    position: relative;
+    width: 0;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--info), var(--accent));
+    transition: width 0.4s ease;
+}
+#modelProgress .fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+/* 載入完成：進度條補滿後淡出 */
+#modelProgress.done .fill {
+    background: var(--accent);
+}
+#modelProgress.done .fill::after {
+    animation: none;
+}
+#modelProgress.hide {
+    opacity: 0;
+    transition: opacity 0.6s ease 0.6s;
+}
+#modelHint {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* ---------- 首頁：介紹區塊 ---------- */
+main section {
+    padding: 28px 0;
+    border-top: 1px solid var(--line);
+}
+h2 {
+    margin: 0 0 16px;
+    font-size: 20px;
+}
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+.feature {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.feature svg {
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    border-radius: 10px;
+    background: rgba(46, 230, 166, 0.12);
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.feature h3 {
+    margin: 12px 0 6px;
+    font-size: 16px;
+}
+.feature p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+/* 準備步驟：數字圓圈＋說明 */
+.steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+}
+.steps li {
+    position: relative;
+    padding: 16px 16px 16px 60px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 14px;
+    counter-increment: step;
+}
+.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 800;
+}
+.steps strong {
+    display: block;
+    color: var(--text);
+    font-size: 16px;
+}
+.exercises {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.exercises li {
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-weight: 600;
+}
+.note {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+footer {
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* ---------- 鏡頭畫面 ---------- */
+/* 鏡頭開啟後，畫面佔滿整個瀏覽器視窗 */
+#stage {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    /* 手機上點畫面查看關鍵點時：不閃灰色點擊框、連點兩下不放大畫面、長按不會選取到文字 */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+/* contain：完整顯示整個畫面、不裁切，才看得到全身
+   骨架畫布與影像用相同設定，兩者會完全重疊 */
+#video, #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+#overlay {
+    pointer-events: none;
+}
+/* 只翻轉畫面顯示，不影響鏡頭原始資料，後續 AI 分析的左右仍正確 */
+.mirrored {
+    transform: scaleX(-1);
+}
+
+/* 關鍵點編號標籤：圓角小標籤，編號在藍色小圓圈裡 */
+#labels {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.joint-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 3px;
+    border-radius: 999px;
+    background: rgba(11, 18, 32, 0.8);
+    color: #FFFFFF;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.joint-label .num {
+    min-width: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #1E90FF;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+/* display: flex 會讓 hidden 屬性失效，這裡補上 */
+.joint-label[hidden] {
+    display: none;
+}
+/* 自己算出的中心點：沒有編號，淺藍字 */
+.joint-label.center {
+    padding-left: 8px;
+    color: #BFE4FF;
+}
+/* 關節角度：白底深色粗體，和編號標籤（深底白字）一眼就分得出來 */
+.joint-label.angle {
+    padding: 1px 7px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+/* 編號標籤後面接的角度 */
+.joint-label .val {
+    margin-left: 2px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+/* 使用者點選查看的點：橘色外框，比較顯眼 */
+.joint-label.picked {
+    border: 2px solid #F39237;
+    font-size: 14px;
+}
+.joint-label.picked:not(:has(.num)) {
+    padding-left: 8px;
+}
+
+/* 疊在畫面上方的控制列：半透明毛玻璃，只放按鈕，手機上也維持一行
+   env(safe-area-inset-*)：避開 iPhone 瀏海與圓角 */
+#toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--line);
+    background: rgba(11, 18, 32, 0.78);
+    font-size: 14px;
+}
+#toolbar button, #toolbar select {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+#toolbar button:hover, #toolbar select:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+/* 關閉鏡頭：最常用的按鈕，用實心強調 */
+#toolbar .primary {
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--bg);
+    font-weight: 600;
+}
+#toolbar .primary:hover {
+    background: #FFFFFF;
+}
+/* 下拉選單佔剩下的寬度；字級 16px 以上，iPhone 點選時才不會自動放大畫面 */
+#toolbar select {
+    flex: 1;
+    min-width: 0;
+    max-width: 320px;
+    font-size: 16px;
+    text-overflow: ellipsis;
+}
+#toolbar select option {
+    color: #1B2536;
+}
+/* 小螢幕（例如 iPhone SE）按鈕縮小左右留白，一行才放得下 */
+@media (max-width: 360px) {
+    #toolbar {
+        gap: 4px;
+    }
+    #toolbar button, #toolbar select {
+        padding: 0 8px;
+    }
+}
+/* 手機、平板（用手指操作）：按鈕加高到 40px，比較好按 */
+@media (pointer: coarse) {
+    #toolbar button, #toolbar select {
+        min-height: 40px;
+    }
+    .panel-head button {
+        min-height: 36px;
+    }
+}
+
+/* 狀態小標籤：浮在控制列下方，不佔整條寬度，也不會擋住腳的位置 */
+#infobar {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 62px);
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 14px;
+    pointer-events: none;
+}
+#infobar > * {
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: var(--glass);
+    color: #FFFFFF;
+    pointer-events: auto;
+}
+#infobar > [hidden] {
+    display: none;
+}
+/* 偵測狀態用顏色區分，不用讀字也知道現在好不好（白字對比都在 4.5:1 以上） */
+#poseStatus[data-kind="ok"] {
+    border-color: rgba(46, 230, 166, 0.6);
+    background: rgba(13, 110, 70, 0.9);
+}
+#poseStatus[data-kind="warn"] {
+    background: rgba(150, 85, 0, 0.92);
+}
+#poseStatus[data-kind="error"] {
+    background: rgba(180, 35, 30, 0.92);
+}
+/* 運算方式與 FPS：點一下可展開或收合詳細資訊 */
+#perfBtn {
+    font: inherit;
+    cursor: pointer;
+}
+
+/* ---------- 站遠也看得清楚：大字橫幅與大字儀表板 ---------- */
+/* 入鏡提示（例如「請往後退」）：畫面上方中央的大字，字體隨螢幕放大 */
+#banner {
+    position: absolute;
+    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    left: 50%;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 0.35em 0.9em;
+    transform: translateX(-50%);
+    border: 2px solid rgba(255, 210, 120, 0.75);
+    border-radius: 18px;
+    background: rgba(150, 85, 0, 0.9);
+    color: #FFFFFF;
+    font-size: clamp(20px, 4.6vmin, 46px);
+    font-weight: 800;
+    line-height: 1.3;
+    text-align: center;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+}
+#banner[hidden] {
+    display: none;
+}
+/* 關節角度大數字：畫面下方中央，字體隨螢幕放大 */
+#hud {
+    position: absolute;
+    left: 50%;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 1.6vmin, 18px);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+#hud[hidden], #hud.empty {
+    display: none;
+}
+/* 橫向螢幕（筆電、手機橫拿）：影像左右兩側通常是黑邊，儀表板改直放在右側，不擋到腳 */
+@media (orientation: landscape) {
+    #hud {
+        left: auto;
+        right: max(14px, env(safe-area-inset-right));
+        top: 50%;
+        bottom: auto;
+        flex-direction: column;
+        transform: translateY(-50%);
+    }
+}
+.metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 4.4em;
+    padding: 0.35em 0.8em 0.3em;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    background: var(--glass);
+    box-shadow: var(--shadow);
+    /* 字體隨螢幕短邊放大：手機約 21px（數字 52px）、筆電 34px（數字 82px），站在 2～3 公尺外也看得清楚 */
+    font-size: clamp(18px, 5.5vmin, 34px);
+}
+/* 名稱用白色特粗字：「膝」「髖」筆畫多，字小或顏色淡時站遠看會糊成一團 */
+.metric-label {
+    color: #FFFFFF;
+    font-size: 1.15em;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.metric-value {
+    color: #FFFFFF;
+    font-size: 2.4em;
+    font-weight: 800;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 數據面板 ---------- */
+/* 貼在畫面下方，最多佔 45% 高度，內容多時可以捲動 */
+#dataPanel {
+    position: absolute;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    max-width: 520px;
+    max-height: 45%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: var(--radius);
+    /* 不透明：底下的編號標籤不會透出來和表格數字疊在一起 */
+    background: #0B1220;
+    color: #FFFFFF;
+    font-size: 12px;
+    box-shadow: var(--shadow);
+}
+#dataPanel[hidden] {
+    display: none;
+}
+/* 手機橫拿時畫面很矮：面板改放右側，少擋住身體 */
+@media (orientation: landscape) and (max-height: 500px) {
+    #dataPanel {
+        /* 放在狀態小標籤下方，不蓋住 FPS */
+        top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+        left: auto;
+        width: 340px;
+        max-height: none;
+    }
+}
+.panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-bottom: 1px solid var(--line);
+}
+.panel-head button {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+#recordBtn.recording {
+    border-color: var(--danger);
+    background: rgba(200, 40, 40, 0.85);
+}
+#recordInfo {
+    font-variant-numeric: tabular-nums;
+}
+.panel-body {
+    overflow: auto;
+    padding: 4px 8px 8px;
+}
+#dataPanel table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+#dataPanel th, #dataPanel td {
+    padding: 2px 4px;
+    text-align: right;
+    white-space: nowrap;
+}
+#dataPanel tbody th {
+    text-align: left;
+    font-weight: normal;
+}
+#dataPanel thead th {
+    color: var(--info);
+    font-weight: 600;
+}
+#dataPanel thead th:first-child {
+    text-align: left;
+}
+#dataPanel tr.unseen {
+    opacity: 0.45;
+}
+.panel-note {
+    margin: 6px 0 0;
+    color: #C9D2DE;
+    line-height: 1.4;
+}
+
+/* 系統設定「減少動態效果」的使用者：關掉進度條的流動亮光與動畫 */
+@media (prefers-reduced-motion: reduce) {
+    #modelProgress .fill::after {
+        animation: none;
+    }
+    #modelProgress .fill, #modelProgress.hide, #startBtn {
+        transition: none;
+    }
+}

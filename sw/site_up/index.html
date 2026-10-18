@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
+    <!-- 手機瀏覽器網址列的顏色，和網頁背景一致 -->
+    <meta name="theme-color" content="#0B1220">
+    <title>AI 智慧運動分析系統</title>
+    <!-- 網站圖示：一個簡單的人形，直接寫在網頁裡，不用另外的圖檔 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+    <div class="page">
+        <header class="hero">
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <rect width="32" height="32" rx="9"/>
+                    <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+                </svg>
+                <span>即時 · 免安裝 · 影像不上傳</span>
+            </div>
+            <h1>AI 智慧<span class="accent">運動分析</span>系統</h1>
+            <p class="intro">用一支鏡頭，即時看見你的運動姿勢。不用穿戴裝置、不用安裝 App，打開網頁就能開始。</p>
+
+            <!-- 示意圖：側面深蹲的骨架與膝蓋角度（只在寬螢幕顯示） -->
+            <svg class="hero-art" viewBox="0 0 360 360" role="img" aria-label="示意圖：側面深蹲蹲到位，骨架與膝蓋角度 85 度">
+                <rect class="art-bg" x="10" y="10" width="340" height="340" rx="28"/>
+                <path class="art-frame" d="M40 80V40h40M280 40h40v40M320 280v40h-40"/>
+                <!-- 有 id 的部分會由 js/pages/hero-art.js 做成深蹲動畫；這裡寫的是蹲到底的樣子（不支援動畫或設定減少動態效果時顯示） -->
+                <g class="art-bones">
+                    <path id="artBody" d="M183.9 140.4L150.8 211.5L225.8 230.2L200 305"/>
+                    <path id="artArm" d="M176.8 155.9L228.8 173.9L276.8 173.9"/>
+                    <path d="M200 305h34"/>
+                </g>
+                <path id="artArc" class="art-arc" d="M202.5 224.4A24 24 0 0 0 217.9 252.9"/>
+                <circle id="artHead" class="art-head" cx="196.5" cy="113.4" r="20"/>
+                <g class="art-joints">
+                    <circle id="artShoulder" cx="183.9" cy="140.4" r="7"/><circle id="artHip" cx="150.8" cy="211.5" r="7"/><circle id="artKnee" cx="225.8" cy="230.2" r="9"/>
+                    <circle cx="200" cy="305" r="7"/><circle id="artElbow" cx="228.8" cy="173.9" r="6"/><circle id="artWrist" cx="276.8" cy="173.9" r="6"/>
+                </g>
+                <g class="art-chip" id="artChip">
+                    <rect id="artChipBox" x="235.8" y="242.2" width="86" height="40" rx="20"/>
+                    <text id="artAngle" x="278.8" y="269.2">85°</text>
+                </g>
+                <g class="art-status">
+                    <rect x="40" y="300" width="132" height="30" rx="15"/>
+                    <text x="106" y="320">已偵測到全身</text>
+                </g>
+            </svg>
+
+            <div class="start-card">
+                <button id="startBtn">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
+                    開啟鏡頭
+                </button>
+                <!-- 目前選的運動模式（js/analysis/workouts.js）：在下面「支援的運動」卡片按「開始」，或開鏡頭後按右上角換 -->
+                <p class="workout-pick"><span id="workoutNote">動作：自由</span> <a href="#exercisesTitle">換動作</a></p>
+                <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄只存在這台裝置上 -->
+                <div id="summary" class="summary" aria-live="polite" hidden>
+                    <h2>這次運動</h2>
+                    <ul id="summaryLines"></ul>
+                </div>
+                <details id="historyBox" class="history" hidden>
+                    <summary>運動紀錄</summary>
+                    <ul id="historyList"></ul>
+                    <button id="clearHistory" type="button">清除紀錄</button>
+                </details>
+                <!-- 進階設定：大部分人不用動，收起來讓首頁簡單；改過的設定會寫在標題上 -->
+                <details id="advanced" class="advanced">
+                    <summary id="advancedTitle">進階設定</summary>
+                    <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
+                    <label class="fps-pick">畫面流暢度
+                        <select id="fpsSelect" aria-describedby="fpsHint"></select>
+                    </label>
+                    <p id="fpsHint" class="fps-hint" hidden></p>
+                    <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
+                    <label class="fps-pick">AI 模型
+                        <select id="modelSelect" aria-describedby="modelPickHint"></select>
+                    </label>
+                    <p id="modelPickHint" class="fps-hint" hidden></p>
+                    <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
+                    <label class="check-pick"><input type="checkbox" id="voiceToggle"> 語音提醒（唸出動作錯誤和次數）</label>
+                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
+                    <div id="cloudBox" hidden>
+                        <label class="check-pick"><input type="checkbox" id="cloudToggle" aria-describedby="cloudStatus"> 雲端同步運動紀錄（只有運動總結的數字，沒有影像）</label>
+                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
+                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
+                    </div>
+                </details>
+                <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
+                <p id="status" aria-live="polite">尚未開啟鏡頭</p>
+                <p id="modelStatus" aria-live="polite">AI 準備中…</p>
+                <!-- AI 載入進度條：不顯示百分比，用文字說明目前在做什麼 -->
+                <div id="modelProgress" role="progressbar" aria-label="AI 載入進度"><div class="fill"></div></div>
+                <p id="modelHint">第一次使用需下載約 18 MB，之後開啟會快很多</p>
+                <noscript><p>請開啟瀏覽器的 JavaScript 功能，才能使用本網站。</p></noscript>
+            </div>
+        </header>
+
+        <main>
+            <section aria-labelledby="stepsTitle">
+                <h2 id="stepsTitle">開始前的準備</h2>
+                <ol class="steps">
+                    <li><strong>擺好裝置</strong>把手機或筆電放在 2～3 公尺外，高度約在腰部</li>
+                    <li><strong>側面對鏡頭</strong>深蹲、弓箭步從側面拍，角度最準</li>
+                    <li><strong>全身入鏡</strong>畫面上的提示變成綠色「已偵測到全身」就可以開始</li>
+                </ol>
+            </section>
+
+            <section aria-labelledby="featuresTitle">
+                <h2 id="featuresTitle">可以做什麼</h2>
+                <div class="features">
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7M6 10l6-2 6 2M12 14l-4 6M12 14l4 6"/></svg>
+                        <h3>即時骨架偵測</h3>
+                        <p>Google MediaPipe 在你的裝置上即時找出 33 個身體關鍵點，影像不會上傳。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L12 5l7 14"/><path d="M8.5 12.5a4 4 0 0 1 7 0"/></svg>
+                        <h3>關節角度</h3>
+                        <p>膝蓋、髖部的彎曲角度即時顯示，站遠也有大字儀表板看得清楚。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>
+                        <h3>入鏡提示</h3>
+                        <p>告訴你該往前、往後或站到中間，全身入鏡時提示會變成綠色。</p>
+                    </article>
+                    <article class="feature">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M7 16V9M12 16V5M17 16v-4"/></svg>
+                        <h3>數據錄製</h3>
+                        <p>錄下每個關鍵點的座標，匯出 CSV 或 JSON，給 Excel 或後端 AI 分析。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section aria-labelledby="exercisesTitle">
+                <h2 id="exercisesTitle">支援的運動</h2>
+                <!-- 每個動作一張卡片：側面示範動畫＋重點（js/pages/exercise-demos.js 依 js/ui/demo.js 的內容畫出來） -->
+                <ul class="exercises">
+                    <li data-exercise="squat"><h3>深蹲</h3></li>
+                    <li data-exercise="pushup"><h3>伏地挺身</h3></li>
+                    <li data-exercise="plank"><h3>棒式</h3></li>
+                    <li data-exercise="lunge"><h3>弓箭步</h3></li>
+                </ul>
+                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時）；開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品 · <a href="help.html">使用說明</a> · <a href="replay.html">重播分析</a></p>
+        </footer>
+    </div>
+
+    <div id="stage" hidden>
+        <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
+        <video id="video" autoplay playsinline muted></video>
+        <!-- 骨架畫在這張透明畫布上，疊在影像上方 -->
+        <canvas id="overlay"></canvas>
+        <!-- 關鍵點的編號標籤（網頁文字，比畫在畫布上清楚） -->
+        <div id="labels"></div>
+        <!-- 入鏡提示的大字橫幅：站遠也看得到（例如「請往後退」） -->
+        <div id="banner" role="status" hidden></div>
+        <!-- 動作做錯時（js/analysis/form.js）：和入鏡提示同一個位置的紅字，站位沒問題時才出現；做錯的部位骨架也會變紅 -->
+        <div id="formTip" role="status" hidden></div>
+        <!-- 大字儀表板：站遠也看得清楚的關節角度。左右兩組照鏡子的方式放：
+             第一組在畫面左邊、第二組在畫面右邊，哪一組是本人的左側由 js/ui/hud.js 依鏡像決定 -->
+        <div id="hud" hidden>
+            <!-- 名稱直接寫左右（左膝、左髖），不另外用小字標示是哪一側 -->
+            <div class="hud-side" data-side="LEFT">
+                <div class="metric"><span class="metric-label">左膝</span><span class="metric-value">—</span></div>
+                <div class="metric"><span class="metric-label">左髖</span><span class="metric-value">—</span></div>
+            </div>
+            <div class="hud-side" data-side="RIGHT">
+                <div class="metric"><span class="metric-label">右膝</span><span class="metric-value">—</span></div>
+                <div class="metric"><span class="metric-label">右髖</span><span class="metric-value">—</span></div>
+                <!-- 次數（棒式是秒數）：選了運動模式才顯示；放在畫面右邊那一組的最下面 -->
+                <div class="metric" id="hudRepsBox" hidden><span id="hudRepsName" class="metric-label">深蹲</span><span id="hudReps" class="metric-value">0</span></div>
+            </div>
+        </div>
+        <!-- 每完成一下深蹲，短暫顯示這一下的深度（實驗中） -->
+        <div id="repToast" role="status" hidden></div>
+        <!-- 錄製前倒數：大字放在畫面中間，站遠也看得到 -->
+        <div id="countdown" aria-live="assertive" hidden></div>
+        <!-- 錄製剩 30 秒、錄滿自動停止時的大字提醒 -->
+        <div id="recNotice" role="status" aria-live="assertive" hidden></div>
+        <div id="toolbar">
+            <!-- 結束：最常用、最重要的按鈕，放最左邊、實心強調 -->
+            <button id="stopBtn" class="primary" title="關閉鏡頭，回到首頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="btn-text">結束</span></button>
+            <!-- 有兩顆以上鏡頭時才顯示 -->
+            <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
+            <!-- 功能按鈕靠右：圖示＋文字；開關類的按鈕用 aria-pressed 告訴螢幕閱讀器現在是開還是關 -->
+            <button id="labelBtn" class="tool" aria-pressed="false" title="也可以直接點畫面上的點，查看它的編號與名稱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6l8 8-6 6-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg><span class="btn-text"><span class="btn-verb">顯示</span>編號</span></button>
+            <button id="dataBtn" class="tool" aria-pressed="false" title="顯示關鍵點的 x、y、z 數值，並可錄製匯出"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M10 10v9"/></svg><span class="btn-text">數據</span></button>
+            <!-- 提示音音量：點一下換一段（關、小、中、大）；窄螢幕只留喇叭圖示和「中」這類一個字 -->
+            <button id="soundBtn" class="tool" title="提示音的音量：點一下切換 關、小、中、大，會試聽一聲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path class="sound-waves" d="M15.5 10a3 3 0 0 1 0 4M18 7.5a6.5 6.5 0 0 1 0 9"/></svg><span class="btn-text"><span class="sound-word">音量 </span><span class="sound-level">中</span></span></button>
+            <button id="fullscreenBtn" class="tool" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="btn-text">全螢幕</span></button>
+        </div>
+        <div id="infobar">
+            <span id="poseStatus">AI 準備中…</span>
+            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊，也可以切換每秒格數和 AI 模型"></button>
+            <!-- 點開運算標籤時才出現：開著鏡頭直接切換每秒格數、AI 模型 -->
+            <select id="fpsLive" aria-label="每秒格數" hidden></select>
+            <select id="modelLive" aria-label="AI 模型" hidden></select>
+            <!-- 每秒格數選「自動」時：換了格數短暫說明（例如「自動調整：AI 還有餘裕，改成每秒 60 格」） -->
+            <span id="autoNote" role="status" hidden></span>
+            <!-- 光線太暗時提醒（js/analysis/light.js）：骨架容易不準，鏡頭每秒格數也會變少 -->
+            <span id="lightNote" role="status" hidden>光線太暗：骨架可能不準、畫面變卡，請開燈或面向光源</span>
+            <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
+            <div id="advice" aria-live="polite" hidden>
+                <div class="advice-card">
+                    <p><strong>速度建議</strong><span id="adviceText"></span></p>
+                    <div class="advice-actions">
+                        <button id="adviceYes" type="button"></button>
+                        <button id="adviceNo" type="button">不用了</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 動作示範（老師 10/12 回饋）：右上角的按鈕打開小視窗，先看標準姿勢再跟著做 -->
+        <button id="demoBtn" type="button" aria-expanded="false" aria-controls="demoPanel" title="選擇動作、看標準姿勢的示範"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span id="demoBtnText">選擇動作</span></button>
+        <section id="demoPanel" hidden aria-labelledby="demoTitle">
+            <div class="demo-head">
+                <h2 id="demoTitle">選擇動作</h2>
+                <button id="demoClose" type="button" aria-label="關閉示範">✕</button>
+            </div>
+            <div class="demo-tabs" role="group" aria-label="選擇動作"></div>
+            <p id="demoLock" class="demo-lock" hidden>錄製中不能換動作（錄下來的檔案用開始錄的動作分析），停止錄製後再換</p>
+            <svg id="demoArt" class="demo-art" viewBox="0 0 240 180" role="img"></svg>
+            <ul id="demoCues" class="demo-cues"></ul>
+        </section>
+        <!-- 數據面板：主要關節的原始數值，以及錄製、下載 -->
+        <div id="dataPanel" hidden>
+            <div class="panel-head">
+                <button id="recordBtn">● 開始錄製</button>
+                <!-- 按下錄製後先倒數，讓一個人錄的時候有時間走到定位（會記住選擇） -->
+                <select id="countdownSelect" aria-label="錄製前倒數" title="按下錄製後先倒數，有時間走到定位">
+                    <option value="0">不倒數</option>
+                    <option value="3">倒數 3 秒</option>
+                    <option value="5" selected>倒數 5 秒</option>
+                    <option value="10">倒數 10 秒</option>
+                </select>
+                <!-- 一次最多錄多久（老師 10/12 回饋：可以自己選；會記住選擇）。錄越久檔案越大，手機選 15、20 分鐘會提醒 -->
+                <select id="limitSelect" aria-label="一次最多錄多久" aria-describedby="limitNote" title="一次最多錄多久，錄滿會自動停止">
+                    <option value="5" selected>最多 5 分鐘</option>
+                    <option value="10">最多 10 分鐘</option>
+                    <option value="15">最多 15 分鐘</option>
+                    <option value="20">最多 20 分鐘</option>
+                </select>
+                <span id="limitNote"></span>
+                <span id="recordInfo"></span>
+                <button id="csvBtn" hidden>下載 CSV</button>
+                <button id="jsonBtn" hidden>下載 JSON</button>
+                <!-- 驗證實驗（js/analysis/validate.js）：擺好姿勢不動時按，記下現在的關節角度，之後到使用說明「驗證實驗」和量角器比對 -->
+                <button id="snapBtn" title="擺好姿勢不動時按：記下現在的關節角度，之後到使用說明「驗證實驗」和量角器比對">記下角度</button>
+                <span id="snapInfo" role="status"></span>
+                <!-- 收合表格：只留上面這一列（錄製、下載），畫面上的人不會被擋住 -->
+                <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="panelBody">收合表格</button>
+            </div>
+            <div class="panel-body" id="panelBody">
+                <!-- 表格顯示原始資料（AI 直接輸出，驗證實驗用）或平滑後的數字（和畫面上的骨架相同，比較不會跳） -->
+                <div class="panel-mode" role="group" aria-label="表格的數字">
+                    <button id="rawModeBtn" type="button" aria-pressed="true">原始</button>
+                    <button id="smoothModeBtn" type="button" aria-pressed="false">平滑後</button>
+                </div>
+                <!-- 動作判斷用的資訊：拍攝方向、面向等 -->
+                <p id="viewInfo" class="panel-info"></p>
+                <table>
+                    <thead><tr><th>關節</th><th>x</th><th>y</th><th>z</th><th>可信度</th></tr></thead>
+                    <tbody id="dataRows"></tbody>
+                </table>
+                <p class="panel-note"><span id="panelModeNote">原始資料（AI 直接輸出，未經平滑）。</span>x、y：在畫面中的位置，0～1，左上角為 0；z：相對深度，以髖部中心為 0，越小越靠近鏡頭；淡色：模型看不到、用猜的點。下載的檔案可以用<a id="replayLink" href="replay.html" target="_blank" rel="noopener">重播分析</a>畫出角度曲線</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 程式從 js/pages/main.js 開始，各功能分在 js/ 資料夾的不同檔案 -->
+    <script type="module" src="js/pages/main.js"></script>
+    <!-- 首頁示意圖的深蹲動畫（只在寬螢幕、看得到時才動） -->
+    <script type="module" src="js/pages/hero-art.js"></script>
+    <script type="module" src="js/pages/exercise-demos.js"></script>
+    <!-- 太舊的瀏覽器不支援上面的寫法，改顯示提示，不會只是按了沒反應 -->
+    <script nomodule>
+        document.getElementById('status').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
+        document.getElementById('startBtn').disabled = true;
+    </script>
+</body>
+</html>

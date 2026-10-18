@@ -1,0 +1,11 @@
+import { angleAt, computeAngles } from '/home/user/claude-workspace/js/analysis/angles.js';
+const r = (a,b,c) => Math.round(angleAt(a,b,c)*10)/10;
+const o = {x:0,y:0,z:0};
+console.log('直角 90 =', r({x:1,y:0,z:0}, o, {x:0,y:1,z:0}));
+console.log('伸直 180 =', r({x:-1,y:0,z:0}, o, {x:1,y:0,z:0}));
+console.log('3D 60 =', r({x:1,y:0,z:0}, o, {x:0.5,y:0,z:Math.sqrt(3)/2}));
+console.log('重疊點 null =', angleAt(o, o, {x:1,y:0,z:0}));
+const lm = Array.from({length:33}, () => ({x:0.5,y:0.5,z:0,visibility:0.9}));
+lm[27].visibility = 0.2;
+const a = computeAngles(lm.map((p,i)=>({x:i,y:i*i%7,z:0})), lm);
+console.log('左踝看不到時左膝 =', a.LEFT_KNEE, '右膝有值 =', a.RIGHT_KNEE !== null);

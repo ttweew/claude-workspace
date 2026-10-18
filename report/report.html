@@ -1,0 +1,359 @@
+<title>運動分析系統第二批次報告</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 版面：單欄的書面報告，像交給老師的紙本，最寬 860px；圖片可以比文字欄寬一點 */
+:root {
+  --bg: #F3F5F2;
+  --paper: #FFFFFF;
+  --ink: #142019;
+  --muted: #5B6B62;
+  --line: #DCE3DE;
+  --accent: #0E8A5F;
+  --accent-bg: #E1F3EA;
+  --warn: #A55A00;  --warn-bg: #FBEBD3;
+  --todo: #66746C;  --todo-bg: #E8ECE9;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1512; --paper: #151F1A; --ink: #E7EFEA; --muted: #9BB0A4; --line: #26352D;
+    --accent: #3DDBA0; --accent-bg: #123326;
+    --warn: #F2B35A; --warn-bg: #3A2A12;
+    --todo: #9AA8A0; --todo-bg: #222C27;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1512; --paper: #151F1A; --ink: #E7EFEA; --muted: #9BB0A4; --line: #26352D;
+  --accent: #3DDBA0; --accent-bg: #123326;
+  --warn: #F2B35A; --warn-bg: #3A2A12;
+  --todo: #9AA8A0; --todo-bg: #222C27;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.75;
+  padding-inline: 16px;
+}
+.doc {
+  max-width: 860px;
+  margin: 0 auto;
+  padding-block: 40px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+h1, h2, h3 { text-wrap: balance; line-height: 1.35; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 900; letter-spacing: 0.01em; }
+h2 { font-size: 24px; font-weight: 900; }
+h3 { font-size: 18px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.muted { color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 18px; }
+.sec-head { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+
+/* 封面 */
+header { display: flex; flex-direction: column; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 14px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+.lede { font-size: 18px; max-width: 65ch; }
+
+/* 重點數字 */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.figure { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.figure .num { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.3; }
+.figure .lbl { font-size: 14px; color: var(--muted); line-height: 1.5; }
+
+/* 表格 */
+.table-box { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.6; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; }
+td.k { font-weight: 700; white-space: nowrap; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.from { color: var(--muted); }
+.to { font-weight: 700; color: var(--accent); }
+
+.chip { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.chip.done { color: var(--accent); background: var(--accent-bg); }
+.chip.part { color: var(--warn); background: var(--warn-bg); }
+.chip.hold { color: var(--todo); background: var(--todo-bg); }
+
+/* 老師的題目 */
+.q { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.q-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.q-no { font-family: var(--font-mono); font-size: 15px; color: var(--accent); }
+.q-ask { color: var(--muted); font-size: 15px; }
+.q ul, .item ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+
+/* 改進項目 */
+.item { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
+.item + .item { border-top: 1px solid var(--line); padding-top: 22px; }
+.why { font-size: 15px; padding: 10px 14px; border-radius: 8px; background: var(--accent-bg); }
+.why b { color: var(--accent); }
+
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+figure img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000; }
+figcaption { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+
+ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 6px; }
+ol.steps li::marker { font-family: var(--font-mono); color: var(--accent); }
+.prs { columns: 2 320px; column-gap: 28px; font-size: 14px; line-height: 1.6; margin: 0; padding: 0; list-style: none; }
+.prs li { break-inside: avoid; padding: 3px 0; display: flex; gap: 8px; }
+.prs .no { font-family: var(--font-mono); color: var(--muted); min-width: 2.6em; }
+.prs .day { column-span: all; font-weight: 700; margin-top: 10px; color: var(--accent); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+
+<div class="doc">
+
+  <header>
+    <span class="eyebrow">專題進度報告 · 第二批次</span>
+    <h1>AI 智慧運動分析系統：第二批次進度報告</h1>
+    <div class="meta">
+      <span>期間 <b>2026/9/30 – 10/1</b></span>
+      <span>範圍 <b>PR #7 – #34，共 28 次更新</b></span>
+      <span>網站 <a href="https://ttweew.github.io/claude-workspace/">ttweew.github.io/claude-workspace</a></span>
+    </div>
+    <p class="lede">第一批次完成了網站與骨架偵測的雛形。第二批次依照老師提出的 6 個問題補齊功能，再針對手機實測的回饋，把偵測品質、穩定度和遠距離的可讀性做到可以實際使用的程度。</p>
+  </header>
+
+  <section aria-labelledby="sumTitle">
+    <div class="sec-head"><h2 id="sumTitle">重點摘要</h2></div>
+    <div class="figures">
+      <div class="figure"><span class="num">4 ／ 6</span><span class="lbl">老師的問題已完成（另 1 題完成一半、1 題暫緩）</span></div>
+      <div class="figure"><span class="num">−50%</span><span class="lbl">骨架點移動時的延遲（9.6 → 4.9 像素）</span></div>
+      <div class="figure"><span class="num">−86%</span><span class="lbl">鏡頭很近時，畫錯位置的點（鬼點）</span></div>
+      <div class="figure"><span class="num">13 種</span><span class="lbl">裝置尺寸的版面自動測試，全部通過</span></div>
+    </div>
+  </section>
+
+  <!-- 老師的 6 個問題 -->
+  <section aria-labelledby="qTitle">
+    <div class="sec-head">
+      <h2 id="qTitle">老師提出的 6 個問題</h2>
+      <p class="muted">依題號回答，附上目前網站的畫面。截圖來自自動化測試環境（模擬鏡頭、電腦 CPU 運算），畫面上的 FPS 不代表手機的實際速度。</p>
+    </div>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q1</span><h3>手機有沒有 GPU？</h3><span class="chip done">完成</span></div>
+      <ul>
+        <li>手機與筆電的處理器都內建 GPU。網站會先嘗試用 GPU 加速 AI 運算，不支援時自動改用 CPU。</li>
+        <li>畫面左上角顯示目前使用 GPU 或 CPU，以及每秒偵測次數（FPS）；點一下可以展開晶片名稱。</li>
+      </ul>
+      <figure><img src="img/q1.jpg" alt="鏡頭畫面左上角的運算標籤展開，顯示 CPU、15 FPS、螢幕保持亮著" loading="lazy"><figcaption>運算標籤展開後的內容。測試環境沒有實體 GPU，所以顯示 CPU；手機上會顯示 GPU 與晶片名稱。</figcaption></figure>
+    </article>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q2</span><h3>33 個關鍵點能不能重新編號？</h3><span class="chip done">完成</span></div>
+      <ul>
+        <li>編號是模型訓練時固定的（0 鼻子 … 25 左膝 … 32 右腳尖），改掉會和模型輸出對不上，所以保留原編號。</li>
+        <li>另外做了 33 點的中文名稱對照表，並用左右兩點算出模型沒有的「肩膀中心」「髖部中心」，兩點連線就是軀幹。</li>
+      </ul>
+    </article>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q3</span><h3>顯示編號、標出有問題的關節</h3><span class="chip part">前半完成</span></div>
+      <ul>
+        <li><b>已完成：</b>按「顯示編號」會在 12 個主要關節旁標出編號、名稱和角度；直接點畫面上任一點，可以查看它的編號與名稱。網站會記住開關狀態。</li>
+        <li><b>還沒做：</b>「把有問題的關節標成紅色」要先能判斷動作對錯，排在下一階段的深蹲判斷一起完成。</li>
+      </ul>
+      <figure><img src="img/q3.jpg" alt="開啟顯示編號後，主要關節旁標出編號、中文名稱和角度" loading="lazy"><figcaption>開啟「顯示編號」：編號、名稱、角度一起顯示；右側是站遠也看得到的大字儀表板。</figcaption></figure>
+    </article>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q4</span><h3>三種模型的比較</h3><span class="chip hold">暫緩</span></div>
+      <ul>
+        <li>組員討論後再決定是否進行。目前網站已經可以切換 lite 與 full 兩種官方模型（網址加 <code>?model=full</code>），之後要做比較時可以直接使用。</li>
+      </ul>
+    </article>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q5</span><h3>資料要怎麼保存？</h3><span class="chip done">完成</span></div>
+      <ul>
+        <li>可以錄製每一格的 33 點座標，下載成 <b>CSV</b>（234 欄，Excel 可直接開啟）或 <b>JSON</b>（之後上傳後端用）。</li>
+        <li>只存座標數字，不存影像；一格約 1.9 KB，最長錄 5 分鐘。欄位與座標意義寫在專案的 <code>docs/data-format.md</code>。</li>
+      </ul>
+    </article>
+
+    <article class="q">
+      <div class="q-head"><span class="q-no">Q6</span><h3>x、y、z 數據，以及怎麼驗證</h3><span class="chip part">功能完成，實驗待做</span></div>
+      <ul>
+        <li>「數據」面板即時顯示 12 個主要關節的 x、y、z 與可信度；模型用猜的點會顯示成淡色。</li>
+        <li>z 軸（深度）是模型從單張畫面推測的，實測誤差大（見下方「關節角度」），所以角度改用 x、y 兩軸計算。</li>
+        <li>驗證實驗已設計好 6 個（A～F），下一步由組員用量角器量出真實角度，和網站算出的角度比較。</li>
+      </ul>
+      <figure><img src="img/q56.jpg" alt="數據面板顯示各關節的 x、y、z 與可信度，上方正在錄製" loading="lazy"><figcaption>數據面板與錄製：錄製中會顯示秒數與格數，停止後可以下載 CSV 或 JSON。</figcaption></figure>
+    </article>
+  </section>
+
+  <!-- 主要改進 -->
+  <section aria-labelledby="impTitle">
+    <div class="sec-head">
+      <h2 id="impTitle">主要改進</h2>
+      <p class="muted">除了回答 6 個問題，也依照手機實測的回饋改善了下列項目。每一項都有改前、改後的比較。</p>
+    </div>
+
+    <div class="item">
+      <h3>1. 只畫真的看得到的點</h3>
+      <p>MediaPipe 一定會輸出 33 個點，畫面外的部位也會「猜」一個位置，手機靠近時會畫出不存在的手腳。實測發現，猜的點可信度約 0.5～0.6，真的看到的點幾乎都在 0.8 以上，因此設定門檻 0.65，並排除畫面外的點。</p>
+      <figure><img src="img/visible.jpg" alt="改前改後對照：只拍到頭時，改前畫出猜測的手臂點，改後只畫看得到的點" loading="lazy"><figcaption>模擬手機靠近鏡頭（當時的介面）。上排改前會畫出猜出來的手臂與腳；下排改後只畫看得到的部位。（PR #22）</figcaption></figure>
+    </div>
+
+    <div class="item">
+      <h3>2. 擋掉鬼點與鬼骨架</h3>
+      <p>手機實測仍偶爾出現亂跳的點。用 MediaPipe 官方測試照片做成 6 種連續畫面情境逐格比對後，發現兩種情況：鏡頭很近時腦補出手腳，以及人走出畫面後留下越縮越小的鬼骨架。這些點的可信度常高達 0.8～0.96，只看可信度擋不住，所以加了三道檢查：</p>
+      <ul>
+        <li><b>出現要穩定：</b>可信度連續 0.08 秒高於 0.75 才畫出來。</li>
+        <li><b>骨架鏈：</b>手腕要手肘也看得到才畫，腳踝要膝蓋也看得到才畫。</li>
+        <li><b>塌縮保護：</b>真人的身體大小不可能在 0.3 秒內縮小三成以上，發生時判定為鬼骨架。</li>
+      </ul>
+      <div class="table-box">
+        <table>
+          <thead><tr><th>模擬情境（各 240 格）</th><th>每格畫錯的點</th></tr></thead>
+          <tbody>
+            <tr><td>鏡頭很近，只拍到頭和胸</td><td class="n"><span class="from">1.64</span> → <span class="to">0.23（−86%）</span></td></tr>
+            <tr><td>人走出畫面再走回來</td><td class="n"><span class="from">4.87</span> → <span class="to">1.48（−70%）</span></td></tr>
+            <tr><td>正常全身、光線暗、沒有人</td><td class="n">本來就幾乎為 0，改後不受影響</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure><img src="img/ghost.jpg" alt="人走出畫面的連續截圖：改前畫面邊緣殘留鬼骨架，改後顯示未偵測到人體" loading="lazy"><figcaption>人慢慢走出畫面再走回來，每格間隔 0.5 秒。改前人已經離開，畫面邊緣還留著骨架；改後畫面乾淨。（PR #34）</figcaption></figure>
+      <p class="why"><b>代價：</b>身體部位剛進入畫面時，點會晚約 0.1 秒出現。錄製下載的資料不受影響，仍然是模型的原始輸出。</p>
+    </div>
+
+    <div class="item">
+      <h3>3. 點不抖動，也跟得上動作</h3>
+      <p>使用 One Euro Filter（姿勢追蹤、VR 常用的平滑方法）：靜止時強力平滑消除抖動，動作快時自動減少平滑，點才跟得上。第一版設定在筆電實測時有「停一下才跟上」的感覺，重新調整參數後，移動中的平均延遲從 9.6 像素降到 4.9 像素，靜止時的抖動仍比不平滑少約六成。（PR #23、#29）</p>
+    </div>
+
+    <div class="item">
+      <h3>4. 關節角度：改用 2D 計算</h3>
+      <p>膝蓋與髖部的角度一直顯示在關節旁。原本計劃用模型提供的 3D 公尺座標計算，但實測一張雙腿都在畫面平面上的照片，伸直的腿用 3D 算只有 152°，用 2D 畫面座標算是 174°。3D 的深度是模型從單張畫面推測的，誤差太大，因此改用 2D，並建議從側面拍攝。</p>
+      <figure><img src="img/angles.jpg" alt="關節角度顯示，以及同一張照片 2D 與 3D 計算結果的比較表" loading="lazy"><figcaption>上方：角度顯示方式（當時的介面）。下方表格：同一張照片，3D 座標算出的伸直的腿與伸直的手都偏差超過 20°。（PR #27）</figcaption></figure>
+    </div>
+
+    <div class="item">
+      <h3>5. 入鏡提示</h3>
+      <p>依照拍到的部位告訴使用者怎麼站：太近、看不到腳、離太遠、偏一邊，全身入鏡時變成綠色「已偵測到全身」。側面拍攝時遠側的身體會被擋住，所以任一側看得到就算。新的提示要持續 0.6 秒才會換上，文字不會一直跳。</p>
+      <figure><img src="img/framing.jpg" alt="六種站位情況各自顯示的入鏡提示" loading="lazy"><figcaption>六種情況的提示（當時的介面）：只有頭、頭到大腿、很遠、偏右邊、全身、沒有人。（PR #24）</figcaption></figure>
+    </div>
+
+    <div class="item">
+      <h3>6. 站遠也看得清楚：視覺重新設計與大字儀表板</h3>
+      <p>運動時人在 2～3 公尺外，關節旁的小字看不到。新增大字儀表板顯示膝蓋與髖部角度，入鏡提示改成畫面中央的大字橫幅，整體介面也重新設計。手機實測反映名稱的字仍看不清楚，再把名稱改為白色特粗大字（手機上從 16px 灰字變成約 25px），並合併成「左膝」「左髖」。</p>
+      <figure><img src="img/redesign.jpg" alt="首頁與鏡頭畫面的改前改後對照" loading="lazy"><figcaption>首頁、全身入鏡、太靠近三種畫面的改前改後。（PR #30）</figcaption></figure>
+      <figure><img src="img/hud.jpg" alt="手機上的大字儀表板改前改後，以及手機橫拿時的畫面" loading="lazy"><figcaption>手機實測回饋後的調整：名稱從灰色小字改成白色特粗大字。（PR #33）</figcaption></figure>
+    </div>
+
+    <div class="item">
+      <h3>7. 穩定運作</h3>
+      <ul>
+        <li><b>AI 載入：</b>原本只算模型下載量，iPhone 上會停在 96% 很久。改成合併計算全部檔案，分成「下載、啟動、最後準備」三個階段顯示。（PR #13、#20）</li>
+        <li><b>GPU 失效自動恢復：</b>手機切到背景或鎖定螢幕時，系統可能收回 GPU，原本骨架會消失、只能重新整理。現在約 1 秒內自動恢復。（PR #31）</li>
+        <li><b>網路不穩自動重試：</b>開網頁時網路斷一下，原本 AI 會永久無法使用；現在 2 秒、5 秒後自動重試，網路恢復時再試一次。（PR #32）</li>
+        <li><b>錄製省記憶體：</b>錄 5 分鐘的記憶體從 51 MB 降到 21 MB，匯出的檔案內容完全相同。（PR #31）</li>
+        <li><b>螢幕保持亮著：</b>運動時手機不會因為沒碰螢幕而變暗、鎖定。（PR #17）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 測試 -->
+  <section aria-labelledby="testTitle">
+    <div class="sec-head">
+      <h2 id="testTitle">測試方式與結果</h2>
+      <p class="muted">每次更新前都用自動化瀏覽器測試（模擬鏡頭與網路），再由組員用手機實測。</p>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>測試項目</th><th>內容</th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td class="k">版面</td><td>13 種裝置尺寸（iPhone SE 到 2K 螢幕、直式與橫式）</td><td>全部通過，無錯誤</td></tr>
+          <tr><td class="k">鏡頭情境</td><td>切換鏡頭、拒絕權限、鏡頭被佔用、中途拔除、重複開關等 12 種</td><td>12 ／ 12 通過</td></tr>
+          <tr><td class="k">壓力情境</td><td>快速連點、GPU 失效、斷網、錄製中出錯、手機轉向、人進出畫面等 15 種以上</td><td>發現的問題都已修正並重新測試通過</td></tr>
+          <tr><td class="k">長時間運行</td><td>連續偵測 2 分鐘，量記憶體與畫面元素數量</td><td>兩者都沒有增加，無記憶體洩漏</td></tr>
+          <tr><td class="k">效能分析</td><td>每一格的運算時間分配</td><td>AI 模型約 72%，網站自己的程式約 1.3%</td></tr>
+          <tr><td class="k">手機實測</td><td>組員與朋友使用 Android 手機，提出 5 項回饋</td><td>已處理；iPhone 尚待測試</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 限制與下一步 -->
+  <section aria-labelledby="nextTitle">
+    <div class="sec-head"><h2 id="nextTitle">目前的限制與下一步</h2></div>
+    <h3>目前的限制</h3>
+    <ul>
+      <li>角度準確度還沒有用實際量角器驗證；鬼點的數據來自模擬畫面，還需要更多手機實測確認。</li>
+      <li>只用一支鏡頭，深度（z 軸）不可靠，深蹲、弓箭步等動作需要從側面拍攝；被身體擋住的那一側不會用來計算。</li>
+      <li>目前只會「看」和「量」，還不會判斷動作對錯、計算次數。</li>
+    </ul>
+    <h3>下一步（依序進行，每完成一段先向老師報告）</h3>
+    <ol class="steps">
+      <li><b>驗證：</b>iPhone 實測；用量角器做角度準確度實驗（Q6）。</li>
+      <li><b>深蹲判斷：</b>次數計算、錯誤判斷、問題關節標紅（完成 Q3 後半）。</li>
+      <li><b>其他動作：</b>伏地挺身、弓箭步、棒式，套用同一套動作模板。</li>
+      <li><b>進階分析：</b>穩定度、平衡度、疲勞分析。</li>
+      <li><b>後端與歷史紀錄：</b>資料庫、成長曲線；AI 評分模型。</li>
+    </ol>
+  </section>
+
+  <!-- 附錄 -->
+  <section aria-labelledby="prTitle">
+    <div class="sec-head">
+      <h2 id="prTitle">附錄：第二批次更新清單</h2>
+      <p class="muted">每次更新都在 GitHub 上留有完整的修改內容與測試紀錄。</p>
+    </div>
+    <ul class="prs">
+      <li class="day">9 月 30 日</li>
+      <li><span class="no">#7</span>顯示運算方式、GPU 名稱與 FPS（Q1）</li>
+      <li><span class="no">#8</span>關鍵點名稱對照表與軀幹點（Q2）</li>
+      <li><span class="no">#9</span>顯示編號模式（Q3）</li>
+      <li><span class="no">#10</span>編號改為按鈕開關（Q3）</li>
+      <li><span class="no">#11</span>運算資訊改為精簡標籤（Q1）</li>
+      <li><span class="no">#12</span>手機版版面調整</li>
+      <li><span class="no">#13</span>AI 載入進度與提前暖機</li>
+      <li><span class="no">#14</span>程式拆分為多個檔案</li>
+      <li><span class="no">#15</span>全面檢查：鏡頭穩定性修正</li>
+      <li><span class="no">#16</span>編號標籤與點選查看任一點</li>
+      <li><span class="no">#17</span>運動時螢幕保持亮著</li>
+      <li><span class="no">#18</span>鏡頭解析度固定 640×480</li>
+      <li><span class="no">#19</span>運算標籤精簡</li>
+      <li class="day">10 月 1 日</li>
+      <li><span class="no">#20</span>AI 載入改成分階段進度條</li>
+      <li><span class="no">#21</span>載入秒數只在測試模式顯示</li>
+      <li><span class="no">#22</span>只畫看得到的關鍵點</li>
+      <li><span class="no">#23</span>點平滑、線條清晰、狀態上色</li>
+      <li><span class="no">#24</span>入鏡提示</li>
+      <li><span class="no">#25</span>數據面板、錄製匯出（Q5、Q6）</li>
+      <li><span class="no">#26</span>記住顯示編號的開關</li>
+      <li><span class="no">#27</span>關節角度顯示</li>
+      <li><span class="no">#28</span>全面審查：修正 12 個問題</li>
+      <li><span class="no">#29</span>降低延遲、臉部點加大</li>
+      <li><span class="no">#30</span>視覺重新設計與大字儀表板</li>
+      <li><span class="no">#31</span>GPU 失效自動恢復、錄製省記憶體</li>
+      <li><span class="no">#32</span>載入自動重試、鍵盤操作</li>
+      <li><span class="no">#33</span>儀表板名稱改為大字</li>
+      <li><span class="no">#34</span>擋掉鬼點與鬼骨架</li>
+    </ul>
+  </section>
+
+  <footer>AI 智慧運動分析系統 · 第二批次進度報告 · 2026 年 10 月 1 日</footer>
+</div>

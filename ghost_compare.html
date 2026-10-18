@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:16px;background:#fff;font-family:"Noto Sans CJK TC",sans-serif;width:1290px}
+h2{font-size:24px;margin:10px 0} .row{display:flex;gap:12px} figure{margin:0} img{width:200px;border:1px solid #ccc;display:block}
+figcaption{font-size:18px;font-weight:600;margin-bottom:4px}
+</style>
+<h2>改之前：所有 33 點都畫（模擬手機直拿、靠近鏡頭）</h2><div class="row" id="b"></div>
+<h2>改之後：只畫真的看得到的點</h2><div class="row" id="a"></div>
+<script>
+for (const [id,t] of [['b','before'],['a','after']]) for (const [n,c] of [['full','全身'],['chest','頭到大腿'],['head','只有頭']])
+ document.getElementById(id).insertAdjacentHTML('beforeend',`<figure><figcaption>${c}</figcaption><img src="ghost_${t}_${n}.png"></figure>`);
+</script>

@@ -1,0 +1,55 @@
+{
+  "v": 4,
+  "attachments": {},
+  "createdOnFiles": {
+    "at": "2026-09-29T15:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "faces": {
+    "jetbrains-mono": {
+      "family": "JetBrains Mono",
+      "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"
+    },
+    "noto-sans-tc": {
+      "family": "Noto Sans TC",
+      "href": "https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap"
+    }
+  },
+  "order": [
+    "cover",
+    "agenda",
+    "results",
+    "why-web",
+    "stages",
+    "features",
+    "flow",
+    "landmarks",
+    "code",
+    "design",
+    "log",
+    "issues",
+    "demo",
+    "next",
+    "qa"
+  ],
+  "sections": {
+    "s1": {
+      "description": "開場與今天的報告大綱",
+      "start": "cover"
+    },
+    "s2": {
+      "description": "本週完成了什麼、為什麼選網頁版、目前做到哪",
+      "start": "results"
+    },
+    "s3": {
+      "description": "系統如何運作：流程、33 個關鍵點、程式碼與設計考量",
+      "start": "flow"
+    },
+    "s4": {
+      "description": "開發紀錄、遇到的問題、現場展示與下一步",
+      "start": "log"
+    }
+  },
+  "title": "AI 智慧運動分析系統 進度報告"
+}

@@ -1,0 +1,10 @@
+驗證工具：記下角度和量角器比對；重播分析四個動作都能分析
+
+- 鏡頭畫面新增「記下角度」：擺好姿勢按一下，記下網站算的各關節角度（存在這台裝置，最多 200 筆）
+- 使用說明「驗證實驗」新增實驗 A：把量角器量的角度填進表格，自動算平均差、最大差、±5°／±10° 以內比例，可下載 CSV
+- 新增 js/analysis/tracker.js（WorkoutTracker）：計次、錯誤判斷、每一下記錄的錯誤，鏡頭畫面和重播分析共用同一套
+- 重播分析新增「動作分析」：深蹲、伏地挺身、棒式、弓箭步都能分析，預設用錄影時選的動作，表格多一欄「錯誤」
+- 文件：架構（tracker.js、validate.js）、路線圖第 32 項、README
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017YpoadNra8ikmLmsDZBFUi

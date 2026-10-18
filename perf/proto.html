@@ -1,0 +1,24 @@
+<!doctype html><meta charset=utf-8><video id=v autoplay playsinline muted></video>
+<script type=module>
+const P = new URLSearchParams(location.search);
+const v = document.getElementById('v');
+v.srcObject = await navigator.mediaDevices.getUserMedia({ video: true }); await v.play();
+const model = await (await fetch('https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task')).arrayBuffer();
+window.stats = { frames: 0, detectMs: 0, found: 0, start: 0 };
+if (P.get('mode') === 'worker') {
+  const w = new Worker('proto_worker.js');
+  await new Promise((res, rej) => { w.onmessage = e => e.data.type === 'ready' ? res() : rej(e.data.message); w.postMessage({ type: 'init', delegate: P.get('d') || 'CPU', model }, [model]); });
+  let busy = false;
+  w.onmessage = e => { busy = false; stats.frames++; stats.detectMs += e.data.ms; if (e.data.landmarks) stats.found++; };
+  const loop = async () => { if (!busy && v.readyState >= 2) { busy = true; const bm = await createImageBitmap(v); w.postMessage({ type: 'frame', bitmap: bm, ts: performance.now(), id: stats.frames }, [bm]); } v.requestVideoFrameCallback(loop); };
+  v.requestVideoFrameCallback(loop);
+} else {
+  const { FilesetResolver, PoseLandmarker } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs');
+  const fs = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm');
+  const d = P.get('d') || 'CPU';
+  const lm = await PoseLandmarker.createFromOptions(fs, { baseOptions: { modelAssetBuffer: new Uint8Array(model), delegate: d }, ...(d === 'GPU' ? { canvas: new OffscreenCanvas(1, 1) } : {}), runningMode: 'VIDEO', numPoses: 1 });
+  const loop = () => { const t0 = performance.now(); const r = lm.detectForVideo(v, performance.now()); stats.detectMs += performance.now() - t0; stats.frames++; if (r.landmarks[0]) stats.found++; v.requestVideoFrameCallback(loop); };
+  v.requestVideoFrameCallback(loop);
+}
+window.ready = true;
+</script>

@@ -1,0 +1,24 @@
+<section id="code" data-transition="fade" style="background:#15233F; color:#F5F6F2; font-family:'Noto Sans TC', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:40px">
+<div style="display:flex; flex-direction:column; gap:12px">
+<p style="font-size:24px; font-weight:700; color:#F39237; letter-spacing:2px">程式碼重點</p>
+<h2 style="font-size:64px; font-weight:700; line-height:1.15; color:#F5F6F2">核心只有一個迴圈：每個畫面偵測一次</h2>
+</div>
+<div style="display:flex; flex-direction:column; background:#0E1830; border:1px solid #2C3B5A; border-radius:16px; padding:40px; font-family:'JetBrains Mono', 'Courier New', monospace">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">function detectPose() {</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;const result = poseLandmarker.detectForVideo(video, performance.now());</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;if (result.landmarks.length &gt; 0) {</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;&#160;&#160;const landmarks = result.landmarks[0];&#160;&#160;<span style="color:#F39237">// 33 個關鍵點</span></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;&#160;&#160;drawingUtils.drawConnectors(landmarks, POSE_CONNECTIONS);&#160;&#160;<span style="color:#F39237">// 畫連線</span></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;&#160;&#160;drawingUtils.drawLandmarks(landmarks);&#160;&#160;<span style="color:#F39237">// 畫關鍵點</span></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;}</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">&#160;&#160;requestAnimationFrame(detectPose);&#160;&#160;<span style="color:#F39237">// 下一個畫面再做一次</span></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; line-height:1.55; color:#E6EAF0">}</p>
+</div>
+<div style="display:flex; gap:32px">
+<p style="flex:1; font-size:26px; color:#BFC8D6; line-height:1.5"><b>detectForVideo</b>：把目前畫面交給模型分析</p>
+<p style="flex:1; font-size:26px; color:#BFC8D6; line-height:1.5"><b>landmarks[0]</b>：畫面中第一個人的 33 個點</p>
+<p style="flex:1; font-size:26px; color:#BFC8D6; line-height:1.5"><b>requestAnimationFrame</b>：瀏覽器每次重畫時再呼叫</p>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#8793A6">簡化版；完整程式碼見 GitHub：ttweew/claude-workspace 的 index.html</p>
+<aside>這是核心程式的簡化版。detectForVideo 把目前這一格畫面交給 MediaPipe，回傳結果裡的 landmarks[0] 就是畫面中第一個人的 33 個關鍵點。接著用 MediaPipe 內建的工具畫出連線和點。最後 requestAnimationFrame 讓瀏覽器在下一次重畫時再呼叫這個函式，形成即時的迴圈。整個網頁是一個 index.html，純 HTML 加 JavaScript。</aside>
+</section>

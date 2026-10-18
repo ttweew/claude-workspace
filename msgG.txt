@@ -1,0 +1,11 @@
+動作相似度：每一下和示範動作比對（DTW），給 0～100 分
+
+- 新增 js/analysis/similarity.js：每一下的角度曲線重新取樣成 40 點，和示範動畫的標準曲線用動態時間校正（DTW）對齊，
+  平均每點差 1° 扣 2.5 分；對齊最多偏移 20%，做得慢、底部停久一點不扣分，蹲得淺不能靠拉長對齊混過去
+- RepCounter 記下每一下的角度曲線（從最近一次伸直開始），WorkoutTracker 算完相似度就把曲線丟掉
+- 每一下的提示多「· 相似 N%」；運動總結顯示平均相似度；重播分析表格多一欄「相似度」
+- 棒式是撐著不動，沒有相似度
+- 文件：常見問題、架構、路線圖第 33 項；tests/similarity.test.mjs
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017YpoadNra8ikmLmsDZBFUi

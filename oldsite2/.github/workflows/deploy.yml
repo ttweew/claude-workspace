@@ -1,0 +1,40 @@
+# 每次推送到 main 分支，就自動把網站發布到 GitHub Pages
+name: Deploy to GitHub Pages
+ 
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # 也可以在 Actions 頁面手動按「Run workflow」
+ 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+ 
+concurrency:
+  group: pages
+  cancel-in-progress: true
+ 
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # 在每個 CSS、JS 檔名後面加上這次的版本號（commit 編號前 8 碼），例如 js/main.js?v=1a2b3c4d
+      # 瀏覽器會把不同版本當成不同檔案，就不會發生「新版 main.js 配舊版 labels.js」而出錯
+      # 只改發布出去的檔案，不影響 GitHub 上的原始碼
+      - name: Add version to file links
+        run: |
+          v="${GITHUB_SHA::8}"
+          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html
+          sed -i "s#\(from '\./[A-Za-z-]*\.js\)'#\1?v=$v'#g" js/*.js
+          grep -c "?v=$v" index.html replay.html js/*.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;padding:16px;background:#fff;font-family:"Noto Sans CJK TC",sans-serif;width:1330px}
+h2{font-size:24px;margin:8px 0}.row{display:flex;gap:12px;flex-wrap:wrap}figure{margin:0}figcaption{font-size:18px;font-weight:600;margin-bottom:4px}
+img{width:210px;border:1px solid #ccc}
+</style><h2>入鏡提示：依照拍到的部位告訴使用者怎麼站（改之前一律顯示「已偵測到人體」）</h2><div class="row" id="r"></div>
+<script>for (const n of ['只有頭（太近）','頭到大腿','很遠','偏右邊','全身','沒有人'])
+document.getElementById('r').insertAdjacentHTML('beforeend',`<figure><figcaption>${n}</figcaption><img src="frame_${n}.png"></figure>`)</script>

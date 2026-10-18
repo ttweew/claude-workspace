@@ -1,0 +1,7 @@
+walk c0.5_full_VIDEO ms/frame 62.8 gt found True detected frames 240 / 240 []
+waistup c0.5_full_VIDEO ms/frame 61.9 gt found True detected frames 240 / 240 []
+panout c0.5_full_VIDEO ms/frame 87.6 gt found True detected frames 190 / 240 []
+empty c0.5_full_VIDEO ms/frame 30.1 gt found False detected frames 0 / 240 []
+dark c0.5_full_VIDEO ms/frame 64.4 gt found True detected frames 240 / 240 []
+close c0.5_full_VIDEO ms/frame 62.3 gt found True detected frames 240 / 240 []
+DONE

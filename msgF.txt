@@ -1,0 +1,12 @@
+個人校正：側身站直不動約 2 秒，門檻和前傾判斷依每個人調整
+
+- 新增 js/analysis/calibrate.js：深蹲、弓箭步開鏡頭後側身站直不動 1.5 秒自動校正
+  （膝蓋 ≥ 155°、上身和垂直線差 20° 以內、肩髖移動不到畫面 1.5%），不用按按鈕
+- 「站直」門檻降到「站直角度 − 10°」（最低 145°）：手機放高、往下拍時站直的膝蓋看起來只有 160° 左右，以前站起來了也不算
+- 判斷「上身太前傾」時扣掉站直時的傾斜：手機放歪時不會誤判
+- 校正好時短暫說明，運算標籤看得到數字；錄製檔記下 meta.calibration，重播分析沿用（結果和當時畫面上的一樣）
+- 每次開鏡頭、換動作重新校正
+- 文件：常見問題、架構、資料格式、路線圖第 34 項；tests/calibrate.test.mjs
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017YpoadNra8ikmLmsDZBFUi

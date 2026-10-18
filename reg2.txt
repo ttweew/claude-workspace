@@ -1,0 +1,168 @@
+=== t6
+[debug_mirror] mirrored=True pose: 已偵測到全身 | right after open: CPU · 28 FPS | after 4s: CPU · 29 FPS
+[debug_mirror] after close: 鏡頭已關閉 | errors: []
+[debug_rear] mirrored=False pose: 已偵測到全身 | right after open: CPU · 28 FPS | after 4s: CPU · 29 FPS
+[debug_rear] after close: 鏡頭已關閉 | errors: []
+[normal] mirrored=True pose: 已偵測到全身 | right after open: CPU · 28 FPS | after 4s: CPU · 29 FPS
+[normal] after close: 鏡頭已關閉 | errors: []
+=== t7
+[plain] start: btn=顯示編號
+[plain] after click: btn=隱藏編號
+[plain] after 2nd click: btn=顯示編號
+[plain] after close: 鏡頭已關閉 | errors: []
+[debug] start: btn=隱藏編號
+[debug] after click: btn=顯示編號
+[debug] after 2nd click: btn=隱藏編號
+[debug] after close: 鏡頭已關閉 | errors: []
+=== t8
+[cpu] collapsed: 'CPU · 31 FPS'  title: '瀏覽器回報的 GPU：ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'
+[cpu] expanded:  'CPU：測試模式（背景運算） · 30 FPS · 螢幕保持亮著'
+[cpu] collapsed again: 'CPU · 30 FPS'
+[cpu] after close: 鏡頭已關閉 | errors: []
+[phone] collapsed: 'GPU · 5 FPS'  title: '瀏覽器回報的 GPU：ANGLE (Intel, Intel(R) UHD Graphics (0x00004688) Direct3D11 vs_5_0 ps_5_0, D3D11)'
+[phone] expanded:  'GPU：Intel UHD Graphics（背景運算） · 5 FPS · 螢幕保持亮著'
+[phone] collapsed again: 'GPU · 5 FPS'
+[phone] after close: 鏡頭已關閉 | errors: []
+=== t9
+[before_phone] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_phone] toolbar height=[57] pose=已偵測到全身 errors=[]
+[before_small] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_small] toolbar height=[57] pose=已偵測到全身 errors=[]
+[before_laptop] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_laptop] toolbar height=[53] pose=已偵測到全身 errors=[]
+=== labels_test
+[laptop] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖121°', '24右髖94°', '25左膝175°', '26右膝101°', '27左踝', '28右�
+[phone] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖121°', '24右髖93°', '25左膝175°', '26右膝101°', '27左踝', '28右�
+[rear] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖122°', '24右髖94°', '25左膝175°', '26右膝101°', '27左踝', '28右踝
+=== data_test
+   CSV pose_20261003_013550.csv: 欄數=234 列數=93 每列欄數一致=True 左膝x/y/z/vis=['0.60616', '0.78446', '-0.15048', '0.995'] 公尺左膝=['0.3715', '0.2102', '-0.13']
+   JSON pose_20261003_013550.json: 格數=93 meta={'computeMode': 'CPU', 'videoWidth': 640, 'videoHeight': 480, 'displayMirrored': True} 點名數=33 第一格點數=33
+   JSON bytes/frame 1876.5473684210526 CSV bytes/frame 1745.3578947368421
+[laptop] 工具列 捲動寬/可見寬/高=[1280, 1280, 53] 錯誤=[]
+   面板列數=14 第一列='11 左肩 0.540 0.481 -0.102 1.00' 最後='髖部中心 0.493 0.687 0.000 1.00'
+   錄製中='錄製中 2.9 秒 · 89 格' 按鈕='隱藏數據 ●' 停止後='已錄 3.1 秒 · 95 格'
+   CSV pose_20261003_013557.csv: 欄數=234 列數=95 每列欄數一致=True 左膝x/y/z/vis=['0.60615', '0.78446', '-0.15049', '0.995'] 公尺左膝=['0.3698', '0.2104', '-0.1299']
+   JSON pose_20261003_013557.json: 格數=95 meta={'computeMode': 'CPU', 'videoWidth': 640, 'videoHeight': 480, 'displayMirrored': True} 點名數=33 第一格點數=33
+=== framing_test
+只有頭（太近）    → 太近了，請往後退，讓全身入鏡 [warn] 
+頭到大腿       → 看不到腳，請再往後退一點 [warn] 
+全身         → 已偵測到全身 [ok] 
+很遠         → 離太遠了，可以往前一點 [warn] 
+偏右邊        → 請站到畫面中間一點 [warn] 
+沒有人        → 未偵測到人體，請站進畫面 [warn] 
+=== audit_camera
+通過 | S5 拒絕相機權限 | 狀態「無法使用相機：相機權限被拒絕。請在瀏覽器的網站設定中允許相機，再重新整理頁面；若是在 LINE、Instagram 等 App 裡開
+通過 | S6 裝置沒有鏡頭 | 狀態「找不到鏡頭：請確認裝置有鏡頭，或外接鏡頭已經接好」
+通過 | S7 鏡頭被其他程式佔用 | 狀態「鏡頭無法使用：可能正被其他程式（例如視訊會議）使用中，請關閉後再試」
+通過 | S8 重複開關 5 次 | 每次關閉後使用中鏡頭數 [0, 0, 0, 0, 0] 錯誤[]
+通過 | S9 全螢幕中關閉鏡頭 | 進入全螢幕 True，關閉後仍全螢幕 False 錯誤[]
+通過 | S10 模型未就緒先開鏡頭 | 模型未好時畫面開啟 True、狀態「AI 準備中：下載 AI 檔案…」→ 之後「已偵測到全身」 錯誤[]
+通過 | S11 模型載入失敗仍可開鏡頭 | 首頁「AI 載入失敗，2 秒後自動重試…」，鏡頭畫面開啟 True
+共 12 項，通過 12 項
+=== flash
+開鏡頭： [(56, ' | 等待鏡頭畫面…'), (182, ' | 偵測中…'), (245, ' | 已偵測到全身')]
+人走進來： [(26, '[橫幅]未偵測到人體，請站進畫面 | '), (81, ' | 偵測中…'), (161, ' | 已偵測到全身')]
+errors []
+=== r1
+S1 三連點開啟：使用中鏡頭 1 ['已偵測到全身', '', 'CPU · 30 FPS'] [] ['warning: W1003 01:37:21.347000 2196592 gl_context.cc:1119] OpenGL error 
+S2 重新啟動中關鏡頭：首頁 鏡頭已關閉 | 使用中鏡頭 0
+S2 再開： ['已偵測到全身', '', 'GPU · 4 FPS'] [] ['warning: W1003 01:37:25.672999 2196592 gl_context.cc:1119] OpenGL error checking is disabled', 'war
+S3 錄製中 GPU 失效： 錄製中 6.8 秒 · 30 格 → 已錄 6.8 秒 · 30 格 | 狀態 ['已偵測到全身', '', 'GPU · 4 FPS'] | CSV 鈕 True [] ['warn
+S4 切背景回來：影像暫停? False ['已偵測到全身', '', 'CPU · 29 FPS'] [] ['warning: W1003 01:37:54.865999 2196592 gl_context.cc:1119] OpenGL erro
+S6 人進出畫面： [('未偵測到人體，請站進畫面', True, 0), ('已偵測到全身', False, 4), ('未偵測到人體，請站進畫面', True, 0), (
+S9 點畫面時沒人/點完人離開： ['176°', '102°', '120°', '94°', '肩膀中心'] [] ['warning: W1003 01:38:13.422000 2196592 gl_context.cc:1119] Ope
+S10 鍵盤：開啟後 True | Tab 順序 ['labelBtn', 'dataBtn', 'fullscreenBtn', 'perfBtn', 'BODY', 'stopBtn', 'labelBtn', 'dataBtn'] | 焦點框 solid []
+=== robust
+PASS GPU 被收回 → 自動恢復 | 前 GPU · 4 FPS → 後 GPU · 4 FPS 狀態 已偵測到全身 背景執行緒數 1 過程 ['偵測中…', '已偵測到
+PASS 連續壞掉 → 提示 → 重開鏡頭恢復 | 中間 'AI 無法使用，請關閉鏡頭重開，或重新整理頁面' → 重開後 已偵測到全身 
+PASS 背景執行緒自己停掉 → 約 5 秒後發現並重建 | 5.0 秒發現 → 已偵測到全身 背景執行緒數 1 errors []
+PASS 背景執行緒卡死 → 主畫面照常、約 5 秒後重建 | 0.0 秒發現，卡住時主畫面反應 0 ms → 已偵測到全身 背景執行緒數 1 
+PASS AI 引擎下載沒回應 → 重試成功 | 20 秒 AI 模型已就緒（載入 1.7 秒） | 卡住的：['vision_wasm_internal.wasm'] | 背景執行緒數 
+PASS jsDelivr 的 MediaPipe 程式沒回應 → 重試成功 | 20 秒 AI 模型已就緒（載入 1.8 秒） | 卡住的：['vision_bundle.js'] | 背景執行�
+PASS AI 引擎啟動程式沒回應 → 重試成功 | 20 秒 AI 模型已就緒（載入 1.6 秒） | 卡住的：['vision_wasm_internal.js'] | 背景執行緒
+=== fallback
+PASS 背景不能用 GPU → 主畫面 GPU | GPU：Adreno 740 · 4 FPS · 螢幕保持亮著 | 已偵測到全身 | 背景執行緒 0 | errors []
+PASS 背景執行緒檔案載入失敗 → 主畫面 | GPU：Adreno 740 · 4 FPS · 螢幕保持亮著 | 已偵測到全身 | 背景執行緒 0 | errors []
+PASS 背景建立 GPU 失敗 → 背景 CPU | CPU：此裝置無法使用 GPU（背景運算） · 29 FPS · 螢幕保持亮著 | 已偵測到全身 | 背景執
+PASS 瀏覽器不支援 Worker → 主畫面 | GPU：Adreno 740 · 5 FPS · 螢幕保持亮著 | 已偵測到全身 | 背景執行緒 0 | errors []
+=== fixes
+PASS 下載全部失敗後不留下背景執行緒、失敗訊息不被蓋掉 | 背景執行緒數 0（重試 3 次）| AI 模型載入失敗，請檢查網路�
+PASS 偵測一直出錯 → 自動重新啟動（main） | 重新啟動 True | 最後 已偵測到全身 | 過程 ['已偵測到全身', 'AI 重新啟動中…'
+PASS 偵測一直出錯 → 自動重新啟動（worker） | 重新啟動 True | 最後 已偵測到全身 | 過程 ['已偵測到全身', 'AI 重新啟動中�
+PASS 重播背景當掉（analyze）→ 自動改在主畫面算完 | 第一次：已讀取「合成示範_側面深蹲.json」，共 436 格 | 第二次：已�
+PASS 重播背景當掉（load）→ 自動改在主畫面算完 | 第一次：已讀取「合成示範_側面深蹲.json」，共 436 格 | 第二次：已讀�
+=== stall
+PASS [normal] perf='CPU · FPS 計算中' 2.0s final='AI 模型已就緒（載入 1.9 秒）' retried=False fetchRestore
+PASS [model] perf='CPU · FPS 計算中' 20.6s final='AI 模型已就緒（載入 1.5 秒）' retried=True fetchRestored
+PASS [engine] perf='CPU · FPS 計算中' 20.6s final='AI 模型已就緒（載入 1.6 秒）' retried=True fetchRestore
+PASS [import] perf='CPU · FPS 計算中' 21.4s final='AI 模型已就緒（載入 21.3 秒）' retried=False fetchResto
+PASS [loader] perf='CPU · FPS 計算中' 19.7s final='AI 模型已就緒（載入 1.6 秒）' retried=True fetchRestore
+PASS [slow] perf='CPU · FPS 計算中' 33.0s final='AI 模型已就緒（載入 33.0 秒）' retried=False fetchRestore
+PASS [hidden] perf='CPU · FPS 計算中' 25.7s final='AI 模型已就緒（載入 25.6 秒）' retried=False fetchResto
+PASS [gpu_model] perf='GPU · FPS 計算中' 23.5s final='AI 模型已就緒（載入 4.4 秒）' retried=True fetchRest
+PASS [gpu_engine] perf='GPU · FPS 計算中' 23.4s final='AI 模型已就緒（載入 4.3 秒）' retried=True fetchRes
+PASS [gpu_normal] perf='GPU · FPS 計算中' 4.6s final='AI 模型已就緒（載入 4.5 秒）' retried=False fetchRes
+PASS [twice] perf='CPU · FPS 計算中' 42.8s final='AI 模型已就緒（載入 1.7 秒）' retried=True fetchRestored
+=== squat
+[side_lab_390] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 85° 蹲到位 [good]', '第 3 下
+[side_lab_1280] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 85° 蹲到位 [good]', '第 3 �
+[front_lab_390] reps=0 toasts=[] banners=['請側身對著鏡頭，正面拍膝蓋角度不準', '未偵測到人體，�
+[side_nolab_390] reps=(hidden box) toasts=[] banners=['未偵測到人體，請站進畫面'] hud(left,right,vw)=[0, 0, 
+[side_lab_320] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 85° 蹲到位 [good]', '第 3 下
+=== replay
+[laptop] status='已讀取「合成示範_側面深蹲.json」，共 436 格'
+  hscroll=False aspectRow(JSON)=False errors=[]
+[phone] status='已讀取「合成示範_側面深蹲.json」，共 436 格'
+  hscroll=False aspectRow(JSON)=False errors=[]
+[real] JSON summary=長度 | 3.0 秒 · 91 格 | 每秒格數 | 30.0 格 | 偵測到人 | 100% 的格子 | 拍攝方向 | 側面 0% · 斜側 0% · �
+  bad='讀取失敗：這不是本網站「數據」面板下載的 JSON 或 CSV 檔' bad2='讀取失敗：這不是本網站「數據」面板下載�
+[lab_1280] squatCard=True summary='共 5 下：蹲到位 2、再低一點 2、太淺 1' rows=['1\t1.9～3.4 秒\t93°\t97°\t再低一點', '2\t4.2～
+[lab_390] squatCard=True summary='共 5 下：蹲到位 2、再低一點 2、太淺 1' rows=['1\t1.9～3.4 秒\t93°\t97°\t再低一點', '2\t4.2～5
+[nolab_1280] squatCard=False summary='(hidden)' rows=[] readout-after-row3-click='0.10 秒（第 3 格） · 側面（比值 0.08）' scrollWidth=1280
+=== chaos
+seed 1 | 問題 0 [] | 操作失敗 ["92:open 操作失敗 Page.click: Timeout 2
+seed 2 | 問題 0 [] | 操作失敗 ["63:open 操作失敗 Page.click: Timeout 2
+=== 新測試
+PASS 存的 AI 檔案壞掉 → 自動重新下載恢復 | 8.0s AI 模型已就緒（載入 1.7 秒） | 重新下載模型 1 次 | 偵測 已偵測到全身 | 
+PASS 重新啟動時網路卡住 → 30 秒後提示 → 重開鏡頭恢復 | 30.1 秒後提示，當時背景執行緒 0 | 卡住的 ['vision_bundle.js', 'visi
+PASS 關螢幕時 AI 暫停 → 回來不重建 | 過程 ['已偵測到全身'] | 同一個背景執行緒 True | errors []
+PASS 背景時真的卡死 → 回到前景約 5 秒後重建 | 回到前景後 5.1 秒發現 | 已偵測到全身 | errors []
+ALL SAME
+全部相同
+時間缺漏         → 錯誤：第 11 格的時間不正確，檔案可能被修改或損壞
+時間是字串        → 錯誤：第 11 格的時間不正確，檔案可能被修改或損壞
+點少一個         → 錯誤：第 11 格的點資料不完整（應該有 33 點），檔案可能被修改或損壞
+點不是陣列        → 錯誤：第 11 格的點資料不完整（應該有 33 點），檔案可能被修改或損壞
+某點是 null     → 讀取成功 格數 120 有人 120 第 50 格之後算不出的角度 0/270
+frames 裡有 null → 錯誤：第 11 格資料損壞，檔案可能被修改或不完整
+座標是字串        → 讀取成功 格數 120 有人 120 第 50 格之後算不出的角度 0/270
+切在 113575 → 讀到 100 格
+切在 113276 → 讀到 99 格
+切在 56788 → 讀到 48 格
+中間一列被截斷 → 第 40 格的欄位數量不對，檔案可能被修改或損壞
+種子 7 格數 16000 問題 0 []
+種子 11 格數 16000 問題 0 []
+種子 23 格數 16000 問題 0 []
+(背景) 時間壞掉.json → 讀取失敗：第 11 格的時間不正確，檔案可能被修改或損壞 | 結果區 
+(背景) 點不夠.json → 讀取失敗：第 21 格的點資料不完整（應該有 33 點），檔案可能被修改
+(背景) 格子是空的.json → 讀取失敗：第 6 格資料損壞，檔案可能被修改或不完整 | 結果區 h
+(背景) 某點空的.json → 已讀取「某點空的.json」，共 300 格 | 結果區 顯示
+(背景) 好的.json → 已讀取「好的.json」，共 300 格 | 結果區 顯示
+errors []
+?worker=0 時間壞掉.json → 讀取失敗：第 11 格的時間不正確，檔案可能被修改或損壞 | 結果區
+?worker=0 點不夠.json → 讀取失敗：第 21 格的點資料不完整（應該有 33 點），檔案可能被修�
+?worker=0 格子是空的.json → 讀取失敗：第 6 格資料損壞，檔案可能被修改或不完整 | 結果區 
+?worker=0 某點空的.json → 已讀取「某點空的.json」，共 300 格 | 結果區 顯示
+?worker=0 好的.json → 已讀取「好的.json」，共 300 格 | 結果區 顯示
+errors []
+old {'total': 1993, 'worstFreeze': 1993}
+new {'total': 2042, 'worstFreeze': 158}
+PASS 第 1 次：正常下載 | 2.1s 下載 ['model.task', 'vision_bundle.js', 'vision_wasm_internal.js', 'vision_wasm_internal.wasm'] | 由
+PASS 第 2 次：由 SW 處理並存進手機 | 0.9s 下載 ['model.task', 'vision_bundle.js'] | 由 SW 處理 True
+PASS 第 3 次：AI 檔案零下載 | 0.6s 下載 [] | AI 模型已就緒（載入 0.5 秒）
+PASS 斷網：網頁、AI 都能用，偵測得到人 | 0.6s AI 模型已就緒（載入 0.5 秒） | 已偵測到全身 | 背景執行緒 1
+PASS 網站更新後有網路：拿到新版 | © 2026 AI 智慧運動分析系統 · 專題作品（新版） · 錄製資料重播分析
+PASS 斷網：重播頁也能用（之前打開過） | 已讀取「合成示範_側面深蹲.json」，共 436 格
+PASS ?sw=0：移除 SW 與存起來的檔案 | 註冊 0 存檔 []
+errors []
+ALLDONE

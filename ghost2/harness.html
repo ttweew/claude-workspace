@@ -1,0 +1,62 @@
+<!doctype html><meta charset="utf-8"><body><canvas id="c" width="480" height="640"></canvas>
+<script type="module">
+const P = new URLSearchParams(location.search);
+const conf = parseFloat(P.get('conf') || '0.5'); const MODEL = P.get('model') || 'lite'; const MODE = P.get('mode') || 'VIDEO'; const SEG = P.has('seg');
+const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+const vision = await import(CDN + '/vision_bundle.mjs');
+const fileset = await vision.FilesetResolver.forVisionTasks(CDN + '/wasm');
+const model = '/pose_landmarker_' + MODEL + '.task';
+const mk = (mode, mdl = model) => vision.PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: mdl, delegate: 'CPU' }, runningMode: mode, numPoses: 1, outputSegmentationMasks: SEG && mode !== 'IMAGE',
+  minPoseDetectionConfidence: conf, minPosePresenceConfidence: conf, minTrackingConfidence: conf });
+const load = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = src; });
+const c = document.getElementById('c'), g = c.getContext('2d', { willReadFrequently: true });
+// 雜訊：預先做 6 張
+const noises = [];
+for (let k = 0; k < 6; k++) { const n = document.createElement('canvas'); n.width = 480; n.height = 640; const ng = n.getContext('2d'); const d = ng.createImageData(480, 640);
+  let s = 1234 + k * 999; const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  for (let i = 0; i < d.data.length; i += 4) { const v = rnd() * 255; d.data[i] = d.data[i+1] = d.data[i+2] = v; d.data[i+3] = 255; } ng.putImageData(d, 0, 0); noises.push(n); }
+let seed = 42; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+// 場景：回傳每一格的 { sx, sy, sw, sh, bright, noise, blur }（sw:sh 固定 3:4）
+const lerp = (a, b, t) => a + (b - a) * t;
+const wave = (i, period) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / period);
+const SC = {
+  walk: { img: 'male_full_height_hands.jpg', f: (i, W, H) => { const t = wave(i, 240); const sh = lerp(H, H * 0.28, t); const sw = sh * 0.75; return { sx: W / 2 - sw / 2 + (rand() - .5) * 8, sy: lerp(0, H * 0.02, t) + (rand() - .5) * 8, sw, sh, bright: 1, noise: 0.06 }; } },
+  waistup: { img: 'business-person.png', f: (i, W, H) => { const sh = H * 0.9, sw = sh * 0.75; return { sx: (W - sw) / 2 + Math.sin(i / 7) * 12 + (rand() - .5) * 10, sy: H * 0.05 + Math.cos(i / 9) * 10, sw, sh, bright: 1 + Math.sin(i / 5) * 0.15, noise: 0.08 }; } },
+  panout: { img: 'portrait.jpg', f: (i, W, H) => { const t = wave(i, 240); const sh = H, sw = sh * 0.75; return { sx: lerp((W - sw) / 2, W * 0.75, t), sy: 0, sw, sh, bright: 1, noise: 0.05 }; } },
+  empty: { img: 'living_room.jpg', f: (i, W, H) => { const sh = H, sw = sh * 0.75; return { sx: (W - sw) / 2 + Math.sin(i / 11) * 30 + (rand() - .5) * 6, sy: 0, sw, sh, bright: 0.9, noise: 0.08 }; } },
+  dark: { img: 'male_full_height_hands.jpg', f: (i, W, H) => { const sh = H, sw = sh * 0.75; return { sx: (W - sw) / 2 + (rand() - .5) * 6, sy: (rand() - .5) * 6, sw, sh, bright: 0.32, noise: 0.14 }; } },
+  close: { img: 'pose.jpg', f: (i, W, H) => { const t = wave(i, 240); const sh = lerp(160, 360, t), sw = sh * 0.75; return { sx: 490 - sw / 2 + (rand() - .5) * 6, sy: 210 + (rand() - .5) * 6, sw, sh, bright: 1, noise: 0.06 }; } },
+};
+window.run = async (name, frames) => {
+  const sc = SC[name]; const im = await load(sc.img); const W = im.naturalWidth, H = im.naturalHeight;
+  // 正確答案：乾淨的整張圖用 IMAGE 模式偵測一次
+  const gtLm = await mk('IMAGE', '/pose_landmarker_heavy.task'); const gtr = gtLm.detect(im); gtLm.close();
+  const gt = gtr.landmarks[0] ? gtr.landmarks[0].map(p => [p.x * W, p.y * H, p.visibility]) : null;
+  const lm = await mk(MODE); seed = 42; let spent = 0, segSpent = 0, maskSize = '';
+  const out = [];
+  for (let i = 0; i < frames; i++) {
+    const r = sc.f(i, W, H);
+    g.filter = `brightness(${r.bright})`; g.fillStyle = '#777'; g.fillRect(0, 0, 480, 640);
+    g.drawImage(im, r.sx, r.sy, r.sw, r.sh, 0, 0, 480, 640); g.filter = 'none';
+    g.globalAlpha = r.noise; g.globalCompositeOperation = 'overlay'; g.drawImage(noises[i % 6], 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    const t0 = performance.now(); const res = MODE === 'IMAGE' ? lm.detect(c) : lm.detectForVideo(c, i * 33.333 + 1); spent += performance.now() - t0;
+    let pts = res.landmarks[0] ? res.landmarks[0].map(p => [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4), +p.visibility.toFixed(3)]) : null;
+    if (SEG && res.segmentationMasks && res.segmentationMasks[0]) {
+      const t1 = performance.now();
+      const m = res.segmentationMasks[0]; const mw = m.width, mh = m.height; const a = m.getAsFloat32Array();
+      if (pts) pts = pts.map(p => { const cx = Math.round(p[0] * mw), cy = Math.round(p[1] * mh); let best = 0; const R = Math.round(mh * 0.03);
+        for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const x = cx + dx, y = cy + dy; if (x >= 0 && y >= 0 && x < mw && y < mh) best = Math.max(best, a[y * mw + x]); }
+        return [...p, +best.toFixed(2)]; });
+      for (const mm of res.segmentationMasks) mm.close();
+      segSpent += performance.now() - t1; maskSize = mw + 'x' + mh;
+    }
+    // 這一格裡每個點的正確位置（0～1，以這一格畫面為準）
+    const truth = gt ? gt.map(([x, y, v]) => [+((x - r.sx) / r.sw).toFixed(4), +((y - r.sy) / r.sh).toFixed(4), v]) : null;
+    out.push({ t: i * 33.333, pts, truth });
+    if (i % 60 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  lm.close();
+  return { name, gtFound: !!gt, msPerFrame: spent / frames, segMs: segSpent / frames, maskSize, frames: out };
+};
+window.ready = true;
+</script>

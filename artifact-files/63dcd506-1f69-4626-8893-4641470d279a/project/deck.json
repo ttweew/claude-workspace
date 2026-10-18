@@ -1,0 +1,122 @@
+{
+  "v": 4,
+  "attachments": {},
+  "createdOnFiles": {
+    "at": "2026-10-01T15:47:12Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "faces": {
+    "chakra-petch": {
+      "family": "Chakra Petch",
+      "href": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap"
+    },
+    "jetbrains-mono": {
+      "family": "JetBrains Mono",
+      "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap"
+    },
+    "noto-sans-tc": {
+      "family": "Noto Sans TC",
+      "href": "https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap"
+    }
+  },
+  "lists": "css",
+  "order": [
+    "cover",
+    "agenda",
+    "questions",
+    "q1",
+    "q2",
+    "q5",
+    "q3",
+    "q6",
+    "q4",
+    "numbers",
+    "real-what",
+    "real-data",
+    "real-fixes",
+    "real-change",
+    "real-open",
+    "mobile-found",
+    "readable",
+    "mobile-speed",
+    "limits",
+    "roadmap",
+    "end",
+    "appendix",
+    "layers",
+    "pipeline",
+    "principles",
+    "stack",
+    "workflow",
+    "deploy",
+    "testenv",
+    "growth",
+    "timeline",
+    "phase2",
+    "phase3",
+    "phase4",
+    "phase6",
+    "phase7",
+    "phase9",
+    "phase10",
+    "filemap",
+    "frame",
+    "code-angle",
+    "code-smooth",
+    "code-visible",
+    "code-ghost",
+    "code-framing",
+    "code-load",
+    "code-data",
+    "params",
+    "urlparams",
+    "ghost",
+    "angle",
+    "stable",
+    "tests"
+  ],
+  "sections": {
+    "s1": {
+      "description": "開場與目錄：先報告，再附詳細資料",
+      "start": "cover"
+    },
+    "s10": {
+      "description": "詳細資料：技術突破與測試",
+      "start": "ghost"
+    },
+    "s2": {
+      "description": "老師上次的 6 個問題：一題一頁，先講完成的",
+      "start": "questions"
+    },
+    "s3": {
+      "description": "成果與真人實測：4 種裝置、7 段錄影",
+      "start": "numbers"
+    },
+    "s4": {
+      "description": "手機與各種裝置：發現的問題與修正",
+      "start": "mobile-found"
+    },
+    "s5": {
+      "description": "限制與下一步",
+      "start": "limits"
+    },
+    "s6": {
+      "description": "詳細資料：系統與設計邏輯",
+      "start": "appendix"
+    },
+    "s7": {
+      "description": "詳細資料：開發環境與工作方式",
+      "start": "stack"
+    },
+    "s8": {
+      "description": "詳細資料：更新歷程（54 次更新）",
+      "start": "growth"
+    },
+    "s9": {
+      "description": "詳細資料：程式碼介紹",
+      "start": "filemap"
+    }
+  },
+  "title": "運動分析系統進度簡報"
+}

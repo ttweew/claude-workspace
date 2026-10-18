@@ -1,0 +1,6 @@
+walk c0.5 ms/frame 41.8 seg ms 0  gt found True detected frames 240 / 240 []
+waistup c0.5 ms/frame 40.3 seg ms 0  gt found True detected frames 240 / 240 []
+panout c0.5 ms/frame 39.8 seg ms 0  gt found True detected frames 219 / 240 []
+empty c0.5 ms/frame 31.1 seg ms 0  gt found False detected frames 0 / 240 []
+dark c0.5 ms/frame 42.5 seg ms 0  gt found True detected frames 240 / 240 []
+close c0.5 ms/frame 40.3 seg ms 0  gt found True detected frames 240 / 240 []

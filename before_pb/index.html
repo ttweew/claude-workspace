@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
+    <title>AI 智慧運動分析系統</title>
+    <!-- 目前沒有網站圖示；宣告空白圖示，瀏覽器就不會去找 favicon.ico 而產生錯誤 -->
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>AI 智慧運動分析系統</h1>
+        <p class="intro">用一支鏡頭，即時看見你的運動姿勢</p>
+    </header>
+
+    <main>
+        <button id="startBtn">開啟鏡頭</button>
+        <p id="status">尚未開啟鏡頭</p>
+        <p id="modelStatus">AI 模型準備中…</p>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 AI 智慧運動分析系統</p>
+    </footer>
+
+    <div id="stage" hidden>
+        <!-- playsinline 讓 iPhone 不會自動全螢幕，muted 讓瀏覽器允許自動播放 -->
+        <video id="video" autoplay playsinline muted></video>
+        <!-- 骨架畫在這張透明畫布上，疊在影像上方 -->
+        <canvas id="overlay"></canvas>
+        <!-- 關鍵點的編號標籤（網頁文字，比畫在畫布上清楚） -->
+        <div id="labels"></div>
+        <div id="toolbar">
+            <button id="stopBtn">關閉鏡頭</button>
+            <!-- 有兩顆以上鏡頭時才顯示 -->
+            <select id="cameraSelect" aria-label="選擇鏡頭" title="選擇鏡頭" hidden></select>
+            <button id="labelBtn" title="也可以直接點畫面上的點，查看它的編號與名稱">顯示編號</button>
+            <button id="fullscreenBtn">全螢幕</button>
+        </div>
+        <div id="infobar">
+            <span id="poseStatus">AI 模型準備中…</span>
+            <button id="perfBtn" hidden title="點一下顯示或收合詳細資訊"></button>
+        </div>
+    </div>
+
+    <!-- 程式從 js/main.js 開始，各功能分在 js/ 資料夾的不同檔案 -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

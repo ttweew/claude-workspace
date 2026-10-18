@@ -1,0 +1,91 @@
+<section id="cover" data-transition="fade" style="background:radial-gradient(circle at 72% 45%, #10233A 0%, #070C16 62%);color:#E8F0F7;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<x-embed style="position:absolute;left:968px;top:96px;width:824px;height:856px"><!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:transparent;overflow:hidden">
+<canvas id="c"></canvas>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d');
+let W=0,H=0;
+function fit(){const D=window.devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';g.setTransform(D,0,0,D,0,0);}
+fit();addEventListener('resize',fit);
+const M='#2EE6A6',C='#4CC3FF',R='#FF5A5F',F='"Segoe UI","PingFang TC","Microsoft JhengHei","Noto Sans TC",Arial,sans-serif',MONO='Consolas,"SFMono-Regular",Menlo,monospace';
+const lerp=(a,b,t)=>a+(b-a)*t;
+function ang(a,b,d){const u=[a[0]-b[0],a[1]-b[1]],v=[d[0]-b[0],d[1]-b[1]];const k=(u[0]*v[0]+u[1]*v[1])/(Math.hypot(u[0],u[1])*Math.hypot(v[0],v[1]));return Math.acos(Math.max(-1,Math.min(1,k)))*180/Math.PI;}
+let reps=0,down=false;const t0=performance.now();
+function line(a,b,w,col){g.strokeStyle=col;g.lineWidth=w;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}
+function dot(p,r,col){g.fillStyle=col;g.beginPath();g.arc(p[0],p[1],r,0,Math.PI*2);g.fill();}
+function corner(x,y,dx,dy,len){g.beginPath();g.moveTo(x+dx*len,y);g.lineTo(x,y);g.lineTo(x,y+dy*len);g.stroke();}
+function frame(now){
+ const s=Math.min(W/824,H/856),t=(now-t0)/1000,p=(1-Math.cos(t*2*Math.PI/3.4))/2;
+ g.clearRect(0,0,W,H);
+ g.strokeStyle='rgba(76,195,255,0.07)';g.lineWidth=1;
+ for(let x=0;x<W;x+=48*s){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
+ for(let y=0;y<H;y+=48*s){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}
+ const gy=H*0.86,ax=W*0.56,L=170*s,T=205*s;
+ g.strokeStyle='rgba(46,230,166,0.35)';g.lineWidth=2;g.beginPath();g.moveTo(W*0.18,gy);g.lineTo(W*0.92,gy);g.stroke();
+ const ankle=[ax,gy-12*s];
+ const hipH=lerp(2*L*0.985,L*0.98,p);
+ const hip=[ax-lerp(14,135,p)*s,ankle[1]-hipH];
+ const dx=hip[0]-ankle[0],dy=hip[1]-ankle[1],d=Math.min(Math.hypot(dx,dy),2*L-0.01);
+ const mx=(ankle[0]+hip[0])/2,my=(ankle[1]+hip[1])/2,h=Math.sqrt(Math.max(0,L*L-d*d/4));
+ const nx=-dy/Math.hypot(dx,dy),ny=dx/Math.hypot(dx,dy);
+ let knee=[mx+nx*h,my+ny*h];if(knee[0]<mx)knee=[mx-nx*h,my-ny*h];
+ const lean=lerp(6,40,p)*Math.PI/180;
+ const sh=[hip[0]+Math.sin(lean)*T,hip[1]-Math.cos(lean)*T];
+ const head=[sh[0]+Math.sin(lean)*58*s,sh[1]-Math.cos(lean)*58*s];
+ const aa=lerp(12,88,p)*Math.PI/180,A=120*s;
+ const elbow=[sh[0]+Math.sin(aa)*A,sh[1]+Math.cos(aa)*A];
+ const hand=[elbow[0]+Math.sin(aa)*A*0.95,elbow[1]+Math.cos(aa)*A*0.95];
+ const toe=[ax+62*s,gy],heel=[ax-22*s,gy];
+ const kneeA=ang(hip,knee,ankle),hipA=ang(sh,hip,knee);
+ if(kneeA<100)down=true;if(down&&kneeA>160){reps++;down=false;}
+ const xs=[head[0],hand[0],toe[0],heel[0],hip[0]],ys=[head[1]-34*s,gy];
+ const bx0=Math.min(...xs)-50*s,bx1=Math.max(...xs)+50*s,by0=Math.min(...ys)-20*s,by1=gy+24*s;
+ g.strokeStyle='rgba(76,195,255,0.75)';g.lineWidth=3;
+ corner(bx0,by0,1,1,34*s);corner(bx1,by0,-1,1,34*s);corner(bx0,by1,1,-1,34*s);corner(bx1,by1,-1,-1,34*s);
+ const sy=by0+((t*0.35)%1)*(by1-by0);
+ const grd=g.createLinearGradient(0,sy-40*s,0,sy);grd.addColorStop(0,'rgba(46,230,166,0)');grd.addColorStop(1,'rgba(46,230,166,0.22)');
+ g.fillStyle=grd;g.fillRect(bx0,sy-40*s,bx1-bx0,40*s);
+ g.save();g.shadowColor=M;g.shadowBlur=18*s;g.lineCap='round';
+ [[sh,elbow],[elbow,hand],[sh,hip],[hip,knee],[knee,ankle],[ankle,toe],[ankle,heel],[heel,toe]].forEach(b=>line(b[0],b[1],7*s,M));
+ g.restore();
+ g.strokeStyle=M;g.lineWidth=5*s;g.beginPath();g.arc(head[0],head[1],30*s,0,Math.PI*2);g.stroke();
+ g.save();g.shadowColor=C;g.shadowBlur=14*s;line(sh,hip,4*s,C);g.restore();
+ [elbow,hand,ankle,toe,heel].forEach(q=>dot(q,8*s,R));
+ dot(sh,11*s,C);dot(hip,11*s,C);
+ g.save();g.shadowColor='#FFFFFF';g.shadowBlur=20*s;dot(knee,13*s,'#FFFFFF');g.restore();
+ const a1=Math.atan2(hip[1]-knee[1],hip[0]-knee[0]),a2=Math.atan2(ankle[1]-knee[1],ankle[0]-knee[0]);
+ g.strokeStyle='rgba(255,255,255,0.85)';g.lineWidth=3*s;g.beginPath();g.arc(knee[0],knee[1],46*s,Math.min(a1,a2),Math.max(a1,a2));g.stroke();
+ g.font='700 '+Math.round(34*s)+'px '+MONO;g.fillStyle='#FFFFFF';g.textBaseline='middle';
+ g.fillText(Math.round(kneeA)+'°',knee[0]+30*s,knee[1]+46*s);
+ const px=24*s,py=24*s;
+ g.fillStyle='rgba(7,12,22,0.72)';g.strokeStyle='rgba(76,195,255,0.45)';g.lineWidth=2;
+ g.beginPath();g.roundRect(px,py,300*s,196*s,16*s);g.fill();g.stroke();
+ g.textBaseline='alphabetic';g.fillStyle='#8FA3B8';g.font='500 '+Math.round(24*s)+'px '+F;
+ g.fillText('左膝',px+24*s,py+56*s);g.fillText('左髖',px+24*s,py+116*s);g.fillText('次數',px+24*s,py+172*s);
+ g.font='700 '+Math.round(44*s)+'px '+MONO;g.fillStyle='#FFFFFF';
+ g.fillText(String(Math.round(kneeA)).padStart(3,'0')+'°',px+120*s,py+60*s);
+ g.fillText(String(Math.round(hipA)).padStart(3,'0')+'°',px+120*s,py+120*s);
+ g.fillStyle=M;g.fillText(String(reps).padStart(2,'0'),px+120*s,py+176*s);
+ const ok=kneeA<110;
+ g.font='700 '+Math.round(24*s)+'px '+F;
+ const label=ok?'● 已蹲到深度':'● 偵測中';
+ const lw=g.measureText(label).width+36*s;
+ g.fillStyle=ok?'rgba(46,230,166,0.18)':'rgba(76,195,255,0.14)';
+ g.beginPath();g.roundRect(W-lw-24*s,py,lw,48*s,24*s);g.fill();
+ g.fillStyle=ok?M:C;g.fillText(label,W-lw-6*s,py+33*s);
+ g.fillStyle='#5F7690';g.font='500 '+Math.round(24*s)+'px '+F;
+ g.fillText('概念示意：深蹲次數目前是實驗功能',24*s,H-20*s);
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></body></html></x-embed>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:6px;color:#2EE6A6">PROGRESS REPORT · BATCH 02</p>
+<h1 style="font-size:120px;font-weight:900;line-height:1.08;color:#F2F7FB;width:800px">AI 智慧<br><span style="color:#2EE6A6">運動分析</span><br>系統</h1>
+<p style="font-size:44px;font-weight:500;color:#BFD0E0;width:800px">第二批次進度報告（10/10 更新）</p>
+<div style="display:flex;gap:16px;flex-wrap:wrap;width:820px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4CC3FF;border:1px solid #24405E;border-radius:999px;padding:10px 24px">PR #7–#60</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4CC3FF;border:1px solid #24405E;border-radius:999px;padding:10px 24px">54 次更新</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4CC3FF;border:1px solid #24405E;border-radius:999px;padding:10px 24px">2026.10.10</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:820px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#5F7690">ttweew.github.io/claude-workspace</p>
+<aside>開場。右邊的動畫是概念示意：骨架即時偵測深蹲，膝蓋角度跟著變化；角度和骨架是已經完成的功能，深蹲次數目前是實驗功能，一般網址看不到。這次報告的範圍是第二批次，PR 第 7 到第 60 號，共 54 次更新。今天的簡報分成兩部分：前面二十一頁是報告，先說明今天的內容，再一題一頁回覆老師上次的六個問題，接著說明真人實測，以及在手機和各種裝置上的改進，最後是限制和下一步；後面是詳細資料，包括設計邏輯、每一次更新和程式碼，老師可以之後慢慢看。</aside>
+</section>

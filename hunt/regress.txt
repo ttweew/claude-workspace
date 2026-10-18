@@ -1,0 +1,107 @@
+=== t6
+[debug_mirror] mirrored=True pose: 已偵測到全身 | right after open: CPU · 17 FPS | after 4s: CPU · 17 FPS
+[debug_mirror] after close: 鏡頭已關閉 | errors: []
+[debug_rear] mirrored=False pose: 已偵測到全身 | right after open: CPU · 16 FPS | after 4s: CPU · 19 FPS
+[debug_rear] after close: 鏡頭已關閉 | errors: []
+[normal] mirrored=True pose: 已偵測到全身 | right after open: CPU · 18 FPS | after 4s: CPU · 20 FPS
+[normal] after close: 鏡頭已關閉 | errors: []
+=== t9
+[before_phone] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_phone] toolbar height=[57] pose=已偵測到全身 errors=[]
+[before_small] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_small] toolbar height=[57] pose=已偵測到全身 errors=[]
+[before_laptop] poseStatus pill top/bottom/topmost-element-at-its-top-edge=[70, 102, 'poseStatus']
+[before_laptop] toolbar height=[53] pose=已偵測到全身 errors=[]
+=== labels_test
+[laptop] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖121°', '24右髖94°', '25左膝175°', '26右膝101°', '27左踝', '28右踝', '肩膀中心', '髖部中心'] | 重疊 0 組 | 再關閉 4 個 | 點左膝→['175°', '101°', '121°', '94°', '25左膝'] 點肩膀中心→['175°', '101°', '121°', '94°', '肩膀中心'] | 3 秒後 ['175°', '101°', '121°', '94°'] | 錯誤 []
+[phone] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖121°', '24右髖93°', '25左膝175°', '26右膝101°', '27左踝', '28右踝', '肩膀中心', '髖部中心'] | 重疊 1 組 | 再關閉 4 個 | 點左膝→['175°', '101°', '121°', '93°', '25左膝'] 點肩膀中心→['175°', '101°', '121°', '93°', '3左眼外側'] | 3 秒後 ['175°', '101°', '121°', '93°'] | 錯誤 []
+[rear] 關閉時 4 個 | 開啟 14 個 ['11左肩', '12右肩', '13左肘', '14右肘', '15左腕', '16右腕', '23左髖121°', '24右髖94°', '25左膝175°', '26右膝101°', '27左踝', '28右踝', '肩膀中心', '髖部中心'] | 重疊 0 組 | 再關閉 4 個 | 點左膝→['175°', '101°', '121°', '94°', '25左膝'] 點肩膀中心→['175°', '101°', '121°', '94°', '肩膀中心'] | 3 秒後 ['175°', '101°', '121°', '94°'] | 錯誤 []
+=== data_test
+   CSV pose_20261002_143913.csv: 欄數=234 列數=64 每列欄數一致=True 左膝x/y/z/vis=['0.60542', '0.65978', '-0.14115', '0.994'] 公尺左膝=['0.3655', '0.2148', '-0.122']
+   JSON pose_20261002_143913.json: 格數=64 meta={'computeMode': 'CPU', 'videoWidth': 480, 'videoHeight': 640, 'displayMirrored': True} 點名數=33 第一格點數=33
+   JSON bytes/frame 1881.3870967741937 CSV bytes/frame 1763.9354838709678
+[landscape] 工具列 捲動寬/可見寬/高=[844, 844, 53] 錯誤=[]
+   面板列數=14 第一列='11 左肩 0.540 0.481 -0.102 1.00' 最後='髖部中心 0.493 0.687 0.000 1.00'
+   錄製中='錄製中 2.8 秒 · 56 格' 按鈕='隱藏數據 ●' 停止後='已錄 3.2 秒 · 62 格'
+   CSV pose_20261002_143922.csv: 欄數=234 列數=62 每列欄數一致=True 左膝x/y/z/vis=['0.60616', '0.78445', '-0.15007', '0.995'] 公尺左膝=['0.3714', '0.2108', '-0.1301']
+   JSON pose_20261002_143922.json: 格數=62 meta={'computeMode': 'CPU', 'videoWidth': 640, 'videoHeight': 480, 'displayMirrored': True} 點名數=33 第一格點數=33
+   JSON bytes/frame 1880.3880597014925 CSV bytes/frame 1759.9850746268658
+[laptop] 工具列 捲動寬/可見寬/高=[1280, 1280, 53] 錯誤=[]
+   面板列數=14 第一列='11 左肩 0.540 0.481 -0.101 1.00' 最後='髖部中心 0.492 0.687 0.000 1.00'
+   錄製中='錄製中 2.8 秒 · 57 格' 按鈕='隱藏數據 ●' 停止後='已錄 3.3 秒 · 67 格'
+   CSV pose_20261002_143930.csv: 欄數=234 列數=67 每列欄數一致=True 左膝x/y/z/vis=['0.6062', '0.78449', '-0.1509', '0.995'] 公尺左膝=['0.3716', '0.2106', '-0.1302']
+   JSON pose_20261002_143930.json: 格數=67 meta={'computeMode': 'CPU', 'videoWidth': 640, 'videoHeight': 480, 'displayMirrored': True} 點名數=33 第一格點數=33
+=== framing_test
+只有頭（太近）    → 太近了，請往後退，讓全身入鏡 [warn] 
+頭到大腿       → 看不到腳，請再往後退一點 [warn] 
+全身         → 已偵測到全身 [ok] 
+很遠         → 離太遠了，可以往前一點 [warn] 
+偏右邊        → 請站到畫面中間一點 [warn] 
+沒有人        → 未偵測到人體，請站進畫面 [warn] 
+=== audit_camera
+通過 | S1 兩顆鏡頭清單與切換 | 清單['*前置鏡頭', '後置鏡頭']→['前置鏡頭', '*後置鏡頭'] 鏡像 前True/後False/前True 使用中鏡頭數 1,1 錯誤[]
+通過 | S2 快速連續切換不殘留鏡頭 | 使用中鏡頭數 1（應為 1），目前鏡像 True（最後選前置，應為 True）
+通過 | S3 鏡頭中途斷線有提示 | 畫面仍開著 False，狀態「鏡頭連線中斷（可能被拔除或被其他程式使用），請重新開啟鏡頭」
+通過 | S4 選過的鏡頭被拔掉後仍能開啟 | 畫面開啟 True，狀態「鏡頭已開啟」
+通過 | S4b 只有一顆鏡頭時隱藏選單 | 選單顯示 False
+通過 | S5 拒絕相機權限 | 狀態「無法使用相機：相機權限被拒絕。請在瀏覽器的網站設定中允許相機，再重新整理頁面；若是在 LINE、Instagram 等 App 裡開啟，請改用 Chrome 或 Safari」
+通過 | S6 裝置沒有鏡頭 | 狀態「找不到鏡頭：請確認裝置有鏡頭，或外接鏡頭已經接好」
+通過 | S7 鏡頭被其他程式佔用 | 狀態「鏡頭無法使用：可能正被其他程式（例如視訊會議）使用中，請關閉後再試」
+通過 | S8 重複開關 5 次 | 每次關閉後使用中鏡頭數 [0, 0, 0, 0, 0] 錯誤[]
+通過 | S9 全螢幕中關閉鏡頭 | 進入全螢幕 True，關閉後仍全螢幕 False 錯誤[]
+通過 | S10 模型未就緒先開鏡頭 | 模型未好時畫面開啟 True、狀態「AI 準備中：下載 AI 檔案…」→ 之後「已偵測到全身」 錯誤[]
+通過 | S11 模型載入失敗仍可開鏡頭 | 首頁「AI 載入失敗，2 秒後自動重試…」，鏡頭畫面開啟 True
+共 12 項，通過 12 項
+=== audit_devices2
+iPhone SE        320x568   首頁{'hScroll': False, 'startBtn': [238, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 256}} | 錯誤[]
+iPhone 13        390x664   首頁{'hScroll': False, 'startBtn': [308, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 299}} | 錯誤[]
+iPhone 13 橫式     750x342   首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 222}} | 錯誤[]
+iPhone 14 Pro Max 430x740   首頁{'hScroll': False, 'startBtn': [348, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 333}} | 錯誤[]
+Pixel 7          412x839   首頁{'hScroll': False, 'startBtn': [330, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 378}} | 錯誤[]
+Galaxy S9+       320x658   首頁{'hScroll': False, 'startBtn': [238, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 296}} | 錯誤[]
+Pixel 7 橫式       863x360   首頁{'hScroll': False, 'startBtn': [373, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 240}} | 錯誤[]
+iPad Mini        768x1024  首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 461}} | 錯誤[]
+iPad Pro 11 橫式   1194x834   首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 57, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 375}} | 錯誤[]
+筆電 1366x768      1366x768   首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 53, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 346}} | 錯誤[]
+筆電 1280x720      1280x720   首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 53, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 324}} | 錯誤[]
+桌機 1920x1080     1920x1080  首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': False} | 鏡頭{'toolbarH': 53, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 486}} | 錯誤[]
+2K 2560x1440     2560x1440  首頁{'hScroll': False, 'startBtn': [398, 56], 'footerVisible': True} | 鏡頭{'toolbarH': 53, 'toolbarOverflow': False, 'btnOutside': [], 'smallBtns': [], 'infobarTop': 70, 'infobarBottom': 102, 'fullscreenBtnHidden': False, 'status': '已偵測到全身', 'panel': {'inView': True, 'overToolbar': False, 'h': 495}} | 錯誤[]
+=== r1
+S1 三連點開啟：使用中鏡頭 1 ['已偵測到全身', '', 'CPU · 15 FPS'] [] ['warning: W1002 14:42:14.414000 2196592 gl_context.cc:1119] OpenGL error 
+S2 重新啟動中關鏡頭：首頁 鏡頭已關閉 | 使用中鏡頭 0
+S2 再開： ['已偵測到全身', '', 'GPU · 3 FPS'] [] ['warning: W1002 14:42:19.164999 2196592 gl_context.cc:1119] OpenGL error checking is disabled', 'war
+S3 錄製中 GPU 失效： 錄製中 1.8 秒 · 7 格 → 已錄 8.4 秒 · 9 格 | 狀態 ['已偵測到全身', '', 'GPU · 2 FPS'] | CSV 鈕 True [] ['warnin
+S4 切背景回來：影像暫停? False ['已偵測到全身', '', 'CPU · 18 FPS'] [] ['warning: W1002 14:43:00.238000 2196592 gl_context.cc:1119] OpenGL erro
+S6 人進出畫面： [('未偵測到人體，請站進畫面', True, 0), ('已偵測到全身', False, 4), ('未偵測到人體，請站進畫面', True, 0), (
+S9 點畫面時沒人/點完人離開： ['175°', '101°', '121°', '94°', '肩膀中心'] [] ['warning: W1002 14:43:20.432999 2196592 gl_context.cc:1119] Ope
+S10 鍵盤：開啟後 True | Tab 順序 ['labelBtn', 'dataBtn', 'fullscreenBtn', 'perfBtn', 'BODY', 'stopBtn', 'labelBtn', 'dataBtn'] | 焦點框 solid []
+=== flash
+開鏡頭： [(74, ' | 等待鏡頭畫面…'), (212, ' | 偵測中…'), (272, ' | 已偵測到全身')]
+人走進來： [(27, '[橫幅]未偵測到人體，請站進畫面 | '), (98, ' | 偵測中…'), (195, ' | 已偵測到全身')]
+errors []
+=== live squat
+[side_lab_390] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 86° 蹲到位 [good]', '第 3 下 · 125° 太淺 [shallow]', '第 4 下 · 79° 蹲到位 [good]', '第 5 下 · 91° 再低一點 [close]'] banners=['未偵測到人體，
+[side_lab_1280] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 86° 蹲到位 [good]', '第 3 下 · 125° 太淺 [shallow]', '第 4 下 · 80° 蹲到位 [good]', '第 5 下 · 91° 再低一點 [close]'] banners=['未偵測到人體�
+[front_lab_390] reps=0 toasts=[] banners=['請側身對著鏡頭，正面拍膝蓋角度不準', '未偵測到人體，請站進畫面'] hud(left,right,vw)=[0, 0, 390] replayLink=replay.html?lab=squat errors=[]
+[side_nolab_390] reps=(hidden box) toasts=[] banners=['未偵測到人體，請站進畫面'] hud(left,right,vw)=[0, 0, 390] replayLink=replay.html errors=[]
+[side_lab_320] reps=5 toasts=['第 1 下 · 93° 再低一點 [close]', '第 2 下 · 85° 蹲到位 [good]', '第 3 下 · 125° 太淺 [shallow]', '第 4 下 · 79° 蹲到位 [good]', '第 5 下 · 91° 再低一點 [close]'] banners=['未偵測到人體，
+=== replay
+[laptop] status='已讀取「合成示範_側面深蹲.json」，共 436 格'
+  hscroll=False aspectRow(JSON)=False errors=[]
+[phone] status='已讀取「合成示範_側面深蹲.json」，共 436 格'
+  hscroll=False aspectRow(JSON)=False errors=[]
+[real] JSON summary=長度 | 3.1 秒 · 62 格 | 每秒格數 | 19.9 格 | 偵測到人 | 100% 的格子 | 拍攝方向 | 側面 0% · 斜側 0% · 正面 97% | 面向（畫面上） | 看不出來（正面拍或看不到） | 鏡頭畫面 | 640×480 | 模型 · 運算 | pose_landmarker_lite · CPU | 錄製時間 | 2026/10/2 下午2:45:17
+  bad='讀取失敗：這不是本網站錄製的 JSON 檔' bad2='讀取失敗：這不是本網站錄製的 CSV 檔' errors=[]
+all-empty → 已讀取「all-empty.json」，共 50 格 | 0.00 秒（第 0 格） · 沒有人
+one-frame-empty → 已讀取「one-frame-empty.json」，共 1 格 | 0.00 秒（第 0 格） · 沒有人
+no-frames → 讀取失敗：檔案裡沒有任何一格資料 | (result hidden)
+wrong-count → 讀取失敗：點的數量不同（17 點），目前只支援 33 點 | (result hidden)
+demo initial readout: 0.10 秒（第 3 格） · 側面（比值 0.08） 左膝 180° · 右膝 178° · 左髖 178° · 右髖 177° · 左肘 179° · 右肘 176°
+after 5→ + shift→: 0.20 秒（第 6 格） · 側面（比值 0.08）
+mirror facing: ['面向（畫面上）', '畫面左邊（鏡像）', '鏡頭畫面']
+errors []
+ALL PASS
+ALL PASS
+ALL PASS
+ALL PASS
+ALLDONE

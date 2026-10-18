@@ -1,0 +1,4 @@
+<!doctype html><meta charset=utf-8><script>
+window.go = async () => { const r = await fetch('https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'); const b = await r.arrayBuffer(); return b.byteLength; };
+window.reg = navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => 'ok');
+</script>

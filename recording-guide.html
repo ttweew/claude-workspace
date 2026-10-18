@@ -1,0 +1,533 @@
+<title>錄影任務卡</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 版面：手機優先的一欄任務清單；上方是共同準備，中間每段錄影一張卡（依建議順序），最後是回報表 */
+:root {
+  --bg: #F2F5F3;
+  --paper: #FFFFFF;
+  --ink: #15201A;
+  --muted: #56665D;
+  --line: #D8E1DB;
+  --accent: #0B7A54;
+  --accent-soft: #DFF2E9;
+  --opt: #6A5A12;
+  --opt-soft: #F6EECF;
+  --warn: #A3480F;
+  --warn-soft: #FBE7D9;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1613; --paper: #16201B; --ink: #E6EEE9; --muted: #9AB0A3; --line: #27362E;
+    --accent: #45D6A0; --accent-soft: #123528;
+    --opt: #E8CF6A; --opt-soft: #332B0E;
+    --warn: #F3A06B; --warn-soft: #3A2414;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1613; --paper: #16201B; --ink: #E6EEE9; --muted: #9AB0A3; --line: #27362E;
+  --accent: #45D6A0; --accent-soft: #123528;
+  --opt: #E8CF6A; --opt-soft: #332B0E;
+  --warn: #F3A06B; --warn-soft: #3A2414;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 32px 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 36px;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(28px, 6vw, 38px); font-weight: 900; line-height: 1.25; }
+h2 { font-size: 21px; font-weight: 900; }
+h3 { font-size: 15px; font-weight: 700; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.25em; display: grid; gap: 6px; }
+.lead { color: var(--muted); max-width: 62ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; color: var(--muted); }
+.head { display: grid; gap: 10px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+section { display: grid; gap: 14px; }
+.box {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.setup { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.setup .box { gap: 6px; }
+.setup .k { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; }
+.setup .v { font-size: 20px; font-weight: 900; }
+.setup .why { font-size: 14px; color: var(--muted); }
+figure { margin: 0; }
+.fig {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.fig svg { display: block; width: 100%; height: auto; min-width: 300px; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.fig .ground { stroke: var(--line); stroke-width: 3; }
+.fig .body { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.fig .phone { fill: var(--paper); stroke: var(--accent); stroke-width: 3; }
+.fig .stand { stroke: var(--muted); stroke-width: 3; }
+.fig .dim { stroke: var(--accent); stroke-width: 2; }
+.fig .ray { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+.fig text { fill: var(--muted); font-family: var(--font-body); font-size: 26px; }
+.fig .strong { fill: var(--accent); font-weight: 700; }
+/* 錄影卡 */
+.card { position: relative; }
+.card-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.no {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--paper);
+  background: var(--ink);
+  border-radius: 8px;
+  padding: 1px 8px;
+}
+.chip { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
+.chip.must { background: var(--accent-soft); color: var(--accent); }
+.chip.opt { background: var(--opt-soft); color: var(--opt); }
+.card h2 { flex: 1 1 12em; }
+.purpose { color: var(--muted); font-size: 15px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.meta b { color: var(--muted); font-weight: 500; margin-right: 4px; }
+.steps { list-style: none; padding: 0; gap: 0; border-top: 1px solid var(--line); }
+.steps li {
+  display: grid;
+  grid-template-columns: 5.2em minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.steps .t { font-family: var(--font-mono); font-size: 13px; color: var(--accent); font-weight: 600; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.note { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--warn-soft); color: var(--ink); }
+.note b { color: var(--warn); }
+/* 回報表 */
+form { display: grid; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+input, textarea {
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  width: 100%;
+  min-width: 0;
+}
+textarea { min-height: 4.5em; resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+button {
+  font: inherit;
+  font-weight: 700;
+  color: var(--paper);
+  background: var(--accent);
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+#copyStatus { font-size: 14px; color: var(--accent); }
+#preview { display: none; }
+#preview.show { display: block; width: 100%; min-height: 10em; font-family: var(--font-mono); font-size: 13px; }
+.send { font-size: 15px; }
+/* 手機／筆電分頁 */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; position: sticky; top: 8px; z-index: 2; }
+.tab { color: var(--ink); background: transparent; border-radius: 10px; padding: 10px 8px; font-size: 16px; }
+.tab[aria-selected="true"] { color: var(--paper); background: var(--accent); }
+.panel { display: grid; gap: 36px; }
+.panel[hidden] { display: none; }
+.group-title { display: grid; gap: 4px; }
+.group-title p { color: var(--muted); font-size: 15px; }
+.mini { display: grid; gap: 12px; }
+.mini .box { gap: 8px; }
+.mini h3 { font-size: 17px; font-weight: 900; }
+.mini .purpose { font-size: 14px; }
+.star { color: var(--warn); font-weight: 700; font-size: 13px; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+a { color: var(--accent); }
+@media (max-width: 560px) {
+  .setup, .grid2 { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">AI 智慧運動分析系統 · 驗證錄影</span>
+    <h1>錄影任務卡</h1>
+    <p class="lead">謝謝你幫忙！網站只會錄下身體 33 個點的座標，<b>不會錄影片、不會拍到臉</b>。先選你用<b>手機</b>還是<b>筆電</b>錄，照順序錄，每一段錄完都按「下載 JSON」，最後把檔案和最下面的回報一起傳給組長。</p>
+    <div class="facts" aria-label="大概需要">
+      <span class="fact">必錄 3 段，約 10 分鐘</span>
+      <span class="fact">需要捲尺</span>
+      <span class="fact">手機或筆電都可以</span>
+    </div>
+  </header>
+
+  <!-- 量腿長 -->
+  <section aria-labelledby="tapeTitle">
+    <h2 id="tapeTitle">先用捲尺量三個長度</h2>
+    <div class="box">
+      <ul>
+        <li><b>大腿</b>：大腿外側最上面那塊突起的骨頭（手扠腰往下摸到的硬骨頭）量到膝蓋外側的中間（關節縫）</li>
+        <li><b>小腿</b>：膝蓋外側的中間（關節縫）量到腳踝外側突起的骨頭中心</li>
+        <li><b>身高</b>：赤腳</li>
+      </ul>
+      <p class="purpose">量右腳就好，各量兩次取平均，填在最下面的回報表。網站會用 AI 估計腿長，這是用來對答案的；<b>沒有這兩個數字，只能知道網站「穩不穩」，不能知道「準不準」</b>。</p>
+    </div>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="用什麼錄">
+    <button class="tab" role="tab" id="tabPhone" aria-controls="panelPhone" aria-selected="true" type="button">用手機錄</button>
+    <button class="tab" role="tab" id="tabLaptop" aria-controls="panelLaptop" aria-selected="false" type="button">用筆電錄</button>
+  </div>
+
+  <div class="panel" id="panelPhone" role="tabpanel" aria-labelledby="tabPhone">
+  <!-- 共同準備 -->
+  <section aria-labelledby="prepTitle">
+    <h2 id="prepTitle">開始前：手機怎麼擺</h2>
+    <div class="setup">
+      <div class="box"><span class="k">高度</span><span class="v">腰部高度</span><span class="why">約 90～100 公分。放椅子或書堆上，不要拿在手上，也不要放高往下拍</span></div>
+      <div class="box"><span class="k">距離</span><span class="v">2.5 公尺</span><span class="why">從頭到腳都在畫面裡，人大約佔畫面高度的 7 成；<b>頭上、腳下都要留一點空間</b>，不要碰到畫面邊緣</span></div>
+      <div class="box"><span class="k">方向</span><span class="v">手機直拿</span><span class="why">用後鏡頭，人站在畫面中間</span></div>
+      <div class="box"><span class="k">穿著與環境</span><span class="v">看得到膝蓋</span><span class="why">褲子不要太寬鬆；光線亮；背景不要有別人走動</span></div>
+    </div>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 620 260" role="img" aria-labelledby="figSideTitle">
+          <title id="figSideTitle">側面看擺法：手機放在約腰部高度的架子上，距離人 2.5 公尺，人側身對著手機</title>
+          <line class="ground" x1="20" y1="200" x2="600" y2="200"/>
+          <line class="stand" x1="70" y1="200" x2="70" y2="118"/>
+          <line class="stand" x1="50" y1="200" x2="90" y2="200"/>
+          <rect class="phone" x="62" y="98" width="16" height="26" rx="3"/>
+          <path class="ray" d="M80 108 L470 30 M80 112 L470 200"/>
+          <circle class="body" cx="470" cy="42" r="13"/>
+          <path class="body" d="M470 55 L470 120 M470 70 L488 98 M470 120 L462 160 L470 198 M470 120 L478 160 L486 198 M470 198 L490 198"/>
+          <line class="dim" x1="78" y1="222" x2="466" y2="222"/>
+          <line class="dim" x1="78" y1="214" x2="78" y2="230"/>
+          <line class="dim" x1="466" y1="214" x2="466" y2="230"/>
+          <text x="210" y="254" class="strong">2.5 公尺</text>
+          <text x="20" y="84" class="strong">腰部高度</text>
+          <text x="500" y="150">側身</text>
+        </svg>
+      </div>
+      <figcaption>人側身站，臉朝左或朝右都可以，整段錄影不要換邊。</figcaption>
+    </figure>
+    <div class="box">
+      <h3>網站上的操作</h3>
+      <ol>
+        <li>打開 <a href="https://ttweew.github.io/claude-workspace/" target="_blank" rel="noopener">ttweew.github.io/claude-workspace</a>，按「開啟鏡頭」，切到後鏡頭</li>
+        <li>按「數據」，旁邊的倒數選「<b>倒數 10 秒</b>」</li>
+        <li>按「開始錄製」，聽到嗶聲倒數時走到定位；最後一聲長嗶就是開始錄了</li>
+        <li>動作做完，走回手機按「停止錄製」，再按「<b>下載 JSON</b>」</li>
+      </ol>
+      <p class="note"><b>每一段分開錄、分開下載。</b>檔名會自動帶時間，回報時寫下哪個時間是第幾段就好。</p>
+    </div>
+  </section>
+
+
+  <!-- 錄影卡 -->
+  <section aria-labelledby="recTitle">
+    <h2 id="recTitle">要錄的動作</h2>
+
+    <article class="box card" aria-labelledby="r1">
+      <div class="card-top"><span class="no">1</span><h2 id="r1">側面深蹲</h2><span class="chip must">必錄</span></div>
+      <p class="purpose">最重要的一段：確認網站算的膝蓋角度、深蹲次數、蹲得夠不夠深準不準。</p>
+      <div class="meta"><span><b>距離</b>2.5 公尺</span><span><b>方向</b>側身</span><span><b>長度</b>約 50 秒</span></div>
+      <ol class="steps">
+        <li><span class="t">0–10 秒</span><span>站直不動，手放兩側（量雜訊用）</span></li>
+        <li><span class="t">第 1、2 下</span><span><b>深蹲</b>：蹲到大腿和地面平行，再站直</span></li>
+        <li><span class="t">第 3、4 下</span><span><b>半蹲</b>：蹲到一半</span></li>
+        <li><span class="t">第 5 下</span><span><b>淺蹲</b>：只蹲一點點</span></li>
+        <li><span class="t">每一下</span><span>慢慢蹲（約 2 秒下、2 秒上），站直後停 2 秒再做下一下</span></li>
+        <li><span class="t">蹲之前</span><span><b>先喊出來</b>：「深」「半」「淺」，錄完照順序寫在回報裡</span></li>
+        <li><span class="t">最後</span><span>站直不動 3 秒</span></li>
+      </ol>
+      <p class="note"><b>回報時寫下：</b>實際做了幾下、每一下大概蹲多深。蹲的時候手可以往前伸，保持平衡就好。</p>
+    </article>
+
+    <article class="box card" aria-labelledby="r2">
+      <div class="card-top"><span class="no">2</span><h2 id="r2">側面深蹲，站遠一點</h2><span class="chip must">必錄</span></div>
+      <p class="purpose">同樣的動作，站得比較遠時，網站估計的腿長會不會變。</p>
+      <div class="meta"><span><b>距離</b>4 公尺</span><span><b>方向</b>側身</span><span><b>長度</b>約 40 秒</span></div>
+      <ol class="steps">
+        <li><span class="t">0–3 秒</span><span>站直不動</span></li>
+        <li><span class="t">5 下</span><span>和第 1 段一樣：2 下深蹲、2 下半蹲、1 下淺蹲</span></li>
+        <li><span class="t">最後</span><span>站直不動 3 秒</span></li>
+      </ol>
+    </article>
+
+    <article class="box card" aria-labelledby="r3">
+      <div class="card-top"><span class="no">3</span><h2 id="r3">斜 45° 和正面各錄一次</h2><span class="chip must">必錄（2 個檔案）</span></div>
+      <p class="purpose">網站會判斷「側面、斜側面、正面」，並在正面時提醒側身；這段用來確認判斷對不對、角度差多少。</p>
+      <div class="meta"><span><b>距離</b>2.5 公尺</span><span><b>方向</b>先斜 45°，再正面</span><span><b>長度</b>各約 30 秒</span></div>
+      <figure>
+        <div class="fig">
+          <svg viewBox="0 0 620 210" role="img" aria-labelledby="figTopTitle">
+            <title id="figTopTitle">從上面往下看：三種站法。側面時身體和手機的連線垂直；斜 45 度時身體轉一半；正面時臉朝手機</title>
+            <rect class="phone" x="290" y="172" width="40" height="22" rx="4"/>
+            <text x="346" y="192">手機</text>
+            <g transform="translate(100 60)">
+              <ellipse class="body" cx="0" cy="0" rx="12" ry="32"/>
+              <path class="dim" d="M14 0 L44 0 M37 -6 L44 0 L37 6"/>
+            </g>
+            <text x="64" y="132" class="strong">側面</text>
+            <g transform="translate(310 60) rotate(45)">
+              <ellipse class="body" cx="0" cy="0" rx="12" ry="32"/>
+              <path class="dim" d="M14 0 L44 0 M37 -6 L44 0 L37 6"/>
+            </g>
+            <text x="270" y="132" class="strong">斜 45°</text>
+            <g transform="translate(520 60) rotate(90)">
+              <ellipse class="body" cx="0" cy="0" rx="12" ry="32"/>
+              <path class="dim" d="M14 0 L44 0 M37 -6 L44 0 L37 6"/>
+            </g>
+            <text x="490" y="132" class="strong">正面</text>
+          </svg>
+        </div>
+        <figcaption>箭頭是臉朝的方向。手機位置不動，人轉身就好。</figcaption>
+      </figure>
+      <ol class="steps">
+        <li><span class="t">每個檔案</span><span>站直 3 秒 → 3 下深蹲（蹲到大腿和地面平行）→ 站直 3 秒</span></li>
+      </ol>
+    </article>
+
+    <article class="box card" aria-labelledby="r4">
+      <div class="card-top"><span class="no">4</span><h2 id="r4">兩支手機同時錄</h2><span class="chip opt">有兩支手機再錄</span></div>
+      <p class="purpose">側面那支當標準答案，看正面那支用 3D 資料算的膝蓋角度準不準。如果夠準，以後正面拍也能算角度。</p>
+      <div class="meta"><span><b>擺法</b>一支在正側面、一支在正前方，都是腰部高度、2.5 公尺</span></div>
+      <ol class="steps">
+        <li><span class="t">開始前</span><span>兩支都選倒數 10 秒，先後按「開始錄製」，走到中間面向前方那支</span></li>
+        <li><span class="t">對時</span><span>雙手在胸前<b>用力拍一下手</b>，之後用來對齊兩個檔案的時間</span></li>
+        <li><span class="t">5 下</span><span>和第 1 段一樣的深蹲</span></li>
+        <li><span class="t">回報</span><span>寫下哪個檔案是側面、哪個是正面</span></li>
+      </ol>
+    </article>
+
+    <article class="box card" aria-labelledby="r5">
+      <div class="card-top"><span class="no">5</span><h2 id="r5">手機放高錄一次</h2><span class="chip opt">有時間再錄</span></div>
+      <p class="purpose">上一次的錄影手機放得比較高，腳在畫面上被縮短。想做「手機太高時提醒放低」的功能，需要同一個人在兩種高度的資料來比較。</p>
+      <div class="meta"><span><b>高度</b>約頭頂高度，稍微往下拍</span><span><b>距離</b>2.5 公尺</span><span><b>方向</b>側身</span></div>
+      <ol class="steps">
+        <li><span class="t">動作</span><span>和第 1 段完全一樣</span></li>
+      </ol>
+    </article>
+
+    <article class="box card" aria-labelledby="r6">
+      <div class="card-top"><span class="no">6</span><h2 id="r6">站遠，坐到地上再站起來</h2><span class="chip opt">有時間再錄</span></div>
+      <p class="purpose">上一次的錄影裡，人站得遠又坐到地上時骨架消失了 4 秒。需要更多這種錄影，才能改得不影響其他功能。</p>
+      <div class="meta"><span><b>距離</b>4 公尺</span><span><b>方向</b>正面</span><span><b>長度</b>約 30 秒</span></div>
+      <ol class="steps">
+        <li><span class="t">0–5 秒</span><span>站直不動</span></li>
+        <li><span class="t">動作</span><span>慢慢蹲下、坐到地上，坐 5 秒，再站起來</span></li>
+        <li><span class="t">再一次</span><span>這次側身坐下（像休息那樣），坐 5 秒，再站起來</span></li>
+      </ol>
+    </article>
+  </section>
+
+  <section aria-labelledby="moreTitle">
+    <div class="group-title">
+      <h2 id="moreTitle">還可以多錄的（手機）</h2>
+      <p>上面 1～3 段錄完、還有時間再錄。標 ★ 的最有幫助。擺法和上面一樣（腰部高度、2.5 公尺），除非另外寫。</p>
+    </div>
+    <div class="mini">
+      <article class="box"><div class="card-top"><span class="no">7</span><h3>故意做錯的深蹲</h3><span class="star">★ 最推薦</span></div>
+        <p class="purpose">下一步要做「深蹲錯誤判斷」，需要真的錯誤動作才能訂出門檻。</p>
+        <p>側身，下面三種各做 3 下，每下之間停 2 秒：<b>上半身前傾太多</b>、<b>蹲一半就起來</b>、<b>腳跟離地</b>。做之前喊出是哪一種，回報時照順序寫下來。</p></article>
+      <article class="box"><div class="card-top"><span class="no">8</span><h3>其他三個動作</h3><span class="star">★ 推薦</span></div>
+        <p class="purpose">之後要做伏地挺身、弓箭步、棒式，先看網站對這些動作的骨架穩不穩。</p>
+        <p>都側身、各錄一個檔案：<b>伏地挺身 5 下</b>、<b>弓箭步左右腳各 3 下</b>、<b>棒式撐 20 秒</b>。趴在地上時手機可以放低一點（約膝蓋高度）。</p></article>
+      <article class="box"><div class="card-top"><span class="no">9</span><h3>連續深蹲 30 下</h3></div>
+        <p class="purpose">疲勞分析要比較前段和後段；也看次數會不會漏算、手機發熱後速度會不會變慢。</p>
+        <p>側身，不停地做 30 下（約 2～3 分鐘），自己數下數，回報時寫下實際做了幾下。</p></article>
+      <article class="box"><div class="card-top"><span class="no">10</span><h3>前鏡頭（自拍）</h3></div>
+        <p class="purpose">前鏡頭的畫面左右相反，確認角度和判斷一樣。</p>
+        <p>改用前鏡頭，照第 1 段再錄一次。</p></article>
+      <article class="box"><div class="card-top"><span class="no">11</span><h3>光線不好</h3></div>
+        <p class="purpose">看光線差時骨架會不會亂跳。</p>
+        <p>讓窗戶在人的<b>背後</b>（背光），或只開一盞燈：站直 10 秒，再側身深蹲 3 下。</p></article>
+      <article class="box"><div class="card-top"><span class="no">12</span><h3>手機橫拿</h3></div>
+        <p class="purpose">橫拿和直拿的畫面比例不同，確認角度一樣。</p>
+        <p>手機橫放，照第 1 段再錄一次（距離約 3 公尺，全身要在畫面裡）。</p></article>
+      <article class="box"><div class="card-top"><span class="no">13</span><h3>有人從後面走過</h3></div>
+        <p class="purpose">網站一次只追蹤一個人，看骨架會不會跳到路人身上。</p>
+        <p>側身深蹲 5 下，中間請另一個人從後面慢慢走過去，回報時寫下大約第幾秒走過。</p></article>
+    </div>
+  </section>
+  </div>
+
+  <div class="panel" id="panelLaptop" role="tabpanel" aria-labelledby="tabLaptop" hidden>
+  <section aria-labelledby="lapPrepTitle">
+    <h2 id="lapPrepTitle">開始前：筆電怎麼擺</h2>
+    <div class="setup">
+      <div class="box"><span class="k">高度</span><span class="v">放桌上</span><span class="why">螢幕立直，讓鏡頭平平地對著人，不要往上或往下仰</span></div>
+      <div class="box"><span class="k">距離</span><span class="v">3～3.5 公尺</span><span class="why">筆電鏡頭比較廣角又放得比較高，要站得比手機遠；<b>頭上、腳下都要留一點空間</b></span></div>
+      <div class="box"><span class="k">鏡頭</span><span class="v">筆電的前鏡頭</span><span class="why">畫面是橫的，人站在畫面中間</span></div>
+      <div class="box"><span class="k">電源</span><span class="v">插著電</span><span class="why">很多筆電用電池時會自動變慢（項目 C 例外）</span></div>
+    </div>
+    <p class="note"><b>上次的筆電錄影站得太近：</b>腳碰到畫面下緣、頭碰到上緣。開鏡頭後先看一下畫面，<b>頭頂和腳底都離邊緣一個手掌</b>再開始錄。</p>
+    <div class="box">
+      <h3>網站上的操作</h3>
+      <ol>
+        <li>用 Chrome 或 Edge 打開 <a href="https://ttweew.github.io/claude-workspace/" target="_blank" rel="noopener">ttweew.github.io/claude-workspace</a>，按「開啟鏡頭」</li>
+        <li>按「數據」，倒數選「<b>倒數 10 秒</b>」，按「開始錄製」後走到定位</li>
+        <li>做完走回筆電，按「停止錄製」，再按「<b>下載 JSON</b>」</li>
+        <li>「已偵測到全身」那行字旁邊會顯示像「<b>GPU · 30 FPS</b>」的小標籤（GPU 或 CPU、每秒幾格），每段都記下來</li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="lapRecTitle">
+    <div class="group-title">
+      <h2 id="lapRecTitle">要做的項目（筆電）</h2>
+      <p>標 ★ 的先做。D 的動作和手機的第 1 段一樣：側身站直 10 秒，再做 5 下（2 深、2 半、1 淺），每下之前喊出來。</p>
+    </div>
+    <div class="mini">
+      <article class="box"><div class="card-top"><span class="no">A</span><h3>記錄載入時間</h3><span class="star">★ 先做</span></div>
+        <p class="purpose">之前有 Mac 筆電卡在 96%，要知道是不是只有第一次慢。</p>
+        <p>第一次打開網站，從按「開啟鏡頭」到出現骨架要<b>幾秒</b>、進度條有沒有<b>停在某個數字</b>。關掉網頁再打開，再記一次（第二次應該 1 秒內就好）。不用錄製。</p></article>
+      <article class="box"><div class="card-top"><span class="no">B</span><h3>記錄速度</h3><span class="star">★ 先做</span></div>
+        <p class="purpose">比較不同筆電的速度，也回答老師的問題「有沒有用到 GPU」。</p>
+        <p>站在鏡頭前 10 秒，記下顯示的 GPU／CPU 和 FPS。再分別打開下面三個網址，各記一次：<br>
+        <code>…/claude-workspace/?cpu</code>（強制用 CPU）<br><code>…/claude-workspace/?model=full</code>（比較大的模型）<br><code>…/claude-workspace/?res=720</code>（比較清楚的畫面）</p></article>
+      <article class="box"><div class="card-top"><span class="no">C</span><h3>插電和不插電</h3></div>
+        <p class="purpose">確認用電池時會不會變慢，報告可以寫「建議插電使用」。</p>
+        <p>拔掉電源，像 B 一樣記一次 GPU／CPU 和 FPS。</p></article>
+      <article class="box"><div class="card-top"><span class="no">D</span><h3>同一個人，手機和筆電各錄一次</h3><span class="star">★ 先做</span></div>
+        <p class="purpose">確認換裝置後，網站算出的角度和腿長差多少。</p>
+        <p>筆電錄一次、手機（照手機分頁的第 1 段）錄一次，同一個人、同樣的動作。記得先量腿長。</p></article>
+      <article class="box"><div class="card-top"><span class="no">E</span><h3>筆電放低一點</h3></div>
+        <p class="purpose">筆電鏡頭的高度不好調，看高度對角度的影響多大。</p>
+        <p>把筆電放到椅子上（比桌子低），D 的動作再錄一次。</p></article>
+      <article class="box"><div class="card-top"><span class="no">F</span><h3>用筆電看重播分析</h3></div>
+        <p class="purpose">確認組員和老師用電腦看結果時順不順。</p>
+        <p>打開網站上方的「重播分析」，把錄好的 JSON 拖進去，試試看拖曳曲線、播放、下載 CSV，有卡住或看不懂的地方寫下來。</p></article>
+      <article class="box"><div class="card-top"><span class="no">G</span><h3>連續開 5 分鐘並錄製</h3></div>
+        <p class="purpose">確認長時間使用不會卡、檔案下載得下來。</p>
+        <p>開始錄製後隨意走動、做動作 5 分鐘，停止並下載 JSON，回報有沒有變慢或卡住。</p></article>
+    </div>
+  </section>
+  </div>
+
+  <!-- 回報表 -->
+  <section aria-labelledby="reportTitle">
+    <h2 id="reportTitle">錄完：填寫回報</h2>
+    <form class="box" id="report" novalidate>
+      <div class="grid2">
+        <label for="fPhone">手機或筆電型號、瀏覽器<input id="fPhone" name="phone" placeholder="例如 Samsung A52、Chrome"></label>
+        <label for="fHeight">身高（公分）<input id="fHeight" name="height" inputmode="decimal"></label>
+        <label for="fThigh">大腿長（公分）<input id="fThigh" name="thigh" inputmode="decimal"></label>
+        <label for="fShank">小腿長（公分）<input id="fShank" name="shank" inputmode="decimal"></label>
+      </div>
+      <label for="fRec1">第 1 段（筆電錄的是 D）：檔名時間、實際做了幾下、每一下多深<textarea id="fRec1" name="rec1" placeholder="例如 133933：5 下，前兩下很深，第 3、4 下半蹲，最後一下很淺"></textarea></label>
+      <label for="fRec2">第 2 段<textarea id="fRec2" name="rec2"></textarea></label>
+      <label for="fRec3">第 3 段（斜 45°、正面各是哪個檔案）<textarea id="fRec3" name="rec3"></textarea></label>
+      <label for="fMore">第 4～13 段（手機多錄的）<textarea id="fMore" name="more" placeholder="例如 第 7 段 140211：前傾 3 下、蹲一半 3 下、腳跟離地 3 下"></textarea></label>
+      <label for="fLaptop">筆電 A～G（載入幾秒、GPU／CPU、FPS、檔名）<textarea id="fLaptop" name="laptop" placeholder="例如 A：第一次 12 秒、第二次 1 秒；B：GPU 30 FPS、?cpu 18 FPS"></textarea></label>
+      <label for="fOther">其他（手機擺多高、遇到的狀況）<textarea id="fOther" name="other"></textarea></label>
+      <div class="actions">
+        <button type="submit" id="copyBtn">複製回報內容</button>
+        <span id="copyStatus" role="status"></span>
+      </div>
+      <textarea id="preview" aria-label="回報內容（自動複製失敗時，長按這裡全選複製）" readonly></textarea>
+    </form>
+    <p class="send">把<b>所有 JSON 檔案</b>和<b>複製的回報內容</b>一起傳給組長。CSV 不用傳，JSON 裡面已經有全部的資料。</p>
+  </section>
+
+  <footer>
+    錄下的檔案只有身體關鍵點的座標和手機型號，沒有影像。網站使用說明的「驗證實驗」一節有更多說明。
+  </footer>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('report');
+  var status = document.getElementById('copyStatus');
+  var preview = document.getElementById('preview');
+  var fields = ['fPhone', 'fHeight', 'fThigh', 'fShank', 'fRec1', 'fRec2', 'fRec3', 'fMore', 'fLaptop', 'fOther'];
+  var labels = { fPhone: '手機型號', fHeight: '身高', fThigh: '大腿長', fShank: '小腿長', fRec1: '第 1 段', fRec2: '第 2 段', fRec3: '第 3 段', fMore: '第 4～13 段', fLaptop: '筆電', fOther: '其他' };
+  var units = { fHeight: ' 公分', fThigh: ' 公分', fShank: ' 公分' };
+
+  // 填到一半關掉也不會不見（只存在這支手機的瀏覽器裡）
+  fields.forEach(function (id) {
+    var el = document.getElementById(id);
+    try { var v = localStorage.getItem('rec-' + id); if (v) el.value = v; } catch (e) {}
+    el.addEventListener('input', function () {
+      try { localStorage.setItem('rec-' + id, el.value); } catch (e) {}
+    });
+  });
+
+  function reportText() {
+    var lines = ['【驗證錄影回報】'];
+    fields.forEach(function (id) {
+      var v = document.getElementById(id).value.trim();
+      if (v) lines.push(labels[id] + '：' + v + (units[id] && /^[\d.]+$/.test(v) ? units[id] : ''));
+    });
+    return lines.join('\n');
+  }
+
+  // 手機／筆電分頁，記住上次選的
+  var tabs = [document.getElementById('tabPhone'), document.getElementById('tabLaptop')];
+  function pick(tab, save) {
+    tabs.forEach(function (b) {
+      var on = b === tab;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (save) { try { localStorage.setItem('rec-tab', tab.id); } catch (e) {} }
+  }
+  tabs.forEach(function (b, i) {
+    b.addEventListener('click', function () { pick(b, true); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { var n = tabs[1 - i]; pick(n, true); n.focus(); }
+    });
+  });
+  try { var last = document.getElementById(localStorage.getItem('rec-tab') || ''); if (last && tabs.indexOf(last) >= 0) pick(last, false); } catch (e) {}
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = reportText();
+    preview.value = text;
+    function fallback() {
+      preview.classList.add('show');
+      preview.focus();
+      preview.select();
+      status.textContent = '請長按下面的文字，全選後複製';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        preview.classList.remove('show');
+        status.textContent = '已複製，可以貼到 LINE 傳給組長';
+      }, fallback);
+    } else {
+      fallback();
+    }
+  });
+})();
+</script>

@@ -1,0 +1,527 @@
+<title>專題進度地圖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 版面：一欄閱讀，上方一條 8 階段進度軌（簡報第 16 張的開發流程），往下逐層對照「簡報規劃 vs 目前完成」 */
+:root {
+  --bg: #F3F5F2;
+  --paper: #FFFFFF;
+  --ink: #142019;
+  --muted: #5B6B62;
+  --line: #DCE3DE;
+  --accent: #0E8A5F;          /* 專題網站的活力綠，調暗以便在白底上閱讀 */
+  --done: #0E8A5F;  --done-bg: #E1F3EA;
+  --doing: #A55A00; --doing-bg: #FBEBD3;
+  --todo: #66746C;  --todo-bg: #E8ECE9;
+  --hold: #4A5A8C;  --hold-bg: #E5E8F3;
+  --swap: #1F6FA8;  --swap-bg: #E0EEF8;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1512; --paper: #151F1A; --ink: #E7EFEA; --muted: #9BB0A4; --line: #26352D;
+    --accent: #3DDBA0;
+    --done: #3DDBA0; --done-bg: #123326;
+    --doing: #F2B35A; --doing-bg: #3A2A12;
+    --todo: #9AA8A0; --todo-bg: #222C27;
+    --hold: #A9B7E6; --hold-bg: #232A44;
+    --swap: #7CC3F2; --swap-bg: #14304A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1512; --paper: #151F1A; --ink: #E7EFEA; --muted: #9BB0A4; --line: #26352D;
+  --accent: #3DDBA0;
+  --done: #3DDBA0; --done-bg: #123326;
+  --doing: #F2B35A; --doing-bg: #3A2A12;
+  --todo: #9AA8A0; --todo-bg: #222C27;
+  --hold: #A9B7E6; --hold-bg: #232A44;
+  --swap: #7CC3F2; --swap-bg: #14304A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 40px 64px;
+  display: grid;
+  gap: 48px;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 900; line-height: 1.25; }
+h2 { font-size: 22px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.lead { color: var(--muted); max-width: 65ch; }
+.sec-head { display: grid; gap: 6px; margin-bottom: 18px; }
+.sec-head p { color: var(--muted); font-size: 15px; max-width: 65ch; }
+.source {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 狀態標記 */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chip::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip.done { color: var(--done); background: var(--done-bg); }
+.chip.doing { color: var(--doing); background: var(--doing-bg); }
+.chip.todo { color: var(--todo); background: var(--todo-bg); }
+.chip.hold { color: var(--hold); background: var(--hold-bg); }
+.chip.swap { color: var(--swap); background: var(--swap-bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 開頭：一句話現況 */
+.now {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.layer {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  display: grid;
+  gap: 8px;
+}
+.layer .name { font-size: 18px; font-weight: 900; }
+.layer .desc { color: var(--muted); font-size: 14px; }
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--todo-bg);
+  overflow: hidden;
+}
+.meter span { display: block; height: 100%; border-radius: inherit; background: var(--done); }
+.meter span.part { background: var(--doing); }
+
+/* 8 階段進度軌 */
+.track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+.track li { display: grid; gap: 8px; min-width: 0; }
+.track .bar { height: 10px; border-radius: 999px; background: var(--todo-bg); position: relative; overflow: hidden; }
+.track .bar span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; }
+.track .done .bar span { width: 100%; background: var(--done); }
+.track .doing .bar span { background: var(--doing); }
+.track .num { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.track .title { font-size: 14px; font-weight: 700; line-height: 1.35; }
+.track .here { color: var(--accent); font-size: 12px; font-weight: 700; }
+
+/* 對照表 */
+.table-box {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 640px; }
+th, td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: none; }
+thead th { font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.04em; background: var(--bg); }
+td.stage { font-weight: 700; white-space: nowrap; }
+td.stage .num { font-family: var(--font-mono); color: var(--muted); font-weight: 500; margin-right: 6px; }
+td ul { margin: 0; padding-left: 1.1em; }
+td li + li { margin-top: 2px; }
+.ok { color: var(--done); font-weight: 700; }
+.wip { color: var(--doing); font-weight: 700; }
+.no { color: var(--todo); }
+
+/* 運動 × 指標 */
+.sports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.sport {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.sport-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sport-head .en { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.metrics { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.metrics li { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+.metrics .what { min-width: 0; }
+
+/* 兩欄清單 */
+.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.panel ol, .panel ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.panel .who { font-size: 13px; color: var(--muted); }
+
+.note {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--swap-bg);
+  color: var(--ink);
+  font-size: 15px;
+}
+.note strong { color: var(--swap); }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+a { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .now, .sports, .two { grid-template-columns: 1fr; }
+  .track { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .meter span, .track .bar span { transition: width 0.6s ease; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="sec-head" style="gap:12px;margin:0">
+    <span class="eyebrow">AI 智慧運動分析系統 · 2026-10-01</span>
+    <h1>專題進度地圖</h1>
+    <p class="lead">左邊是你們簡報裡原本的規劃，右邊是網站目前實際做到的內容。逐項對照，就知道現在在哪、完成了什麼、下一步做什麼。</p>
+    <div class="legend" aria-label="狀態說明">
+      <span class="chip done">完成</span>
+      <span class="chip doing">進行中／部分完成</span>
+      <span class="chip todo">未開始</span>
+      <span class="chip hold">暫緩</span>
+      <span class="chip swap">做法和簡報不同</span>
+    </div>
+  </header>
+
+  <!-- 一句話現況 -->
+  <section aria-labelledby="nowTitle">
+    <div class="sec-head">
+      <h2 id="nowTitle">一句話現況：「看」和「量」完成，下一步是「判斷」</h2>
+      <p>系統可以分成三層。前兩層已經在網站上運作，第三層是簡報裡 AI 評分、錯誤偵測、疲勞分析的部分，從深蹲開始做。</p>
+    </div>
+    <div class="now">
+      <div class="layer">
+        <span class="name">看得到</span>
+        <span class="desc">鏡頭、骨架偵測、網站上線</span>
+        <div class="meter" aria-label="完成"><span style="width:100%"></span></div>
+        <span class="chip done">完成</span>
+      </div>
+      <div class="layer">
+        <span class="name">量得到</span>
+        <span class="desc">座標、關節角度、錄製匯出</span>
+        <div class="meter" aria-label="大部分完成"><span style="width:80%"></span></div>
+        <span class="chip doing">角度完成，穩定度與平衡度還沒做</span>
+      </div>
+      <div class="layer">
+        <span class="name">判斷得出</span>
+        <span class="desc">次數、對錯、評分、疲勞、建議</span>
+        <div class="meter" aria-label="未開始"><span style="width:0"></span></div>
+        <span class="chip todo">未開始，下一步</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 階段 -->
+  <section aria-labelledby="stageTitle">
+    <div class="sec-head">
+      <h2 id="stageTitle">簡報的 8 個開發階段</h2>
+      <p class="source">出處：專題簡報第 16 張「開發流程」</p>
+    </div>
+    <ol class="track" aria-label="8 個開發階段的進度">
+      <li class="done"><div class="bar"><span></span></div><span class="num">01</span><span class="title">需求規劃</span></li>
+      <li class="doing"><div class="bar"><span style="width:75%"></span></div><span class="num">02</span><span class="title">核心模組</span><span class="here">● 目前位置</span></li>
+      <li class="doing"><div class="bar"><span style="width:5%"></span></div><span class="num">03</span><span class="title">AI 模型</span><span class="here">→ 下一步</span></li>
+      <li><div class="bar"><span></span></div><span class="num">04</span><span class="title">分析優化</span></li>
+      <li class="doing"><div class="bar"><span style="width:15%"></span></div><span class="num">05</span><span class="title">後端建置</span></li>
+      <li class="doing"><div class="bar"><span style="width:35%"></span></div><span class="num">06</span><span class="title">前端視覺化</span></li>
+      <li class="doing"><div class="bar"><span style="width:30%"></span></div><span class="num">07</span><span class="title">整合測試</span></li>
+      <li class="doing"><div class="bar"><span style="width:15%"></span></div><span class="num">08</span><span class="title">驗證優化</span></li>
+    </ol>
+
+    <div class="table-box" style="margin-top:20px">
+      <table>
+        <thead><tr><th>階段</th><th>簡報規劃</th><th>目前完成</th><th>狀態</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="stage"><span class="num">01</span>需求規劃</td>
+            <td>文獻蒐集、建立動作標準、系統架構設計</td>
+            <td>簡報與架構已完成（你們組）；動作標準的具體數字（例如深蹲膝蓋要幾度）還要訂</td>
+            <td><span class="chip done">完成</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">02</span>核心模組</td>
+            <td>MediaPipe 座標提取、特徵工程（角度、穩定度）</td>
+            <td><ul>
+              <li><span class="ok">✓</span> 33 點座標即時提取（手機、筆電都能跑）</li>
+              <li><span class="ok">✓</span> 膝、髖、肘角度計算，實測後改用 2D</li>
+              <li><span class="ok">✓</span> 點的平滑、只採用看得到的點</li>
+              <li><span class="no">○</span> 穩定度、平衡度、流暢度</li>
+            </ul></td>
+            <td><span class="chip doing">約 75%</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">03</span>AI 模型</td>
+            <td>規則式（Rule-based）錯誤偵測、Random Forest 品質分類</td>
+            <td><ul>
+              <li><span class="wip">◐</span> 規則的基礎（角度）已就緒，下一步做深蹲次數與錯誤判斷</li>
+              <li><span class="no">○</span> Random Forest：需要先錄製並標註訓練資料</li>
+            </ul></td>
+            <td><span class="chip todo">下一步</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">04</span>分析優化</td>
+            <td>疲勞的前後段變異分析、自動判別穩定度下降</td>
+            <td>錄製功能已經能保存整段動作，之後可以用來比較前段與後段</td>
+            <td><span class="chip todo">未開始</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">05</span>後端建置</td>
+            <td>FastAPI、MongoDB、資料結構設計</td>
+            <td><ul>
+              <li><span class="ok">✓</span> 資料結構設計：上傳用的 JSON 格式已定義（老師第 5 題）</li>
+              <li><span class="no">○</span> FastAPI、資料庫尚未建置</li>
+            </ul></td>
+            <td><span class="chip doing">資料格式完成</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">06</span>前端視覺化</td>
+            <td>React、Chart.js、Dashboard</td>
+            <td><ul>
+              <li><span class="ok">✓</span> 即時畫面：骨架、角度、大字儀表板、入鏡提示、數據面板</li>
+              <li><span class="ok">✓</span> 視覺設計完成（深色主題、首頁介紹）</li>
+              <li><span class="no">○</span> 歷史紀錄 Dashboard、成長曲線圖表</li>
+            </ul></td>
+            <td><span class="chip swap">改用原生網頁</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">07</span>整合測試</td>
+            <td>前後端串接、真實場景測試</td>
+            <td><ul>
+              <li><span class="ok">✓</span> 自動化測試：13 種裝置版面、12 種鏡頭狀況、長時間運行</li>
+              <li><span class="no">○</span> 真實手機測試（iPhone、Android）需要你們實際操作</li>
+            </ul></td>
+            <td><span class="chip doing">部分完成</span></td>
+          </tr>
+          <tr>
+            <td class="stage"><span class="num">08</span>驗證優化</td>
+            <td>準確度測試、使用者體驗回饋</td>
+            <td><ul>
+              <li><span class="ok">✓</span> 已量測：延遲、抖動、2D／3D 角度誤差、載入時間</li>
+              <li><span class="ok">✓</span> 6 個驗證實驗已設計好（資料格式文件 A～F）</li>
+              <li><span class="no">○</span> 實驗還沒有實際做</li>
+            </ul></td>
+            <td><span class="chip doing">已設計</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5 大目標 -->
+  <section aria-labelledby="goalTitle">
+    <div class="sec-head">
+      <h2 id="goalTitle">簡報的 5 大研究目標</h2>
+      <p class="source">出處：專題簡報第 2–3 張「研究目的」</p>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>目標</th><th>簡報內容</th><th>目前完成</th><th>狀態</th></tr></thead>
+        <tbody>
+          <tr><td class="stage"><span class="num">1</span>人體骨架辨識</td><td>MediaPipe 即時偵測 33 點，低延遲</td><td>手機、筆電即時偵測；延遲已調整到原本的一半</td><td><span class="chip done">完成</span></td></tr>
+          <tr><td class="stage"><span class="num">2</span>姿勢分析機制</td><td>關節角度、平衡與重心、流暢度、穩定度</td><td>關節角度完成；其他三項還沒做</td><td><span class="chip doing">1／4 項</span></td></tr>
+          <tr><td class="stage"><span class="num">3</span>AI 評分模型</td><td>機器學習評動作品質、個人化建議</td><td>先做規則式判斷，再收集資料訓練模型</td><td><span class="chip todo">未開始</span></td></tr>
+          <tr><td class="stage"><span class="num">4</span>疲勞分析機制</td><td>動作品質變化、疲勞預警</td><td>錄製功能是它的基礎</td><td><span class="chip todo">未開始</span></td></tr>
+          <tr><td class="stage"><span class="num">5</span>數據視覺化平台</td><td>成長曲線、平衡度、穩定度、疲勞 Dashboard</td><td>即時數據面板已完成；長期 Dashboard 需要後端與資料庫</td><td><span class="chip doing">即時部分完成</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 4 種運動 -->
+  <section aria-labelledby="sportTitle">
+    <div class="sec-head">
+      <h2 id="sportTitle">4 種運動的指標</h2>
+      <p>簡報第 5 張列出每種運動要看的指標。「可量測」代表數字已經算得出來；要能判斷對錯，還需要再訂規則。</p>
+    </div>
+    <div class="sports">
+      <article class="sport">
+        <div class="sport-head"><h3>深蹲</h3><span class="en">SQUAT · 下一步</span></div>
+        <ul class="metrics">
+          <li><span class="what">膝蓋彎曲角度</span><span class="chip done">可量測</span></li>
+          <li><span class="what">髖部下蹲深度</span><span class="chip done">可量測</span></li>
+          <li><span class="what">背部姿勢</span><span class="chip todo">未做</span></li>
+          <li><span class="what">次數計算、錯誤判斷</span><span class="chip todo">下一步</span></li>
+        </ul>
+      </article>
+      <article class="sport">
+        <div class="sport-head"><h3>弓箭步</h3><span class="en">LUNGE</span></div>
+        <ul class="metrics">
+          <li><span class="what">前後膝角度</span><span class="chip done">可量測</span></li>
+          <li><span class="what">身體穩定度</span><span class="chip todo">未做</span></li>
+          <li><span class="what">次數計算、錯誤判斷</span><span class="chip todo">未做</span></li>
+        </ul>
+      </article>
+      <article class="sport">
+        <div class="sport-head"><h3>伏地挺身</h3><span class="en">PUSH-UP</span></div>
+        <ul class="metrics">
+          <li><span class="what">手肘角度</span><span class="chip doing">已計算，畫面未顯示</span></li>
+          <li><span class="what">動作深度</span><span class="chip todo">未做</span></li>
+          <li><span class="what">次數計算、錯誤判斷</span><span class="chip todo">未做</span></li>
+        </ul>
+      </article>
+      <article class="sport">
+        <div class="sport-head"><h3>棒式</h3><span class="en">PLANK</span></div>
+        <ul class="metrics">
+          <li><span class="what">身體平直度</span><span class="chip todo">未做</span></li>
+          <li><span class="what">骨盆高度</span><span class="chip todo">未做</span></li>
+          <li><span class="what">核心穩定度、計時</span><span class="chip todo">未做</span></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <!-- 技術選擇差異 -->
+  <section aria-labelledby="techTitle">
+    <div class="sec-head">
+      <h2 id="techTitle">技術架構：簡報規劃與實際採用</h2>
+      <p class="source">出處：專題簡報第 10–13 張「系統架構」</p>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>層級</th><th>簡報規劃</th><th>實際採用</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td class="stage">前端</td><td>React、Chart.js</td><td><span class="chip swap">原生 HTML／CSS／JavaScript</span></td><td>不用安裝建置工具，推上 GitHub 就自動上線；之後要做 Dashboard 時，可以再加入 Chart.js</td></tr>
+          <tr><td class="stage">骨架辨識</td><td>MediaPipe、OpenCV</td><td><span class="chip swap">MediaPipe 網頁版</span></td><td>直接在使用者的瀏覽器裡運算，影像不上傳；鏡頭由瀏覽器處理，不需要 OpenCV</td></tr>
+          <tr><td class="stage">後端</td><td>FastAPI</td><td><span class="chip todo">尚未建置</span></td><td>上傳資料格式已經定好，建置時可以直接使用</td></tr>
+          <tr><td class="stage">資料庫</td><td>MongoDB、Firebase</td><td><span class="chip todo">尚未建置</span></td><td>建議先確定只用一個，口試時比較好說明</td></tr>
+          <tr><td class="stage">網站發布</td><td>未提到</td><td><span class="chip done">GitHub Pages</span></td><td>免費、合併程式後約 1 分鐘自動上線</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 老師的 6 個問題 -->
+  <section aria-labelledby="qTitle">
+    <div class="sec-head">
+      <h2 id="qTitle">老師提出的 6 個問題</h2>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>題目</th><th>回答／成果</th><th>狀態</th></tr></thead>
+        <tbody>
+          <tr><td class="stage">Q1 手機有沒有 GPU</td><td>畫面上顯示 GPU／CPU 與 FPS</td><td><span class="chip done">完成</span></td></tr>
+          <tr><td class="stage">Q2 33 點能否重新編號</td><td>編號由模型固定；做了名稱對照表，並另外算出肩膀中心、髖部中心</td><td><span class="chip done">完成</span></td></tr>
+          <tr><td class="stage">Q3 顯示編號、標出問題關節</td><td>編號標籤、點選查看已完成；問題關節標紅要等動作判斷做好</td><td><span class="chip doing">前半完成</span></td></tr>
+          <tr><td class="stage">Q4 三種模型比較</td><td>等組員討論後再決定</td><td><span class="chip hold">暫緩</span></td></tr>
+          <tr><td class="stage">Q5 資料保存格式</td><td>CSV（234 欄）與 JSON 格式說明文件</td><td><span class="chip done">完成</span></td></tr>
+          <tr><td class="stage">Q6 x／y／z 數據與驗證</td><td>數據面板、錄製匯出完成；驗證實驗已設計，還沒有實際做</td><td><span class="chip doing">功能完成</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 簡報補強點 -->
+  <section aria-labelledby="fixTitle">
+    <div class="sec-head">
+      <h2 id="fixTitle">簡報與初稿可以補強的地方</h2>
+      <p>第一次讀簡報時提出的 6 個補強點，現在有些已經有答案或實驗數據，可以直接寫進初稿。</p>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h3>已經有答案，可以寫進去</h3>
+        <ul>
+          <li><strong>手機單鏡頭的 Z 軸限制：</strong>實測 3D 角度誤差約 22°（伸直的腿算成 152°），所以改用 2D 計算並建議側面拍攝</li>
+          <li><strong>目前做到哪：</strong>就是這一頁，可以加一張「現況」投影片</li>
+          <li><strong>系統實作與實驗數據：</strong>延遲從 9.6 降到 4.9 像素、載入時間、13 種裝置測試，都可以寫進實作章節</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>還需要你們決定</h3>
+        <ul>
+          <li><strong>評分模型的訓練資料：</strong>從哪裡來、怎麼標註（可以用錄製功能收集）</li>
+          <li><strong>疲勞門檻 20%、15% 的依據：</strong>需要文獻或實驗支持</li>
+          <li><strong>MongoDB 與 Firebase 的分工：</strong>為什麼兩個都要</li>
+          <li><strong>第 14 張流程的順序：</strong>確認編號 04、05 的位置</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 接下來 -->
+  <section aria-labelledby="nextTitle">
+    <div class="sec-head">
+      <h2 id="nextTitle">接下來的分工</h2>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h3>網站開發（依序進行）</h3>
+        <ol>
+          <li>深蹲次數計算</li>
+          <li>深蹲錯誤判斷＋問題關節標紅，完成 Q3 後半</li>
+          <li>語音提示（喊次數、提醒動作）</li>
+          <li>穩定度、平衡度指標</li>
+          <li>伏地挺身、弓箭步、棒式</li>
+        </ol>
+      </div>
+      <div class="panel">
+        <h3>需要組員幫忙</h3>
+        <ol>
+          <li>用 iPhone、Android 實際測試網站</li>
+          <li>照文件做驗證實驗 A～F，結果可以放進初稿</li>
+          <li>訂出深蹲的動作標準（蹲到幾度算一次、前傾多少算錯）</li>
+          <li>討論 Q4 要不要做模型比較</li>
+        </ol>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px"><strong>初稿對照：</strong>這一頁是用簡報對照的。如果把初稿（Word 或 PDF）給我，我可以逐章對照哪些段落已經有成果可以寫、哪些要改寫成目前的實際做法。</p>
+  </section>
+
+  <footer>
+    網站：<a href="https://ttweew.github.io/claude-workspace/">ttweew.github.io/claude-workspace</a> · 第二批次 PR #7–#30 · 更新於 2026-10-01
+  </footer>
+</div>
