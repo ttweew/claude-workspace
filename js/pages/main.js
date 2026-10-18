@@ -306,6 +306,7 @@ function updatePerfInfo() {
             const info = [size, rate].filter(Boolean).join('，');
             if (info) parts.push('鏡頭 ' + info);
             if (isAutoFps()) parts.push('每秒格數自動，目前 ' + getFrameRate() + ' 格');
+            if (tracker.baseline) parts.push('校正：站直膝 ' + tracker.baseline.knee + '°、傾斜 ' + tracker.baseline.tilt + '°');
             if (lightMeter.luma !== null) parts.push('畫面亮度 ' + Math.round(lightMeter.luma) + (lightMeter.dark ? '（太暗）' : ''));
             // AI 每格算幾毫秒、用哪個模型：組員回報手機速度時看這裡
             if (recentMs.length) parts.push('AI 每格 ' + Math.round(median(recentMs)) + ' 毫秒（' + modelLabel() + '）');
@@ -545,6 +546,11 @@ function resetLight() {
     lightNote.hidden = true;
 }
 
+// 個人校正的說明：站直時膝蓋幾度；手機歪超過 3° 才提
+function calibrationText(b) {
+    return '已依你的站姿校正：站直時膝蓋 ' + b.knee + '°' + (Math.abs(b.tilt) >= 3 ? '、手機（或站姿）傾斜約 ' + Math.round(Math.abs(b.tilt)) + '°' : '');
+}
+
 // 自動調整時在運算標籤旁邊短暫說明換了什麼（6 秒後收起來）
 let autoNoteTimer = null;
 function showAutoNote(text) {
@@ -637,6 +643,8 @@ function showResult(result, now) {
         const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
         // 次數、動作錯誤：做錯的部位畫成紅線
         const tracked = tracker.update(processed, now);
+        // 個人校正（js/analysis/calibrate.js）：站直不動約 2 秒後，依這個人調整，短暫說明
+        if (tracked.calibrated) showAutoNote(calibrationText(tracked.calibrated));
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         drawSkeleton(ctx, shown, shownDerived, dpr, tracked.form.red);
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
@@ -1347,6 +1355,8 @@ function startRecording() {
         cameraFrameRate: cameraFrameRate(currentStream),
         // 選的運動模式：'free'（自由）、'squat'、'pushup'、'plank'、'lunge'
         workout: workout.id,
+        // 個人校正：站直時的膝蓋角度、上身和畫面垂直線的夾角（還沒校正時是 null）
+        calibration: tracker.baseline,
         // 使用者選的每秒格數：30、60、90、120 或 'auto'（自動；錄製中不會變）
         fpsChoice: getFpsChoice(),
         // AI 每格算幾毫秒（開始錄製前最近 30 格的中位數）：比較不同手機的速度
