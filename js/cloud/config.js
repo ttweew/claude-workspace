@@ -1,6 +1,6 @@
 // 雲端（Firebase）的設定：專案 ai-sport-analysis-bf82e（10/18 建立），主控台「專案設定 → 一般 → 你的應用程式」的 firebaseConfig
 // 這段不是密碼（打開網站的人都看得到，Firebase 本來就是這樣設計的）；資料靠 firestore.rules 保護：每個人只能讀寫自己的紀錄
-// 改成 null：首頁「進階設定」不會出現雲端同步，網站和沒有雲端時完全一樣（例如要暫停雲端同步）
+// 改成 null：首頁不會出現雲端同步的開關，網站和沒有雲端時完全一樣（例如要暫停雲端同步）
 // 步驟見 docs/firebase-setup.md
 export const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyDjXfPUrqMDoPlBjQIVPb01GypnbTHqzQI',

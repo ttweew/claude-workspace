@@ -1,12 +1,26 @@
-// 使用說明頁：離線功能（打開過的頁面沒有網路也能看）、「檢查這支手機」、驗證實驗 A 的比對表
+// 使用說明頁：離線功能（打開過的頁面沒有網路也能看）、實測任務卡、「檢查這支手機」、驗證實驗 A 的比對表
 import { setupOffline } from '../platform/offline.js';
 import { checkSupport, unsupportedAdvice } from '../platform/support.js';
 import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES, MEASURE_RANGE, validMeasure } from '../analysis/validate.js';
 import { downloadBlob } from '../data/recorder.js';
+import { setupTaskCard } from '../ui/task-card.js';
 
 setupOffline();
 
 const $ = id => document.getElementById(id);
+
+// 從別的頁面連到某一題常見問題（例如首頁的「雲端同步是什麼？」→ help.html#cloudFaq）：直接打開那一題
+function openFromHash() {
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (err) { return; }   // 網址被改壞（例如 #%E0）：不理它
+    const target = document.getElementById(id);
+    if (target && target.tagName === 'DETAILS') target.open = true;
+}
+window.addEventListener('hashchange', openFromHash);
+openFromHash();
+
+// 實測任務卡：做完的項目打勾（只存在這台裝置上）
+setupTaskCard({ root: $('taskCard'), progress: $('taskProgress'), reset: $('taskReset') });
 const MARK = { true: '✓', false: '✕' };
 let report = '';
 

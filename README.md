@@ -25,12 +25,13 @@ js/
 firestore.rules       雲端資料庫的安全規則（firebase.json：本機模擬器的設定）
 tests/                自動測試（npm test；雲端的安全規則：npm run test:rules）
 docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
-                      design-plan.md（版面規劃）、roadmap.md（日後改進）、firebase-setup.md（雲端同步）
+                      design-plan.md（版面規劃）、roadmap.md（日後改進）、firebase-setup.md（雲端同步）、
+                      devlog.md（開發日誌，每天一段）
 .github/workflows/    自動化：deploy.yml（發布網站）、test.yml（每次推送都跑測試）
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
-雲端同步用 Firebase（Authentication＋Cloud Firestore），一樣從官方網址載入；只有使用者在「進階設定」打開雲端同步才會下載。Firebase 專案的設定和測試方式見 [docs/firebase-setup.md](docs/firebase-setup.md)。
+雲端同步用 Firebase（Authentication＋Cloud Firestore），一樣從官方網址載入；只有使用者在首頁打開「雲端同步」開關才會下載。Firebase 專案的設定和測試方式見 [docs/firebase-setup.md](docs/firebase-setup.md)。
 
 ## 測試用網址參數
 
