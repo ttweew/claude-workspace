@@ -845,7 +845,8 @@ footer {
     color: var(--muted);
     font-size: 13px;
 }
-footer a, .panel-note a, .note a, .prose a {
+/* 文字裡的連結：深色底上用亮藍色（瀏覽器預設的深藍色在深色底上幾乎看不到，10/19 無障礙檢查 axe-core 找到：對比 1.8，要 4.5 以上） */
+footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     color: var(--info);
 }
 
