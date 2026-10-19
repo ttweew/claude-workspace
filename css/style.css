@@ -1697,6 +1697,17 @@ code {
 #formTip[hidden] {
     display: none;
 }
+/* 紅字下面說出原因：小一點、不那麼粗（「上身前傾 58°，超過 50° 算上身前傾」） */
+#formWhy {
+    display: block;
+    margin-top: 2px;
+    font-size: max(14px, 0.5em);   /* 紅字的一半；手機上紅字約 20px，一半太小看不清楚，最小 14px */
+    font-weight: 600;
+    opacity: 0.92;
+}
+#formWhy[hidden] {
+    display: none;
+}
 /* 關節角度大數字：畫面下方中央，字體隨螢幕放大 */
 /* 左右兩組照鏡子的方式放：第一組在畫面左邊、第二組在右邊（哪一組是本人的左側由 hud.js 依鏡像決定）
    直拿：放在下方左右兩角；橫拿：放在影像左右兩側的黑邊，不擋到人 */

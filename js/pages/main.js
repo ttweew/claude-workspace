@@ -20,7 +20,7 @@ import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
-import { errorShort } from '../analysis/form.js';
+import { errorShort, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { cloud } from '../cloud/cloud.js';
 import { shouldAskCloud, loadAsked, saveAsked } from '../ui/cloud-ask.js';
@@ -85,6 +85,8 @@ const hudRoot = document.getElementById('hud');
 const hudRepsBox = document.getElementById('hudRepsBox');  // 次數或秒數（選了運動模式才顯示）
 const hudRepsName = document.getElementById('hudRepsName');
 const formTip = document.getElementById('formTip');  // 動作做錯時畫面上方的紅字
+const formTipText = document.getElementById('formTipText');
+const formWhy = document.getElementById('formWhy');    // 紅字下面說出原因的小字
 const summaryBox = document.getElementById('summary');      // 首頁：這次運動的總結
 const summaryLines = document.getElementById('summaryLines');
 const cloudAsk = document.getElementById('cloudAsk');       // 總結下面：問一次要不要打開雲端同步
@@ -802,12 +804,20 @@ function finishRep(rep, depth, speech) {
 // 紅字和每一下的提示在同一個位置：剛做完一下時先讓那一下的提示顯示完（2.5 秒，裡面也寫了這一下的錯誤），之後紅字才回來
 // 「新出現」是指這次能顯示時才出現的：錯誤開始時剛好在提示站位（例如請側身），站位好了、紅字出現時才唸
 let formShown = new Set();
+// 說出原因：這次紅字出現以來最嚴重的數字（每一格都換數字的話會一直跳，站遠看不清楚）
+const whyPeak = new Map();
 function showForm(formResult) {
     const errors = formResult ? formResult.errors : [];
     errors.forEach(e => { if (!formShown.has(e.id)) voice.say(e.speech, true); });
     formShown = new Set(errors.map(e => e.id));
+    for (const id of [...whyPeak.keys()]) if (!formShown.has(id)) whyPeak.delete(id);
+    const values = formResult ? formResult.values : {};
+    for (const e of errors) if (values[e.id] !== undefined && !(whyPeak.get(e.id) >= values[e.id])) whyPeak.set(e.id, values[e.id]);
     const text = errors.length ? errors[0].text : '';
-    if (formTip.textContent !== text) formTip.textContent = text;
+    const why = errors.length ? whyText(errors[0], whyPeak.get(errors[0].id)) : '';
+    if (formTipText.textContent !== text) formTipText.textContent = text;
+    if (formWhy.textContent !== why) formWhy.textContent = why;
+    formWhy.hidden = !why;
     const hidden = !text || !dataPanel.hidden || !repToast.hidden;
     if (formTip.hidden !== hidden) formTip.hidden = hidden;
 }

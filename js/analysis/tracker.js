@@ -1,4 +1,4 @@
-// 一次運動的計算：次數（棒式計時）＋動作錯誤，並把做每一下期間出現過的錯誤記到那一下（rep.errors）、
+// 一次運動的計算：次數（棒式計時）＋動作錯誤，並把做每一下期間出現過的錯誤記到那一下（rep.errors，最嚴重的數字在 rep.peaks）、
 // 和示範動作的相似度（rep.similarity，0～100，見 similarity.js）
 // 鏡頭畫面（main.js）和重播分析（js/data/replay-core.js）共用，重播算出來的結果就和當時畫面上的一樣
 
@@ -16,6 +16,7 @@ export class WorkoutTracker {
         this.counter = this.workout.create ? this.workout.create() : null;
         this.form = new FormChecker(this.workout.id);
         this.errors = new Set();   // 這一下（或這一次棒式）出現過的錯誤規則
+        this.peaks = new Map();    // 這一下每種錯誤最嚴重的數字（度或 %，說出原因用，見 form.js 的 why）
         // 個人校正（calibrate.js）：站直不動約 2 秒後，「站直」的門檻和上身前傾的判斷依這個人調整
         this.calibrator = CALIBRATED.includes(this.workout.id) ? new Calibrator() : null;
         this.defaults = this.counter ? { up: this.counter.config.up, down: this.counter.config.down } : null;
@@ -50,6 +51,7 @@ export class WorkoutTracker {
         if (this.counter) this.counter.reset();
         this.form.reset();
         this.errors.clear();
+        this.peaks.clear();
         if (this.calibrator) this.calibrator.reset();
         this.applyBaseline(null);
     }
@@ -60,6 +62,7 @@ export class WorkoutTracker {
         if (hold) this.attach(hold);
         this.form.reset();
         this.errors.clear();
+        this.peaks.clear();
         // 重開鏡頭（可能換了鏡頭、手機重放）：重新校正
         if (this.calibrator) this.calibrator.reset();
         this.applyBaseline(null);
@@ -76,17 +79,27 @@ export class WorkoutTracker {
         const count = this.counter.update(pose, timeMs);
         // 做這一下的期間：彎下去到站起來；棒式是撐著的時候
         const during = this.workout.kind === 'hold' ? !!this.counter.current : count.state === 'down' || count.state === 'squat';
-        if (during) form.errors.forEach(e => this.errors.add(e));
+        if (during) {
+            form.errors.forEach(e => this.errors.add(e));
+            for (const [id, v] of Object.entries(form.values)) if (!(this.peaks.get(id) >= v)) this.peaks.set(id, v);
+        }
         const done = count.rep || count.hold || null;
         if (done) this.attach(done);
-        else if (!during) this.errors.clear();
+        else if (!during) {
+            this.errors.clear();
+            this.peaks.clear();
+        }
         return { form, count, done, calibrated };
     }
 
     // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度，曲線算完就不留（省記憶體）
     attach(item) {
         item.errors = [...this.errors].map(e => e.id);
+        // 最嚴重的數字取整數（畫面、總結、錄製檔都一樣）；只留這一下有出現的錯誤
+        item.peaks = {};
+        for (const id of item.errors) if (this.peaks.has(id)) item.peaks[id] = Math.round(this.peaks.get(id));
         this.errors.clear();
+        this.peaks.clear();
         if (item.samples) {
             item.similarity = repSimilarity(this.workout.id, item.samples);
             delete item.samples;

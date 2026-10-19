@@ -87,31 +87,58 @@ export function measure(pose, phoneTilt = 0) {
 // 每個動作的規則：
 //   text：畫面上的紅字；speech：語音唸的（短一點）；short：每一下的提示裡的簡稱；parts：要標紅的部位
 //   active(m)：這個時候要不要檢查；bad(m)：是不是做錯了（數字算不出來時當作沒錯）
+//   why：說出原因用（10/19）：label 量的是什麼、value(m) 換成人看得懂的數字（度或 %）、limit 門檻（同樣的單位）
+//     只用來顯示，判斷還是看 bad；value 和 bad 用同一個數字、只是換單位（tests/form.test.mjs 檢查兩邊一致）
 const gt = (v, limit) => v !== null && v > limit;
 const lt = (v, limit) => v !== null && v < limit;
+const has = v => v !== null && v !== undefined && Number.isFinite(v);
+// 身體一直線的程度（hipSag，以肩到腳踝的長度為 1）換成「身體彎了幾度」：髖部在中間時，彎的角度約 2·atan(2·偏離)
+// 0.07 → 16°、0.09 → 20°（和 hipSag 上面的說明一樣）
+export const bendDegrees = sag => 2 * Math.atan(2 * sag) * 180 / Math.PI;
+const SAG = 0.07, PIKE = 0.09;
 const PLANK_RULES = [
-    { id: 'sag', short: '塌腰', text: '腰塌下去了，收緊腹部', speech: '收緊腹部', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => gt(m.sag, 0.07) },
-    { id: 'pike', short: '屁股太高', text: '屁股太高，身體要成一直線', speech: '屁股放低', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => lt(m.sag, -0.09) }
+    { id: 'sag', short: '塌腰', text: '腰塌下去了，收緊腹部', speech: '收緊腹部', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => gt(m.sag, SAG),
+      why: { label: '腰往下彎', unit: '°', value: m => has(m.sag) ? bendDegrees(m.sag) : null, limit: bendDegrees(SAG) } },
+    { id: 'pike', short: '屁股太高', text: '屁股太高，身體要成一直線', speech: '屁股放低', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => lt(m.sag, -PIKE),
+      why: { label: '屁股往上翹', unit: '°', value: m => has(m.sag) ? bendDegrees(-m.sag) : null, limit: bendDegrees(PIKE) } }
 ];
 export const FORM_RULES = {
     free: [],
     squat: [
-        { id: 'lean', short: '上身前傾', text: '上身太前傾，胸口挺起來', speech: '胸口挺起來', parts: ['torso'], active: m => lt(m.knee, 130), bad: m => gt(m.lean, 50) },
-        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, 0.25) }
+        { id: 'lean', short: '上身前傾', text: '上身太前傾，胸口挺起來', speech: '胸口挺起來', parts: ['torso'], active: m => lt(m.knee, 130), bad: m => gt(m.lean, 50),
+          why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 50 } },
+        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, 0.25),
+          why: { label: '腳跟比腳尖高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: 25 } }
     ],
     pushup: PLANK_RULES,
     plank: PLANK_RULES,
     lunge: [
-        { id: 'lean', short: '上身前傾', text: '上身保持直立，不要往前倒', speech: '上身挺直', parts: ['torso'], active: m => lt(m.knee, 140), bad: m => gt(m.lean, 30) },
-        { id: 'knee', short: '膝超過腳尖', text: '前膝超過腳尖了，步伐跨大一點', speech: '前膝不要超過腳尖', parts: ['frontShank'], active: m => lt(m.knee, 130), bad: m => gt(m.kneePast, 0.1) }
+        { id: 'lean', short: '上身前傾', text: '上身保持直立，不要往前倒', speech: '上身挺直', parts: ['torso'], active: m => lt(m.knee, 140), bad: m => gt(m.lean, 30),
+          why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 30 } },
+        { id: 'knee', short: '膝超過腳尖', text: '前膝超過腳尖了，步伐跨大一點', speech: '前膝不要超過腳尖', parts: ['frontShank'], active: m => lt(m.knee, 130), bad: m => gt(m.kneePast, 0.1),
+          why: { label: '前膝比腳尖前面', unit: '%', value: m => has(m.kneePast) ? m.kneePast * 100 : null, limit: 10 } }
     ]
 };
+
+// 說出原因：「上身前傾 58°，超過 50° 算上身前傾」；% 是以小腿長為 100%
+// value 算不出來（看不到那幾個點）時回傳空字串，只顯示紅字
+export function whyText(rule, value) {
+    if (!rule.why || !has(value)) return '';
+    const n = v => Math.round(v) + rule.why.unit;
+    return rule.why.label + ' ' + n(value) + '，超過 ' + n(rule.why.limit) + ' 算' + rule.short;
+}
 
 // 錯誤代號 → 簡稱（例如 lean → 上身前傾）；不同動作的同一個代號簡稱相同
 // 用 Map：紀錄裡的代號可能被改過，'constructor' 這種名字查一般物件會查到 JavaScript 內建的東西
 const SHORT = new Map();
 for (const rules of Object.values(FORM_RULES)) for (const r of rules) SHORT.set(r.id, r.short);
 export const errorShort = id => SHORT.get(id) || String(id);
+// 某個動作的某條規則（找不到回傳 null）；動作、代號都可能來自被改過的紀錄，先比對清單
+// （不用 Object.hasOwn：iOS 15.0～15.3 沒有，網站支援 iOS 15 以上）
+export function errorRule(workoutId, id) {
+    const rules = Object.prototype.hasOwnProperty.call(FORM_RULES, workoutId) ? FORM_RULES[workoutId] : [];
+    return rules.find(r => r.id === id) || null;
+}
 
 // 部位 → 要標紅的骨架連線（33 點的編號）；side：看得比較清楚的那一側，front：弓箭步的前腳
 export function redPairs(parts, m) {
@@ -140,9 +167,10 @@ export class FormChecker {
     }
 
     // pose：pipeline.process 的結果（沒有人時為 null）
-    // 回傳 { errors（現在顯示中的規則）, started（這一格剛出現的規則，要唸出來）, red（要標紅的連線）, m（量到的數字） }
+    // 回傳 { errors（現在顯示中的規則）, started（這一格剛出現的規則，要唸出來）, red（要標紅的連線）, m（量到的數字），
+    //   values（顯示中的錯誤現在的數字，說出原因用：規則代號 → 度或 %） }
     update(pose, timeMs) {
-        const out = { errors: [], started: [], red: [], m: null };
+        const out = { errors: [], started: [], red: [], m: null, values: {} };
         if (!pose || !this.rules.length) {
             if (!pose) this.reset();
             return out;
@@ -169,6 +197,8 @@ export class FormChecker {
             if (st.shown) {
                 out.errors.push(rule);
                 out.red.push(...redPairs(rule.parts, m));
+                const v = rule.why ? rule.why.value(m) : null;
+                if (has(v)) out.values[rule.id] = v;
             }
         }
         return out;
