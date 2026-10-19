@@ -130,7 +130,7 @@ with sync_playwright() as p:
     check(not [u for u in ctx.urls if u.startswith(SDK)], '還沒打開前不下載 Firebase')
     pg.click('#cloudToggle')
     check(wait_status(pg, '已開啟'), '打開：' + status(pg))
-    check('雲端同步' in pg.inner_text('#advancedTitle'), '進階設定的標題寫出雲端同步：' + pg.inner_text('#advancedTitle'))
+    check(pg.is_visible('#cloudToggle') and '雲端' not in pg.inner_text('#advancedTitle'), '雲端同步的開關在首頁上（10/19 從進階設定拿出來）：' + pg.inner_text('#advancedTitle'))
     n = workout(pg)
     check(wait_status(pg, '已同步：這台裝置的 1 筆'), f'運動 {n} 下、關鏡頭後自動上傳：' + status(pg))
     docs = cloud_docs(); h = history(pg)
