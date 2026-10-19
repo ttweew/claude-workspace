@@ -1,0 +1,23 @@
+# axe-core：打開之後才看得到的畫面（鏡頭畫面、數據面板、運動總結和雲端詢問、使用說明的常見問題全部打開）
+import sys
+sys.path.insert(0, '.')
+exec(open('maint19.py', encoding='utf8').read().split('with sync_playwright() as p:')[0])
+with sync_playwright() as p:
+    b = p.chromium.launch(executable_path="/opt/pw-browsers/chromium")
+    ctx = context(b); pg = page(ctx, 'index.html?workout=pushup&cloud=emulator')
+    pg.click('#startBtn'); pg.wait_for_selector('#stage:not([hidden])'); pg.wait_for_timeout(6000)
+    r1 = axe(pg, '鏡頭畫面（伏地挺身，運動中）')
+    pg.click('#dataBtn'); pg.wait_for_timeout(1500)
+    r2 = axe(pg, '鏡頭畫面＋數據面板')
+    pg.click('#dataBtn'); pg.wait_for_timeout(5000)
+    pg.click('#stopBtn'); pg.wait_for_timeout(1000)
+    pg.evaluate("document.getElementById('historyBox').open = true; document.getElementById('advanced').open = true")
+    r3 = axe(pg, '首頁：運動總結＋雲端詢問＋運動紀錄＋進階設定打開')
+    check(pg.is_visible('#cloudAsk'), '（雲端詢問有出現）')
+    ctx.close()
+    ctx = context(b); pg = page(ctx, 'help.html', False)
+    pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true); document.getElementById('checkBtn').click()"); pg.wait_for_timeout(500)
+    r4 = axe(pg, '使用說明：常見問題全部打開、檢查這支手機')
+    ctx.close()
+    b.close()
+print('ALL PASS' if ok and not (r1 or r2 or r3 or r4) else 'SOME FAIL')
