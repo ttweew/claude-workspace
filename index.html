@@ -198,8 +198,9 @@
         <div id="labels"></div>
         <!-- 入鏡提示的大字橫幅：站遠也看得到（例如「請往後退」） -->
         <div id="banner" role="status" hidden></div>
-        <!-- 動作做錯時（js/analysis/form.js）：和入鏡提示同一個位置的紅字，站位沒問題時才出現；做錯的部位骨架也會變紅 -->
-        <div id="formTip" role="status" hidden></div>
+        <!-- 動作做錯時（js/analysis/form.js）：和入鏡提示同一個位置的紅字，站位沒問題時才出現；做錯的部位骨架也會變紅
+             下面一行小字說出原因（「上身前傾 58°，超過 50° 算上身前傾」）：數字每一格都在變，不給螢幕閱讀器唸（aria-hidden） -->
+        <div id="formTip" role="status" hidden><span id="formTipText"></span><small id="formWhy" aria-hidden="true" hidden></small></div>
         <!-- 大字儀表板：站遠也看得清楚的關節角度。左右兩組照鏡子的方式放：
              第一組在畫面左邊、第二組在畫面右邊，哪一組是本人的左側由 js/ui/hud.js 依鏡像決定 -->
         <div id="hud" hidden>

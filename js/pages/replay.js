@@ -11,7 +11,7 @@ import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
 import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
 import { summarize, describe } from '../analysis/session.js';
-import { errorShort } from '../analysis/form.js';
+import { errorShort, errorRule } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
 import { setupOffline } from '../platform/offline.js';
@@ -55,6 +55,13 @@ let workerPromise = null;
 let requestId = 0;      // 每次讀檔、重算加 1；比較舊的結果直接丟掉
 let parsedOnMain = null; // 不能用背景執行緒時，在主畫面讀好的資料
 let loadedSource = null; // 目前的檔案（File）或文字：背景執行緒中途當掉時，改在主畫面重新讀取用
+
+// 錯誤後面寫這一下最嚴重的數字（例如「上身前傾 58°」，單位見 form.js 的 why），實測時好對照門檻
+function peakText(workoutId, errorId, peaks) {
+    const rule = errorRule(workoutId, errorId);
+    const v = peaks ? peaks[errorId] : undefined;
+    return rule && rule.why && typeof v === 'number' && Number.isFinite(v) ? ' ' + Math.round(v) + rule.why.unit : '';
+}
 
 // 開一個背景執行緒（module worker）；瀏覽器不支援或開不起來就回傳 null，改在主畫面計算
 function getWorker() {
@@ -300,7 +307,7 @@ function showSquats() {
     const depthText = id === 'squat' ? DEPTH_TEXT : { good: '到位', close: '再低一點', shallow: '太淺' };
     for (const r of reps) {
         const tr = document.createElement('tr');
-        const errors = (r.errors || []).map(errorShort).join('、') || '—';
+        const errors = (r.errors || []).map(e => errorShort(e) + peakText(id, e, r.peaks)).join('、') || '—';
         const cells = hold
             ? [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', formatSeconds(r.seconds), errors]
             : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),

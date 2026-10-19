@@ -2,12 +2,13 @@
 // 紀錄存在這台裝置上（最多 50 次）；打開「雲端同步」才會存一份到雲端（js/cloud/）；首頁顯示「這次運動」和「運動紀錄」
 
 import { WORKOUTS, isWorkout, formatSeconds } from './workouts.js';
-import { errorShort } from './form.js';
+import { errorShort, errorRule, whyText } from './form.js';
 
 const KEY = 'workoutHistory';
 const MAX = 50;
 
 export const errorName = errorShort;
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
 
 // workoutId：哪個動作；items：counter.reps（計次）或 counter.holds（棒式）；startMs、endMs：開始、結束的時間（Date.now()）
 // 沒有做任何一下（或撐不到一次）回傳 null
@@ -15,13 +16,19 @@ export function summarize(workoutId, items, startMs, endMs) {
     const w = isWorkout(workoutId) ? WORKOUTS[workoutId] : null;
     if (!w || !w.kind || !items || !items.length) return null;
     const errors = {};
+    const peaks = {};   // 每種錯誤最嚴重的數字（度或 %，說出原因用；只存在這台裝置，不上傳雲端）
     let clean = 0;
     for (const it of items) {
         const list = it.errors || [];
         if (!list.length) clean++;
-        for (const id of list) errors[id] = (errors[id] || 0) + 1;
+        for (const id of list) {
+            errors[id] = (errors[id] || 0) + 1;
+            const v = it.peaks ? it.peaks[id] : undefined;
+            if (isNum(v) && !(peaks[id] >= v)) peaks[id] = v;
+        }
     }
     const s = { workout: workoutId, date: startMs, minutes: Math.max(0, (endMs - startMs) / 60000), count: items.length, clean, errors };
+    if (Object.keys(peaks).length) s.peaks = peaks;
     if (w.kind === 'hold') {
         // 無條件捨去：和鏡頭畫面上的秒數、每一次的提示（「撐了 0:12」）一樣，12.6 秒不會在總結變成 13 秒
         s.seconds = items.map(h => Math.floor(h.seconds));
@@ -79,6 +86,14 @@ export function describe(s) {
     lines.push(errs.length
         ? '要注意：' + errs.map(([id, n]) => errorName(id) + ' ' + n + ' ' + (w.kind === 'hold' ? '次' : '下')).join('、')
         : '每一' + (w.kind === 'hold' ? '次' : '下') + '都沒有偵測到錯誤');
+    // 說出原因（10/19）：每種錯誤最嚴重的時候量到多少、門檻多少，實測時看得出是門檻太嚴還是真的做錯
+    // 舊的紀錄沒有 peaks、被改過的不是數字：那一種就不寫
+    const peaks = s.peaks && typeof s.peaks === 'object' ? s.peaks : {};
+    for (const [id] of errs) {
+        const rule = errorRule(s.workout, id);
+        const text = rule && Object.prototype.hasOwnProperty.call(peaks, id) ? whyText(rule, peaks[id]) : '';
+        if (text) lines.push('最嚴重的一下：' + text);
+    }
     return lines;
 }
 
@@ -93,7 +108,6 @@ export function loadHistory() {
 }
 // 紀錄可能是舊版存的、被改過或損壞的：欄位不對的那一筆不用（不然總結、比較會出現 NaN 或讓首頁出錯）
 const isCount = v => Number.isInteger(v) && v >= 0;
-const isNum = v => typeof v === 'number' && Number.isFinite(v);
 export function validSession(s) {
     if (!s || typeof s !== 'object' || !isWorkout(s.workout) || !WORKOUTS[s.workout].kind) return false;
     if (!isCount(s.count) || !s.count || !isCount(s.clean) || s.clean > s.count || !isNum(s.date)) return false;
