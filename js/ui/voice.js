@@ -1,6 +1,6 @@
 // 語音提醒：用瀏覽器內建的語音（不用下載、不用連網、不花錢）唸出動作錯誤和次數
 // 人站在 2～3 公尺外運動時看不清楚螢幕上的字，用聽的最快
-// 音量跟著工具列的「音量」（關、小、中、大）；關的時候不唸；首頁「進階設定」也可以只關掉語音（保留嗶聲）
+// 音量跟著工具列的「音量」（關、小、中、大）；關的時候不唸；首頁的「語音提醒」開關也可以只關掉語音（保留嗶聲）
 // 不要一直講：同一句話 6 秒內不重複；正在講話時，次數這種不重要的話就跳過，錯誤提醒會等上一句講完再講
 
 const VOLUME = { off: 0, low: 0.4, mid: 0.75, high: 1 };
@@ -14,7 +14,7 @@ export class Voice {
         this.getLevel = getLevel;
         this.lastSaid = new Map();   // 每句話上次唸的時間
         this.lastStart = -Infinity;  // 最近一次開始講的時間（看語音有沒有卡住）
-        this.enabled = true;         // 進階設定的語音開關（預設開，網站會記住）
+        this.enabled = true;         // 首頁的語音提醒開關（預設開，網站會記住）
         try { this.enabled = localStorage.getItem(KEY) !== '0'; } catch (err) { /* 不能讀就用預設 */ }
         this.voice = null;
         this.synth = typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis : null;

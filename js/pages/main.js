@@ -23,6 +23,8 @@ import { WorkoutTracker } from '../analysis/tracker.js';
 import { errorShort } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { cloud } from '../cloud/cloud.js';
+import { shouldAskCloud, loadAsked, saveAsked } from '../ui/cloud-ask.js';
+import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../analysis/session.js';
 import { Voice } from '../ui/voice.js';
@@ -82,10 +84,11 @@ const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
 const hudRepsBox = document.getElementById('hudRepsBox');  // 次數或秒數（選了運動模式才顯示）
 const hudRepsName = document.getElementById('hudRepsName');
-const workoutNote = document.getElementById('workoutNote');  // 首頁：目前選的動作
 const formTip = document.getElementById('formTip');  // 動作做錯時畫面上方的紅字
 const summaryBox = document.getElementById('summary');      // 首頁：這次運動的總結
 const summaryLines = document.getElementById('summaryLines');
+const cloudAsk = document.getElementById('cloudAsk');       // 總結下面：問一次要不要打開雲端同步
+let cloudAsked = loadAsked();
 const historyBox = document.getElementById('historyBox');   // 首頁：運動紀錄
 const historyList = document.getElementById('historyList');
 const hudReps = document.getElementById('hudReps');
@@ -856,6 +859,8 @@ function finishSession() {
     showSummary(s, previous);
     // 打開了雲端同步：這一筆存一份到雲端（沒有網路時先存在這台裝置，之後自動補傳）
     cloud.sync(loadHistory());
+    // 還沒打開、也還沒問過：在總結下面問一次要不要打開（js/ui/cloud-ask.js）
+    cloudAsk.hidden = !shouldAskCloud({ available: cloud.available, enabled: cloud.enabled, hasSummary: true, asked: cloudAsked });
 }
 
 function showSummary(s, previous) {
@@ -921,7 +926,6 @@ function showWorkout() {
     hudRepsBox.classList.toggle('time', workout.kind === 'hold');
     hudRepsName.textContent = workout.name;
     hudRoot.classList.toggle('lab', !!tracker.counter);
-    workoutNote.textContent = '動作：' + workout.name + '（' + workout.hint + '）';
     resetCounter();
     showPoseLabels();
 }
@@ -1258,8 +1262,8 @@ fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
 fpsLive.addEventListener('change', () => chooseFps(fpsLive));
 showFpsChoice();
 
-// ---------- 進階設定（首頁收起來的一列） ----------
-// 改過的設定寫在標題上（例如「進階設定（每秒 60 格、full 模型）」），收起來也知道現在用什麼
+// ---------- 進階設定（首頁收起來的一列：畫面流暢度、AI 模型） ----------
+// 預設（每秒 30 格、lite 模型）最穩，一般不用改；改過的設定寫在標題上（例如「進階設定（每秒 60 格、full 模型）」），收起來也知道現在用什麼
 function showAdvancedTitle() {
     const changed = [];
     const fpsChoice = getFpsChoice();
@@ -1267,16 +1271,13 @@ function showAdvancedTitle() {
     else if (fpsChoice !== 30) changed.push('每秒 ' + fpsChoice + ' 格');
     const model = getModelChoice();
     if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
-    if (!voice.enabled) changed.push('語音關');
-    if (cloud.enabled) changed.push('雲端同步');
-    advancedTitle.textContent = '進階設定' + (changed.length ? '（' + changed.join('、') + '）' : '');
+    advancedTitle.textContent = '進階設定（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
+
+// ---------- 首頁的常用開關：語音提醒、雲端同步（10/19 從進階設定拿出來） ----------
 voiceToggle.checked = voice.enabled;
 voiceToggle.disabled = !voice.supported;
-voiceToggle.addEventListener('change', () => {
-    voice.setEnabled(voiceToggle.checked);
-    showAdvancedTitle();
-});
+voiceToggle.addEventListener('change', () => voice.setEnabled(voiceToggle.checked));
 
 // ---------- 雲端同步（js/cloud/cloud.js） ----------
 // 預設關閉；打開時把這台裝置的運動紀錄傳上去，之後每次運動完自動上傳；網站還沒接上 Firebase 時整段不出現
@@ -1291,10 +1292,24 @@ cloud.onStatus(s => {
     cloudStatus.dataset.state = s.state;
     cloudDelete.hidden = !cloud.hasData || s.state === 'working';
 });
+// 自己開、關過：之後運動完不用再問
+function answerCloudAsk() {
+    cloudAsked = true;
+    saveAsked();
+    cloudAsk.hidden = true;
+}
 cloudToggle.addEventListener('change', () => {
     cloud.setEnabled(cloudToggle.checked, loadHistory());
-    showAdvancedTitle();
+    answerCloudAsk();
 });
+// 運動完的詢問：「打開」和直接打開開關一樣；「不用了」之後不再問（開關還在首頁上，隨時可以打開）
+document.getElementById('cloudAskYes').addEventListener('click', () => {
+    cloudToggle.checked = true;
+    cloud.setEnabled(true, loadHistory());
+    answerCloudAsk();
+    cloudToggle.focus();
+});
+document.getElementById('cloudAskNo').addEventListener('click', answerCloudAsk);
 // 刪除雲端上這台裝置的紀錄（這台裝置上的不動），同時關閉同步
 cloudDelete.addEventListener('click', async () => {
     if (!confirm('確定要刪除雲端上這台裝置的運動紀錄嗎？這台裝置上的紀錄不會被刪掉，雲端同步也會關閉。')) return;
@@ -1302,7 +1317,6 @@ cloudDelete.addEventListener('click', async () => {
     cloudToggle.disabled = true;
     await cloud.deleteAll();
     cloudToggle.disabled = false;
-    showAdvancedTitle();
 });
 // 網路恢復、打開網頁時：補傳還沒上傳的
 window.addEventListener('online', () => cloud.sync(loadHistory()));
@@ -1711,9 +1725,16 @@ if (!document.fullscreenEnabled) {
     fullscreenBtn.hidden = true;
 }
 
+// 首頁「今天要做什麼運動？」的四個大按鈕（js/ui/start-pick.js）
+const setStartDisabled = setupStartPick({
+    grid: document.getElementById('workoutGrid'),
+    freeLine: document.getElementById('freeLine'),
+    startBtn,
+    freeBtn: document.getElementById('freeBtn')
+});
 if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
-    startBtn.disabled = true;
+    setStartDisabled(true);
 }
 
 showWorkout();

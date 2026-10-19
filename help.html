@@ -36,6 +36,7 @@
             <h1>使用說明</h1>
             <p class="intro">第一次使用？照著「擺好手機」做，大約 1 分鐘就能開始。影像只在你自己的裝置上處理，不會上傳。</p>
             <ul class="toc" aria-label="這一頁的內容">
+                <li><a href="#testday">實測任務卡</a></li>
                 <li><a href="#check">檢查這支手機</a></li>
                 <li><a href="#setup">擺好手機</a></li>
                 <li><a href="#screen">畫面上的東西</a></li>
@@ -47,6 +48,58 @@
         </header>
 
         <main>
+            <!-- 實測任務卡（10/19）：組員實測那天照著做，每一項做完打勾（勾選只存在這台裝置上，js/pages/help.js） -->
+            <section id="testday" aria-labelledby="testdayTitle">
+                <h2 id="testdayTitle">實測任務卡（組員用）</h2>
+                <p class="prose">實測聚會照著這張卡做，大約 60 分鐘。需要：兩支手機（一支拍、一支記錄也可以用同一支）、量角器、捲尺。做完的項目打勾，勾選只存在這台裝置上；全部做完，把下載的檔案和錄影放到 Google Drive 的共用資料夾。</p>
+                <div class="task-card" id="taskCard">
+                    <h3>開始前（5 分鐘）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="prep-check"> <span>在這一頁最上面按「檢查這支手機」，按「複製檢查結果」貼到群組</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-cloud"> <span>首頁打開「雲端同步運動紀錄」開關（大家的數字會自動集中到 Firebase）</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-place"> <span>手機放 2～3 公尺外、腰的高度，<strong>側面</strong>對著鏡頭，畫面出現綠色「已偵測到全身」</span></label></li>
+                    </ul>
+                    <h3>1. 次數準不準（每人約 15 分鐘）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="reps-squat"> <span>深蹲：首頁按「深蹲」，標準地做 10 下，按「結束」，記下總結寫的次數</span></label></li>
+                        <li><label><input type="checkbox" data-task="reps-pushup"> <span>伏地挺身：同上，做 10 下</span></label></li>
+                        <li><label><input type="checkbox" data-task="reps-lunge"> <span>弓箭步：同上，做 10 下（左右腳各 5 下）</span></label></li>
+                        <li><label><input type="checkbox" data-task="reps-plank"> <span>棒式：撐 30 秒，另一個人用手機碼表計時，比對網站的秒數</span></label></li>
+                    </ul>
+                    <h3>2. 錯誤抓不抓得到（約 15 分鐘）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="err-squat"> <span>深蹲：故意「上身太前傾」5 下、「腳跟離地」5 下，記下畫面有沒有紅字</span></label></li>
+                        <li><label><input type="checkbox" data-task="err-pushup"> <span>伏地挺身：故意「腰塌下去」5 下、「屁股太高」5 下</span></label></li>
+                        <li><label><input type="checkbox" data-task="err-lunge"> <span>弓箭步：故意「上身前傾」5 下、「前膝超過腳尖」5 下</span></label></li>
+                        <li><label><input type="checkbox" data-task="err-plank"> <span>棒式：故意「腰塌下去」、「屁股太高」各撐 10 秒</span></label></li>
+                    </ul>
+                    <h3>3. 角度準不準（實驗 A，約 10 分鐘）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="angle"> <span>照下面「驗證實驗」的實驗 A：擺 5 個以上的姿勢，量角器量膝蓋，同時在數據面板按「記下角度」，再回這一頁填量角器的角度</span></label></li>
+                    </ul>
+                    <h3>4. 錄下來（AI 模型要用，約 10 分鐘）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="rec-each"> <span>每個動作<strong>分開錄</strong>：鏡頭畫面按「數據」→「開始錄製」，做完停止，下載 JSON（一次最多 5 分鐘）</span></label></li>
+                        <li><label><input type="checkbox" data-task="rec-video"> <span>另一支手機同時錄影片（之後標記每一下做對或做錯）</span></label></li>
+                        <li><label><input type="checkbox" data-task="rec-legs"> <span>用捲尺量每個人的大腿、小腿長（實驗 D 對照 3D 腿長）</span></label></li>
+                    </ul>
+                    <h3>5. 真手機要確認的事（有時間再做）</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="phone-mute"> <span>iPhone 側邊靜音開關打開時，還聽不聽得到提示音和語音</span></label></li>
+                        <li><label><input type="checkbox" data-task="phone-long"> <span>手機錄 10 分鐘以上，會不會發燙、變慢</span></label></li>
+                        <li><label><input type="checkbox" data-task="phone-auto"> <span>「進階設定」的畫面流暢度和 AI 模型都選「自動」，運動 5 分鐘，記下運算標籤的數字</span></label></li>
+                        <li><label><input type="checkbox" data-task="phone-dark"> <span>暗的房間試「光線太暗」提醒；手機放高、放歪各試一次深蹲的校正</span></label></li>
+                    </ul>
+                    <h3>做完</h3>
+                    <ul class="task-list">
+                        <li><label><input type="checkbox" data-task="done-upload"> <span>下載的 JSON、CSV 和影片放到 Google Drive 共用資料夾，檔名加上名字和動作</span></label></li>
+                        <li><label><input type="checkbox" data-task="done-notes"> <span>記下的次數、有沒有紅字、碼表秒數貼到群組（或拍照）</span></label></li>
+                    </ul>
+                    <p class="task-progress" id="taskProgress" role="status"></p>
+                    <button type="button" id="taskReset" class="task-reset">全部取消勾選</button>
+                </div>
+            </section>
+
             <section id="check" aria-labelledby="checkTitle">
                 <h2 id="checkTitle">檢查這支手機</h2>
                 <p class="prose">不確定這支手機能不能用？按下面的按鈕，馬上列出系統、瀏覽器和各項功能支不支援（只在這支手機上檢查，不會傳出任何資料）。</p>
@@ -203,23 +256,23 @@
                     </details>
                     <details>
                         <summary>聽不到提示音？</summary>
-                        <p>先確認工具列的「音量」不是「關」，再把手機音量調大。iPhone 側邊的靜音開關打開時，網頁的聲音可能也會被關掉。瀏覽器規定要先按過按鈕才能出聲，按「開啟鏡頭」之後才會有聲音。</p>
+                        <p>先確認工具列的「音量」不是「關」，再把手機音量調大。iPhone 側邊的靜音開關打開時，網頁的聲音可能也會被關掉。瀏覽器規定要先按過按鈕才能出聲，按首頁的動作按鈕開鏡頭之後才會有聲音。</p>
                     </details>
                     <details>
                         <summary>畫面不夠順，可以每秒 60 格嗎？</summary>
-                        <p>首頁「開啟鏡頭」下面點開「進階設定」，「畫面流暢度」可以選每秒 30、60、90、120 格；開著鏡頭時點運算標籤（例如「GPU · 30 FPS」）也能直接切換。60 格以上還在實驗：要鏡頭支援、手機算得夠快，做不到時會自動用做得到的；開過鏡頭後，這顆鏡頭做不到的格數會變灰、不能選，選單下面會寫鏡頭最多每秒幾格（大部分筆電內建鏡頭最多 30 格，要更多格需要支援的手機或外接鏡頭）。選了以後運算標籤會顯示「鏡頭 60 · AI 42 FPS」，AI 後面的數字才是實際每秒算幾格。選「自動」的話，開鏡頭、站進畫面後網站會量 AI 實際的速度：有餘裕就升到每秒 60 格（鏡頭要能給 60 格），跟不上就降回 30 格，換的時候畫面上會短暫說明；錄製中不會換，錄下來的數據才能比較。格數越高越耗電、越容易發燙，錄的檔案也越大。</p>
+                        <p>首頁點開「進階設定」，「畫面流暢度」可以選每秒 30、60、90、120 格；開著鏡頭時點運算標籤（例如「GPU · 30 FPS」）也能直接切換。60 格以上還在實驗：要鏡頭支援、手機算得夠快，做不到時會自動用做得到的；開過鏡頭後，這顆鏡頭做不到的格數會變灰、不能選，選單下面會寫鏡頭最多每秒幾格（大部分筆電內建鏡頭最多 30 格，要更多格需要支援的手機或外接鏡頭）。選了以後運算標籤會顯示「鏡頭 60 · AI 42 FPS」，AI 後面的數字才是實際每秒算幾格。選「自動」的話，開鏡頭、站進畫面後網站會量 AI 實際的速度：有餘裕就升到每秒 60 格（鏡頭要能給 60 格），跟不上就降回 30 格，換的時候畫面上會短暫說明；錄製中不會換，錄下來的數據才能比較。格數越高越耗電、越容易發燙，錄的檔案也越大。</p>
                     </details>
                     <details>
                         <summary>關鏡頭後出現的「這次運動」是什麼？</summary>
-                        <p>選了動作（不是自由模式）做完按「結束」，首頁「開啟鏡頭」下面會出現這次的總結：做了幾下、到位／再低一點／太淺各幾下、最低和平均角度、每下花幾秒、哪些錯誤出現幾次，並和上一次做同一個動作比較（例如「比上次多 2 下」「到位比例 75%，比上次進步 15%」）。換動作、直接關掉網頁也會記下來。最近的紀錄在下面的「運動紀錄」，只存在這台裝置上（最多 50 次），不會上傳，可以按「清除紀錄」刪掉。</p>
+                        <p>選了動作（不是自由模式）做完按「結束」，首頁「今天要做什麼運動？」下面會出現這次的總結：做了幾下、到位／再低一點／太淺各幾下、最低和平均角度、每下花幾秒、哪些錯誤出現幾次，並和上一次做同一個動作比較（例如「比上次多 2 下」「到位比例 75%，比上次進步 15%」）。換動作、直接關掉網頁也會記下來。最近的紀錄在下面的「運動紀錄」，只存在這台裝置上（最多 50 次），不會上傳，可以按「清除紀錄」刪掉。</p>
                     </details>
-                    <details>
+                    <details id="cloudFaq">
                         <summary>「雲端同步運動紀錄」是什麼？</summary>
-                        <p>在首頁「進階設定」裡。預設關閉；打開後，每次運動的總結（動作、次數、角度、秒數、各種錯誤幾下）會存一份到雲端（Google 的 Firebase），這台裝置原本的紀錄也會補傳上去。不會上傳影像，也不會上傳骨架座標。每台裝置用一個匿名帳號，不用註冊；其他使用者讀不到你的紀錄，管理這個專題雲端的組員在 Firebase 主控台看得到這些數字，但不知道是誰的。沒有網路時先存在這台裝置，連上網路後自動補傳。可以隨時關閉，或按「刪除雲端的紀錄」把雲端上的刪掉（這台裝置上的不會刪）。清掉瀏覽器的資料或換手機，就會變成新的匿名帳號，之前雲端的紀錄就讀不到了（之後會加上登入）。</p>
+                        <p>首頁動作按鈕下面的開關。預設關閉，第一次運動完會問一次要不要打開；打開後，每次運動的總結（動作、次數、角度、秒數、各種錯誤幾下）會存一份到雲端（Google 的 Firebase），這台裝置原本的紀錄也會補傳上去。不會上傳影像，也不會上傳骨架座標。每台裝置用一個匿名帳號，不用註冊；其他使用者讀不到你的紀錄，管理這個專題雲端的組員在 Firebase 主控台看得到這些數字，但不知道是誰的。沒有網路時先存在這台裝置，連上網路後自動補傳。可以隨時關閉，或按「刪除雲端的紀錄」把雲端上的刪掉（這台裝置上的不會刪）。清掉瀏覽器的資料或換手機，就會變成新的匿名帳號，之前雲端的紀錄就讀不到了（之後會加上登入）。</p>
                     </details>
                     <details>
                         <summary>骨架變紅、出現紅字是什麼意思？</summary>
-                        <p>選了動作後，網站會檢查常見的錯誤，做錯的部位骨架會變成粗紅線，畫面上方出現紅字，並用語音提醒（音量跟著「音量」按鈕，關掉就不唸；只想留嗶聲，可以在首頁「進階設定」關掉語音提醒）。目前會看：深蹲「上身太前傾」「腳跟離地」；伏地挺身、棒式「腰塌下去」「屁股太高」；弓箭步「上身前傾」「前膝超過腳尖」。錯誤要持續 0.4 秒才會出現，偵測跳一下不會誤報；每一下做完的提示也會寫出這一下有哪些錯誤（例如「第 3 下 · 88° 蹲到位 · 上身前傾」，有錯誤時是黃色）。膝蓋內夾、左右不平衡要正面才看得到，側面拍做不到，目前不判斷。</p>
+                        <p>選了動作後，網站會檢查常見的錯誤，做錯的部位骨架會變成粗紅線，畫面上方出現紅字，並用語音提醒（音量跟著「音量」按鈕，關掉就不唸；只想留嗶聲，可以關掉首頁的「語音提醒」開關）。目前會看：深蹲「上身太前傾」「腳跟離地」；伏地挺身、棒式「腰塌下去」「屁股太高」；弓箭步「上身前傾」「前膝超過腳尖」。錯誤要持續 0.4 秒才會出現，偵測跳一下不會誤報；每一下做完的提示也會寫出這一下有哪些錯誤（例如「第 3 下 · 88° 蹲到位 · 上身前傾」，有錯誤時是黃色）。膝蓋內夾、左右不平衡要正面才看得到，側面拍做不到，目前不判斷。</p>
                     </details>
                     <details>
                         <summary>「相似 92%」是怎麼算的？</summary>
@@ -235,7 +288,7 @@
                     </details>
                     <details>
                         <summary>「AI 模型」要選 lite、full 還是自動？</summary>
-                        <p>在首頁「進階設定」裡。lite 比較快，大部分手機都跑得順，是預設。full 比較準、比較不會出現亂跑的點，但每一格要多算約一半的時間，第一次使用多下載 3.6 MB。不確定就選「自動」：網站先用 full，開鏡頭、站進畫面大約 10 秒後量這台裝置跟不跟得上，跟不上就自動改用 lite 並記住，下次直接用 lite；想讓它重新判斷，再選一次「自動」就好。開著鏡頭時點運算標籤也能換，不用重新整理網頁，畫面會停 1～2 秒；錄製中不能換。</p>
+                        <p>在首頁「進階設定」裡（一般不用改）。lite 比較快，大部分手機都跑得順，是預設。full 比較準、比較不會出現亂跑的點，但每一格要多算約一半的時間，第一次使用多下載 3.6 MB。不確定就選「自動」：網站先用 full，開鏡頭、站進畫面大約 10 秒後量這台裝置跟不跟得上，跟不上就自動改用 lite 並記住，下次直接用 lite；想讓它重新判斷，再選一次「自動」就好。開著鏡頭時點運算標籤也能換，不用重新整理網頁，畫面會停 1～2 秒；錄製中不能換。</p>
                     </details>
                     <details>
                         <summary>畫面上出現「速度建議」是什麼？</summary>

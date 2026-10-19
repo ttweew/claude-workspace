@@ -72,25 +72,48 @@
             </svg>
 
             <div class="start-card">
-                <button id="startBtn">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
-                    開啟鏡頭
-                </button>
-                <!-- 目前選的運動模式（js/analysis/workouts.js）：在下面「支援的運動」卡片按「開始」，或開鏡頭後按右上角換 -->
-                <p class="workout-pick"><span id="workoutNote">動作：自由</span> <a href="#exercisesTitle">換動作</a></p>
-                <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄只存在這台裝置上 -->
+                <!-- 先選動作（10/19 組員回饋：很多人直接按「開啟鏡頭」，進了只看骨架的自由模式，不計次、沒有總結）：
+                     四個大按鈕按了就選好動作並開鏡頭（js/ui/start-pick.js 放進 #workoutGrid）。
+                     #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在那個動作的位置（標「上次」），自由模式時是最下面那一行小字 -->
+                <h2 id="pickTitle" class="pick-title">今天要做什麼運動？</h2>
+                <div id="workoutGrid" class="workout-grid" role="group" aria-labelledby="pickTitle"></div>
+                <p id="freeLine" class="free-line">
+                    <button id="startBtn" type="button" class="free-start">只看骨架（自由模式，不計次）</button>
+                    <button id="freeBtn" type="button" class="free-start" hidden>只看骨架（自由模式，不計次）</button>
+                </p>
+                <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄存在這台裝置上 -->
                 <div id="summary" class="summary" aria-live="polite" hidden>
                     <h2>這次運動</h2>
                     <ul id="summaryLines"></ul>
+                    <!-- 第一次有總結時問一次要不要打開雲端同步（js/ui/cloud-ask.js）；選過就不再問 -->
+                    <div id="cloudAsk" class="cloud-ask" hidden>
+                        <p>要把運動紀錄存一份到雲端嗎？只存總結的數字，不含影像；之後可以畫成長曲線。</p>
+                        <div class="cloud-ask-btns">
+                            <button id="cloudAskYes" type="button">打開雲端同步</button>
+                            <button id="cloudAskNo" type="button">不用了</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 常用的開關：不用點開就看得到（10/19 組員回饋：收在進階設定裡沒人知道） -->
+                <div class="quick-settings">
+                    <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
+                    <label class="switch-pick"><input type="checkbox" id="voiceToggle" role="switch"> <span>語音提醒<small>唸出次數和動作錯誤</small></span></label>
+                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
+                    <div id="cloudBox" hidden>
+                        <label class="switch-pick"><input type="checkbox" id="cloudToggle" role="switch" aria-describedby="cloudStatus"> <span>雲端同步運動紀錄<small>只存總結的數字，不含影像</small></span></label>
+                        <p class="switch-more"><a href="help.html#cloudFaq">雲端同步是什麼？</a></p>
+                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
+                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
+                    </div>
                 </div>
                 <details id="historyBox" class="history" hidden>
                     <summary>運動紀錄</summary>
                     <ul id="historyList"></ul>
                     <button id="clearHistory" type="button">清除紀錄</button>
                 </details>
-                <!-- 進階設定：大部分人不用動，收起來讓首頁簡單；改過的設定會寫在標題上 -->
+                <!-- 進階設定：一般不用改（預設每秒 30 格、lite 模型最穩）；改過的設定會寫在標題上 -->
                 <details id="advanced" class="advanced">
-                    <summary id="advancedTitle">進階設定</summary>
+                    <summary id="advancedTitle">進階設定（畫面流暢度、AI 模型，一般不用改）</summary>
                     <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
                     <label class="fps-pick">畫面流暢度
                         <select id="fpsSelect" aria-describedby="fpsHint"></select>
@@ -101,14 +124,6 @@
                         <select id="modelSelect" aria-describedby="modelPickHint"></select>
                     </label>
                     <p id="modelPickHint" class="fps-hint" hidden></p>
-                    <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
-                    <label class="check-pick"><input type="checkbox" id="voiceToggle"> 語音提醒（唸出動作錯誤和次數）</label>
-                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
-                    <div id="cloudBox" hidden>
-                        <label class="check-pick"><input type="checkbox" id="cloudToggle" aria-describedby="cloudStatus"> 雲端同步運動紀錄（只有運動總結的數字，沒有影像）</label>
-                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
-                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
-                    </div>
                 </details>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
@@ -165,7 +180,7 @@
                     <li data-exercise="plank"><h3>棒式</h3></li>
                     <li data-exercise="lunge"><h3>弓箭步</h3></li>
                 </ul>
-                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時）；開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+                <p class="note">按卡片上的「開始」（或最上面的大按鈕）就會開鏡頭並計算次數（棒式計時）；開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
