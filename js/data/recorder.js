@@ -40,6 +40,9 @@ export class PoseRecorder {
         this.recording = false;
         this.meta = null;
         this.maxSeconds = MAX_SECONDS;   // 這次錄製的上限（秒）
+        this.pausedAt = null;
+        this.pausedMs = 0;
+        this.pauses = [];
     }
 
     // 開始錄製；meta：裝置與設定資訊（運算方式、鏡頭解析度…），會寫進 JSON
@@ -50,10 +53,41 @@ export class PoseRecorder {
         this.meta = { ...meta, startedAt: new Date().toISOString() };
         this.startTime = null;
         this.recording = true;
+        this.pausedAt = null;     // 暫停中：從什麼時候開始暫停（偵測時間）
+        this.pausedMs = 0;        // 已經暫停了多久（不算在已錄時間、錄製上限裡）
+        this.pauses = [];         // 每一次暫停 { from, to }（毫秒，和每一格的 t 同一個起點），寫進 meta.pauses
     }
 
+    // 暫停中按停止：最後那段暫停沒有畫面，不用記
     stop() {
+        this.pausedAt = null;
         this.recording = false;
+    }
+
+    // 暫停、繼續（10/20 使用者要求：像手機錄影一樣可以暫停）
+    // 暫停中的畫面不錄；每一格的 t 還是真實的時間（中間空一段），重播分析看得出停了多久，
+    // 不會把暫停前後的姿勢接在一起（像是一瞬間從站著變成蹲著）；已錄時間和錄製上限不算暫停的時間
+    get paused() {
+        return this.pausedAt !== null;
+    }
+
+    pause(timeMs) {
+        if (!this.recording || this.pausedAt !== null) return;
+        this.pausedAt = timeMs;
+    }
+
+    resume(timeMs) {
+        if (this.pausedAt === null) return;
+        const ms = Math.max(0, timeMs - this.pausedAt);
+        // 還沒錄到第一格就暫停：開始的時間往後移就好，不用記成一次暫停
+        if (this.startTime === null) {
+            this.pausedAt = null;
+            return;
+        }
+        this.pauses.push({ from: Math.round(this.pausedAt - this.startTime), to: Math.round(timeMs - this.startTime) });
+        this.meta.pauses = this.pauses;
+        this.pausedMs += ms;
+        this.pausedAt = null;
     }
 
     // 錄下一格；timeMs：偵測時間，landmarks：33 點原始比例座標，world：33 點 3D 座標（可能沒有）
@@ -63,9 +97,10 @@ export class PoseRecorder {
     // 回傳 false 表示已達時間上限、自動停止
     add(timeMs, landmarks, world, smoothed = null, stableWorld = null) {
         if (!this.recording) return false;
+        if (this.pausedAt !== null) return true;   // 暫停中：不錄這一格，但還在錄製中
         if (this.startTime === null) this.startTime = timeMs;
         const t = timeMs - this.startTime;
-        if (t > this.maxSeconds * 1000) {
+        if (t - this.pausedMs > this.maxSeconds * 1000) {
             this.stop();
             return false;
         }
@@ -83,8 +118,9 @@ export class PoseRecorder {
         return this.frames.length;
     }
 
+    // 已錄幾秒（不算暫停的時間）
     get seconds() {
-        return this.frames.length ? this.frames[this.frames.length - 1].t / 1000 : 0;
+        return this.frames.length ? (this.frames[this.frames.length - 1].t - this.pausedMs) / 1000 : 0;
     }
 
     // 匯出用的每一格：{ t, landmarks: [[x, y, z, visibility], …], world: [[x, y, z], …], smoothed: [[x, y, z, visibility, seen], …],

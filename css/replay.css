@@ -65,6 +65,39 @@
 .aspect-row[hidden] {
     display: none;
 }
+/* 這支手機裡的錄製檔（10/20）：一段一行，按「分析」直接打開 */
+.phone-files h3 {
+    margin: 16px 0 8px;
+    font-size: 16px;
+}
+.phone-files ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.phone-files li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+.phone-files strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.phone-files small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+}
 .demo-row, .aspect-row {
     display: flex;
     flex-wrap: wrap;

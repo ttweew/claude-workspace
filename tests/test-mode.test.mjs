@@ -45,21 +45,23 @@ test('每一組可以選的：做對 10 下、每種錯誤故意做 5 下；棒�
 test('開關和代號存在這台裝置上；存的值被改壞、存不了時用預設（關、A），不會出錯', () => {
     const store = new Map();
     globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
-    assert.deepEqual(loadTestMode(), { on: false, subject: 'A' });
+    assert.deepEqual(loadTestMode(), { on: false, subject: 'A', autoDownload: false });
     saveTestMode({ on: true, subject: 'b' });
-    assert.deepEqual(loadTestMode(), { on: true, subject: 'B' });
+    assert.deepEqual(loadTestMode(), { on: true, subject: 'B', autoDownload: false });
+    saveTestMode({ on: true, subject: 'B', autoDownload: true });
+    assert.deepEqual(loadTestMode(), { on: true, subject: 'B', autoDownload: true });
     for (const [bad, want] of [
-        ['{壞掉', { on: false, subject: 'A' }],
-        ['"A"', { on: false, subject: 'A' }],
-        ['[]', { on: false, subject: 'A' }],
-        ['{"on":"yes","subject":{}}', { on: false, subject: 'A' }],
-        ['{"on":true,"subject":"<img src=x onerror=1>"}', { on: true, subject: 'IMGSRCXO' }]
+        ['{壞掉', { on: false, subject: 'A', autoDownload: false }],
+        ['"A"', { on: false, subject: 'A', autoDownload: false }],
+        ['[]', { on: false, subject: 'A', autoDownload: false }],
+        ['{"on":"yes","subject":{},"autoDownload":"yes"}', { on: false, subject: 'A', autoDownload: false }],
+        ['{"on":true,"subject":"<img src=x onerror=1>"}', { on: true, subject: 'IMGSRCXO', autoDownload: false }]
     ]) {
         store.set('testMode', bad);
         assert.deepEqual(loadTestMode(), want, bad);
     }
     globalThis.localStorage = { getItem: () => { throw new Error('SecurityError'); }, setItem: () => { throw new Error('QuotaExceeded'); } };
-    assert.deepEqual(loadTestMode(), { on: false, subject: 'A' });
+    assert.deepEqual(loadTestMode(), { on: false, subject: 'A', autoDownload: false });
     assert.doesNotThrow(() => saveTestMode({ on: true, subject: 'C' }));
     delete globalThis.localStorage;
 });
