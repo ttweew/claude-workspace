@@ -53,9 +53,11 @@ test('深蹲：上身前傾 60° 抓得到、標紅軀幹；站直時不看；�
     assert.ok(r.red.has(P.LEFT_SHOULDER + '-' + P.LEFT_HIP), '軀幹標紅');
 });
 
-test('深蹲：腳跟離地（墊腳尖）抓得到', () => {
-    const heel = (lm, d) => move(lm, both('HEEL'), 0, -0.06 * d);
-    assert.deepEqual(run('squat', heel).seen, ['heel']);
+test('深蹲：腳跟離地（墊腳尖）抓得到；正常深蹲時 AI 量到的腳跟偏高不算（10/20 門檻 25% → 55%）', () => {
+    // 腳跟往上 0.12：腳跟比腳尖高約 58%，明顯墊腳
+    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, -0.12 * d)).seen, ['heel']);
+    // 往上 0.09：約 42%。4 位網路教練和使用者自己的 51 下正常深蹲，AI 量到最高 46%，不能算錯
+    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, -0.09 * d)).seen, []);
 });
 
 test('伏地挺身、棒式：腰塌下去、屁股太高都抓得到；站著時不看', () => {

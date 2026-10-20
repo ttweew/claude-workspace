@@ -96,6 +96,11 @@ const has = v => v !== null && v !== undefined && Number.isFinite(v);
 // 0.07 → 16°、0.09 → 20°（和 hipSag 上面的說明一樣）
 export const bendDegrees = sag => 2 * Math.atan(2 * sag) * 180 / Math.PI;
 const SAG = 0.07, PIKE = 0.09;
+// 腳跟離地：腳跟比腳尖高多少（以小腿長為 1），暫定 0.55，等實測再定（受測者故意墊腳 5 下）
+// 原本 0.25 是用示範動畫訂的（腳平踩時是 0）。10/19 用 4 位網路教練的影片和使用者自己 10/5、10/6 的錄影量：
+// 51 下正常深蹲（膝蓋 < 100°）有 29 下持續 0.4 秒超過 0.25，最大 0.46；腳尖的點幾乎不動，
+// 是腳踝彎很多時 AI 把腳跟的點估得偏高，越蹲越深越高，不是腳跟真的離地。0.55 比最大值多留約 0.1，只抓很明顯的墊腳
+const HEEL = 0.55;
 const PLANK_RULES = [
     { id: 'sag', short: '塌腰', text: '腰塌下去了，收緊腹部', speech: '收緊腹部', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => gt(m.sag, SAG),
       why: { label: '腰往下彎', unit: '°', value: m => has(m.sag) ? bendDegrees(m.sag) : null, limit: bendDegrees(SAG) } },
@@ -107,8 +112,8 @@ export const FORM_RULES = {
     squat: [
         { id: 'lean', short: '上身前傾', text: '上身太前傾，胸口挺起來', speech: '胸口挺起來', parts: ['torso'], active: m => lt(m.knee, 130), bad: m => gt(m.lean, 50),
           why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 50 } },
-        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, 0.25),
-          why: { label: '腳跟比腳尖高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: 25 } }
+        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, HEEL),
+          why: { label: '腳跟比腳尖高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: HEEL * 100 } }
     ],
     pushup: PLANK_RULES,
     plank: PLANK_RULES,

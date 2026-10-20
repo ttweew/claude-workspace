@@ -78,6 +78,7 @@ export class RepCounter {
         // 正面拍：角度不準，不計算。要持續 frontMs 才作廢這一下並提示側身：
         // 斜側面（約 30°）在分界附近，偶爾一個關節跳一下就會短暫被判斷成正面，以前會把正在做的這一下整個作廢、漏算
         if (view === 'front') {
+            const before = this.state;
             if (this.frontSince === null) this.frontSince = timeMs;
             const front = timeMs - this.frontSince >= c.frontMs;
             // 已經在側面彎到底（最小的角度量好了），起身時轉成正面：伸直了就算這一下
@@ -93,6 +94,15 @@ export class RepCounter {
                 }
             } else if (front) {
                 this.abandon();
+            }
+            // 站直不管從哪個方向拍都看得出來：沒有進行中的一下時，正面拍的格子站直也記成站直（只改狀態，不開始新的一下、不量深度）
+            // 10/19 教練影片：斜側面（約 45°）拍時，站直的那幾格常被判斷成正面，網站一直等站直，下一下就沒算（一段影片漏 2 下）
+            // 本來站直、還沒明顯蹲下去（角度 > down）時維持站直；正面拍時蹲下去就不算站直，要回到側面站直再開始（深度量不到）
+            // 記成站直時也算「看到人」：正面拍超過 1.5 秒再轉回側面時，才不會被當成看不到人太久而作廢
+            if (!this.current && (value >= c.up || (before === 'stand' && value > c.down))) {
+                this.state = 'stand';
+                this.lastSeen = timeMs;
+                if (value >= c.up) this.lastTop = { t: timeMs, v: value };
             }
             if (front) {
                 out.prompt = c.frontPrompt;
