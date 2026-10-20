@@ -4,6 +4,7 @@ import { checkSupport, unsupportedAdvice } from '../platform/support.js';
 import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES, MEASURE_RANGE, validMeasure } from '../analysis/validate.js';
 import { downloadBlob } from '../data/recorder.js';
 import { setupTaskCard } from '../ui/task-card.js';
+import { copyText } from '../ui/copy.js';
 
 setupOffline();
 
@@ -49,24 +50,7 @@ $('checkBtn').addEventListener('click', () => {
     $('copyStatus').textContent = '';
 });
 
-$('copyBtn').addEventListener('click', async () => {
-    try {
-        await navigator.clipboard.writeText(report);
-        $('copyStatus').textContent = '已複製，可以貼到 LINE 或訊息裡';
-    } catch (err) {
-        // 有些瀏覽器不允許直接複製：改成選取文字，讓使用者自己長按複製
-        const old = document.querySelector('.copy-fallback');
-        if (old) old.remove();
-        const area = document.createElement('textarea');
-        area.value = report;
-        area.rows = 6;
-        area.className = 'copy-fallback';
-        area.readOnly = true;
-        $('copyBtn').after(area);
-        area.select();
-        $('copyStatus').textContent = '請長按上面的文字，選「全選」再「拷貝」';
-    }
-});
+$('copyBtn').addEventListener('click', () => copyText(report, $('copyBtn'), $('copyStatus')));
 
 // ---------- 驗證實驗 A：網站角度和量角器比對（js/analysis/validate.js） ----------
 function showValidation() {
