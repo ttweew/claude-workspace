@@ -49,7 +49,8 @@ BAR = """() => { const q = s => document.querySelector(s); const vis = el => el 
   return { shown: vis(q('#testBar')), title: q('#testTitle').textContent, state: q('#testState').textContent, clock: q('#testClock').textContent,
     picks: [...document.querySelectorAll('#testPicks button')].filter(vis).map(b => b.textContent), done: [...document.querySelectorAll('#testPicks button.done')].map(b => b.dataset.condition),
     action: vis(q('#testAction')) ? q('#testAction').textContent : null, file: vis(q('#testFile')) ? q('#testFile').textContent : null }; }"""
-ON = "localStorage.setItem('testMode', JSON.stringify({ on: true, subject: 'B' }));"
+# 10/20 晚上起每一組預設先存進「錄製檔」；這裡打開「每組做完也馬上下載」測下載（只存不下載在 lib20/check.py）
+ON = "localStorage.setItem('testMode', JSON.stringify({ on: true, subject: 'B', autoDownload: true }));"
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path="/opt/pw-browsers/chromium")
@@ -73,7 +74,8 @@ with sync_playwright() as p:
     # ---------- 1. 首頁進階設定 ----------
     ctx = context('squat_mix')
     pg = page(ctx)
-    check(pg.evaluate("document.getElementById('testToggle').checked") is False and pg.input_value('#testSubject') == 'A', '預設：實測模式關、代號 A')
+    check(pg.evaluate("document.getElementById('testToggle').checked") is False and pg.input_value('#testSubject') == 'A' and not pg.is_checked('#testAutoDownload'),
+          '預設：實測模式關、代號 A、每組做完不馬上下載（先存進錄製檔）')
     pg.click('#advanced > summary')
     pg.check('#testToggle'); pg.fill('#testSubject', ' b '); pg.press('#testSubject', 'Enter'); pg.wait_for_timeout(200)
     title = pg.text_content('#advancedTitle')
@@ -133,9 +135,9 @@ with sync_playwright() as p:
     check(re.match(r'^test_B_squat_lean_\d{8}_\d{6}\.json$', name) is not None, '下載的檔名 ' + name)
     check(data['meta'].get('test') == {'subject': 'B', 'condition': 'lean', 'reps': 5} and data['meta']['workout'] == 'squat' and len(data['frames']) > 300,
           f"檔案裡：{data['meta'].get('test')}、{len(data['frames'])} 格")
-    check(bar['state'] == f'✓ 已下載：故意上身前傾 5 下（網站算 {n} 下）' and n and n >= 2 and bar['file'] == name and bar['done'] == ['lean'] and '✓' in bar['picks'][1],
+    check(bar['state'] == f'✓ 已存好、已下載：故意上身前傾 5 下（網站算 {n} 下）' and n and n >= 2 and bar['file'] == name and bar['done'] == ['lean'] and '✓' in bar['picks'][1],
           f"做完：{bar['state']}（畫面上 {start_reps} → {end_reps}／{after_reps} 下）{bar['picks']}")
-    check(pg.text_content('#recordBtn') == '● 重新錄製' and pg.text_content('#dataBtn').strip().endswith('數據'), '錄製按鈕回到「重新錄製」、數據按鈕沒有紅點')
+    check(pg.text_content('#recordBtn') == '● 錄下一段' and pg.text_content('#dataBtn').strip().endswith('數據'), '錄製按鈕回到「錄下一段」（上一組存進錄製檔了）、數據按鈕沒有紅點')
     # 5a. 數據面板的「下載 JSON」也用實測的檔名
     pg.click('#dataBtn')
     with pg.expect_download(timeout=10000) as dl2:
@@ -152,7 +154,7 @@ with sync_playwright() as p:
     focus2 = pg.evaluate("document.activeElement.dataset.condition || document.activeElement.id")
     pg.wait_for_timeout(3500)
     check(focus1 == 'testAction' and bar['state'].startswith('已取消') and bar['done'] == ['lean'] and not pg.is_visible('#countdown') and not downloads
-          and pg.text_content('#recordBtn') == '● 重新錄製', f"倒數中取消（鍵盤）：焦點 {focus1} → {focus2}，{bar['state']}，下載 {downloads}")
+          and pg.text_content('#recordBtn') == '● 錄下一段', f"倒數中取消（鍵盤）：焦點 {focus1} → {focus2}，{bar['state']}，下載 {downloads}")
     check(focus2 in ('good', 'heel'), '取消後焦點回到還沒錄的組：' + str(focus2))
     # 5b. 數據面板自己錄（不是實測的一組）：按組會說明；停止不自動下載
     pg.click('#dataBtn'); pg.select_option('#countdownSelect', '0'); pg.click('#recordBtn'); pg.wait_for_timeout(800)
@@ -194,7 +196,7 @@ with sync_playwright() as p:
     pg.wait_for_function("document.getElementById('testState').textContent.startsWith('✓')", timeout=5000)
     st = pg.text_content('#testState')
     m5 = json.load(open(dl5.value.path(), encoding='utf-8'))['meta']['test']
-    check(st == '✓ 已下載：故意塌腰 10 秒' and m5 == {'subject': 'B', 'condition': 'sag', 'seconds': 10} and dl5.value.suggested_filename.startswith('test_B_plank_sag_'),
+    check(st == '✓ 已存好、已下載：故意塌腰 10 秒' and m5 == {'subject': 'B', 'condition': 'sag', 'seconds': 10} and dl5.value.suggested_filename.startswith('test_B_plank_sag_'),
           f'棒式：{st}、{m5}、{dl5.value.suggested_filename}')
     check(not pg.errs, '棒式沒有錯誤 ' + str(pg.errs[:2]))
     ctx.close()

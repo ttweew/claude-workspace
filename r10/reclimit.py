@@ -39,7 +39,7 @@ with sync_playwright() as p:
         info = pg.inner_text("#recordInfo")
         check('已錄滿 5 分鐘，自動停止' in pg.inner_text("#recNotice") and pg.is_visible("#recNotice"), name + ' 錄滿時大字提醒：' + pg.inner_text("#recNotice"))
         check(info.startswith('已錄 4:') and '（已錄滿 5 分鐘，自動停止）' in info and pg.is_visible("#jsonBtn"), name + ' 面板寫明錄滿、可以下載：' + info)
-        check('重新錄製' in pg.inner_text("#recordBtn"), name + ' 按鈕回到「重新錄製」')
+        check('錄下一段' in pg.inner_text("#recordBtn"), name + ' 按鈕回到「錄下一段」（10/20 起錄滿的那一段存進錄製檔）')
         pg.locator("#stage").screenshot(path=f"{OUT}/full_{name}.png")
         pg.wait_for_timeout(6500)
         check(pg.is_hidden("#recNotice"), name + ' 錄滿提醒 6 秒後消失')

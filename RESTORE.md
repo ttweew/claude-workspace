@@ -59,5 +59,7 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `test20/test_check.py [網站資料夾]`：實測模式、主持人卡、受測者卡（56 項；要先裝 axe-core，見上面）。`test20/overflow.py <網站資料夾> <port>`：使用說明 320 寬是誰超出畫面。
   - 教練影片：`coach/sim_real.mjs <錄製檔>`（專案的程式和第二個資料夾的程式各算一次，比次數和錯誤；第二個資料夾寫死在 `wt-maint`，換成要比的程式）、`coach/knee_window.mjs <錄製檔> <開始秒> <結束秒>`（每 0.2 秒的膝蓋角度、方向、計次狀態，新舊並排）、`coach/sim_stand2.mjs`、`coach/heelmag.mjs`。
   - `home19/home_check.py`、`a11y/maint19.py`、`audit2/chaos.py`：改成新的語音三選一；首頁測試的任務卡改用 10/20 的項目。
+  - 錄影像手機一樣＋錄製檔清單（10/20 晚上）：`lib20/check.py [網站資料夾]`（錄影控制列、暫停、存成一段一段、首頁和鏡頭畫面的清單、一個個下載、一次下載、zip、刪除、重新整理還在、重播頁讀手機裡的錄製檔；51 項；要先裝 axe-core）；`lib20/toolbar.py`（工具列在 320～1280 寬、各種狀態都排得下一行）；`lib20/smoke.py`（拍照看樣子）；`node lib20/zipcheck.mjs` 做出 zip 再用 Python `zipfile` 和 `unzip -t` 檢查；`lib20/axe_old.py`（舊程式本來就有的兩個無障礙問題）。
+  - `r9/countdown.py`、`r10/reclimit.py`、`test20/test_check.py`：錄完之後的按鈕字改成「● 錄下一段」；實測模式改成存進錄製檔、可選「每組做完也馬上下載」。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

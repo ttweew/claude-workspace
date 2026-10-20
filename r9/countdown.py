@@ -48,7 +48,7 @@ with sync_playwright() as p:
         pg.click("#recordBtn"); pg.wait_for_timeout(1300)
         check(pg.inner_text("#countdown") == '4', name + ' 重新錄製也會倒數')
         pg.click("#recordBtn"); pg.wait_for_timeout(200)
-        check(pg.is_hidden("#countdown") and pg.inner_text("#recordBtn") == '● 重新錄製' and pg.is_visible("#csvBtn"), name + ' 取消後回到原狀、上一段還能下載')
+        check(pg.is_hidden("#countdown") and pg.inner_text("#recordBtn") == '● 錄下一段' and pg.is_visible("#csvBtn"), name + ' 取消後回到原狀、上一段還能下載（10/20 起上一段存進錄製檔，按鈕是「錄下一段」）')
         pg.wait_for_timeout(4500)
         check(pg.inner_text("#recordInfo") == info, name + ' 取消後不會自己開始錄')
         # 3. 倒數中關鏡頭，再開
