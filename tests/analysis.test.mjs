@@ -83,6 +83,26 @@ test('深蹲：側面蹲到底、起身時轉成正面，站直了也算這一�
     assert.equal(counter.reps.length, 1);
 });
 
+test('深蹲：斜側面拍時站直的那幾格被判斷成正面，下一下照樣算；正面蹲下去的不算（10/20 教練影片）', async () => {
+    const { SquatCounter } = await import('../js/analysis/squat.js');
+    const counter = new SquatCounter();
+    const pose = (knee, view) => ({ angles: { LEFT_KNEE: knee, RIGHT_KNEE: knee, LEFT_HIP: knee, RIGHT_HIP: knee }, landmarks: Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 })), view: { view } });
+    let t = 0;
+    const run = (knee, view, ms) => { for (let e = 0; e < ms; e += 33) counter.update(pose(knee, view), t += 33); };
+    run(175, 'side', 500);
+    run(80, 'oblique', 800);
+    run(165, 'front', 1600);        // 站直的時候被判斷成正面，而且超過 1.5 秒
+    run(150, 'oblique', 200);       // 轉回斜側面馬上往下蹲
+    run(80, 'oblique', 800);
+    run(175, 'oblique', 500);
+    assert.equal(counter.reps.length, 2, '第二下也要算（以前一直等站直，漏算）');
+    run(175, 'front', 500);         // 正面站直
+    run(80, 'front', 1000);         // 正面蹲下去：量不到深度
+    run(120, 'side', 300);          // 起身途中才轉回側面
+    run(175, 'side', 500);
+    assert.equal(counter.reps.length, 2, '正面蹲下去的那一下不算');
+});
+
 // 入鏡提示用的側面骨架：靠鏡頭的左側看得到，右側被身體擋住（可信度低，位置和左側差不多）
 function sidePose(points) {
     const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.3 }));

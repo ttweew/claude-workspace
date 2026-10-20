@@ -34,6 +34,7 @@ import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 import { phoneReport } from '../ui/phone-info.js';
 import { copyText } from '../ui/copy.js';
+import { keepBelowInfobar } from '../ui/infobar-space.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -172,6 +173,9 @@ const framing = new FramingHint();    // 入鏡提示（請往後退、請站到
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
 let videoSize = '';                   // 鏡頭畫面大小（例如 640x480）；手機轉向時會改變
+
+// 左上角的狀態列換行變高時，下面置中的大字（入鏡提示、紅字、每一下的提示）跟著往下（小手機上才不會被蓋住）
+keepBelowInfobar(document.getElementById('infobar'), stage);
 
 // ---------- AI 模型 ----------
 

@@ -1760,7 +1760,7 @@ code {
 /* 入鏡提示（例如「請往後退」）：畫面上方中央的大字，字體隨螢幕放大 */
 #banner {
     position: absolute;
-    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    top: max(calc(max(8px, env(safe-area-inset-top)) + 104px), var(--below-info, 0px));   /* 狀態列換行變高時往下推（js/ui/infobar-space.js） */
     left: 50%;
     width: max-content;
     max-width: calc(100% - 32px);
@@ -1783,7 +1783,7 @@ code {
 /* 動作做錯：和入鏡提示同一個位置、同樣大小的字，紅色（入鏡提示是橘色） */
 #formTip {
     position: absolute;
-    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    top: max(calc(max(8px, env(safe-area-inset-top)) + 104px), var(--below-info, 0px));   /* 狀態列換行變高時往下推（js/ui/infobar-space.js） */
     left: 50%;
     width: max-content;
     max-width: calc(100% - 32px);
@@ -1906,7 +1906,7 @@ code {
 /* 放在入鏡提示橫幅的位置：完成一下時站位一定沒問題，橫幅是收起來的，不會擋到身體 */
 #repToast {
     position: absolute;
-    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    top: max(calc(max(8px, env(safe-area-inset-top)) + 104px), var(--below-info, 0px));   /* 狀態列換行變高時往下推（js/ui/infobar-space.js） */
     left: 50%;
     width: max-content;
     max-width: calc(100% - 32px);

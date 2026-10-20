@@ -31,7 +31,7 @@ test('每一條規則都說得出原因，而且「數字超過門檻」和判�
 test('說出原因的句子：四捨五入到整數，度和 % 都寫門檻', () => {
     const squat = errorRule('squat', 'lean');
     assert.equal(whyText(squat, 58.4), '上身前傾 58°，超過 50° 算上身前傾');
-    assert.equal(whyText(errorRule('squat', 'heel'), 31.6), '腳跟比腳尖高 32%，超過 25% 算腳跟離地');
+    assert.equal(whyText(errorRule('squat', 'heel'), 61.6), '腳跟比腳尖高 62%，超過 55% 算腳跟離地');
     assert.equal(whyText(errorRule('plank', 'sag'), 18.2), '腰往下彎 18°，超過 16° 算塌腰');
     assert.equal(whyText(errorRule('pushup', 'pike'), 23), '屁股往上翹 23°，超過 20° 算屁股太高');
     assert.equal(whyText(errorRule('lunge', 'knee'), 15.4), '前膝比腳尖前面 15%，超過 10% 算膝超過腳尖');
