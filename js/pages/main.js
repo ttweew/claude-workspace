@@ -1367,11 +1367,13 @@ const pauseBtn = document.getElementById('pauseBtn');
 const recordSaved = document.getElementById('recordSaved');
 const recTimer = document.getElementById('recTimer');
 const galleryPanel = document.getElementById('galleryPanel');
+const galleryOpen = document.getElementById('galleryOpen');
 const libraryBox = document.getElementById('libraryBox');
 const librarySummary = document.getElementById('librarySummary');
 const REC_KEY = 'recBarOpen';
 let libraryOk = false;      // 這個瀏覽器能不能存錄製檔（打得開 IndexedDB）
 let libraryCount = 0;
+let galleryOpener = null;   // 打開清單的按鈕（錄影控制列的「錄製檔」或數據面板的「看錄製檔」）：關掉清單時回到這裡
 
 const recBar = new RecBar(recBarEl, {
     // 大圓鈕：還沒錄就開始（照倒數設定），倒數中取消，錄製中結束
@@ -1381,7 +1383,7 @@ const recBar = new RecBar(recBarEl, {
         else if (!testSet) startCountdown();
     },
     onPause: () => togglePause(),
-    onGallery: () => openGallery(true)
+    onGallery: () => openGallery(true, document.getElementById('galleryBtn'))
 });
 
 // 錄製的狀態（還沒錄、倒數中、錄製中、暫停中）改變時：數據面板、錄影控制列、實測控制列一起更新
@@ -1391,6 +1393,7 @@ function showRecState() {
     pauseBtn.textContent = recorder.paused ? '▶ 繼續' : '❚❚ 暫停';
     recBar.show(state, recorder.recording ? clock(recorder.seconds) : '');
     recTimer.disabled = state !== 'idle';
+    galleryOpen.disabled = state !== 'idle';   // 和錄影控制列的「錄製檔」一樣：錄的時候不能打開清單
     if (testSet && recorder.recording) testBar.paused(testSet.condition, recorder.paused);
     updateDataBtn();
     if (recorder.recording) showRecordInfo();
@@ -1450,7 +1453,7 @@ async function keepRecording(set, count) {
     }
     await refreshLibraries();
     if (id) {
-        recordSaved.textContent = '已存進錄製檔（共 ' + libraryCount + ' 段，首頁「錄製檔」可以下載）';
+        recordSaved.textContent = '已存進錄製檔（共 ' + libraryCount + ' 段，按「看錄製檔」下載）';
         recBar.say('已存好第 ' + libraryCount + ' 段（' + clock(seconds) + '）');
     } else {
         recordSaved.textContent = download ? '這個瀏覽器不能存錄製檔：已直接下載' : '這個瀏覽器不能存錄製檔：請按「下載 JSON」';
@@ -1460,17 +1463,23 @@ async function keepRecording(set, count) {
 }
 
 // 工具列「錄影」：打開、收起錄影控制列（會記住）；實測模式時用實測控制列，這顆藏起來
+// 數據面板打開時控制列藏起來（css/style.css：直拿時兩個在同一個位置）：按鈕的綠框只在控制列真的看得到時才亮
 function showRecBar() {
     const testing = testMode.on && conditionsFor(workout.id).length > 0;
     let open = false;
     try { open = localStorage.getItem(REC_KEY) === '1'; } catch (err) { /* 不能讀就收起來 */ }
     recModeBtn.hidden = testing;
     recBarEl.hidden = testing || !open;
-    stage.classList.toggle('rec-open', !recBarEl.hidden);
-    recModeBtn.setAttribute('aria-pressed', String(!recBarEl.hidden));
+    const shown = !recBarEl.hidden && dataPanel.hidden;
+    stage.classList.toggle('rec-open', shown);
+    recModeBtn.setAttribute('aria-pressed', String(shown));
 }
+// 10/20 使用者回報「按了沒反應」：數據面板開著時按「錄影」，按鈕變綠框、控制列卻被藏著
+// 現在數據面板開著時按「錄影」，先收起數據面板，控制列馬上出現
 recModeBtn.addEventListener('click', () => {
-    try { localStorage.setItem(REC_KEY, recBarEl.hidden ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
+    const shown = recModeBtn.getAttribute('aria-pressed') === 'true';
+    if (!shown && !dataPanel.hidden) toggleDataPanel();
+    try { localStorage.setItem(REC_KEY, shown ? '0' : '1'); } catch (err) { /* 不能存就這次有效 */ }
     showRecBar();
 });
 
@@ -1486,6 +1495,8 @@ countdownSelect.addEventListener('change', () => { recTimer.value = countdownSel
 function libraryChanged(items) {
     libraryCount = items.length;
     recBar.setCount(items.length);
+    galleryOpen.hidden = !items.length;
+    galleryOpen.textContent = '看錄製檔（' + items.length + '）';
     libraryBox.hidden = !items.length;
     const bytes = items.reduce((sum, i) => sum + i.size, 0);
     const fresh = items.filter(i => !i.downloaded).length;
@@ -1494,16 +1505,20 @@ function libraryChanged(items) {
 new LibraryList(document.getElementById('homeLibrary'), libraryChanged);
 new LibraryList(document.getElementById('galleryList'), libraryChanged);
 
-function openGallery(on) {
+// opener：從哪個按鈕打開（Safari 按按鈕不會把焦點移過去，所以直接傳進來）
+function openGallery(on, opener = null) {
     galleryPanel.hidden = !on;
     if (on) {
+        galleryOpener = opener;
         refreshLibraries();
         document.getElementById('galleryClose').focus();
-    } else if (!recBarEl.hidden) {
-        document.getElementById('galleryBtn').focus();
+    } else if (galleryOpener && galleryOpener.isConnected && galleryOpener.offsetParent) {
+        galleryOpener.focus();
     }
 }
 document.getElementById('galleryClose').addEventListener('click', () => openGallery(false));
+// 數據面板裡也能打開錄製檔清單（10/20 使用者問「要按哪裡看到所有的檔案」：數據面板開著時錄影控制列是藏起來的）
+galleryOpen.addEventListener('click', () => openGallery(true, galleryOpen));
 
 libraryAvailable().then(ok => {
     libraryOk = ok;
@@ -1929,6 +1944,7 @@ function toggleDataPanel() {
     hudRoot.hidden = !dataPanel.hidden;
     if (!dataPanel.hidden) repToast.hidden = true;
     updateDataBtn();
+    showRecBar();   // 數據面板打開時錄影控制列藏起來，「錄影」按鈕的綠框跟著熄掉
     if (!dataPanel.hidden) updatePanel();
 }
 
