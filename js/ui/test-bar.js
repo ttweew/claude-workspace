@@ -3,14 +3,15 @@
 // 錄過的組打勾（只記在這次打開的網頁裡），主持人看得出這位受測者這個動作還差哪一組
 
 export class TestBar {
-    // root：#testBar；onPick(condition)：選了這組要做的；onAction()：倒數中按「取消」、錄製中按「這組做完」
-    constructor(root, { onPick, onAction }) {
+    // root：#testBar；onPick(condition)：選了這組要做的；onAction()：倒數中按「取消」、錄製中按「這組做完」；onPause()：暫停／繼續
+    constructor(root, { onPick, onAction, onPause }) {
         this.root = root;
         this.title = root.querySelector('#testTitle');
         this.state = root.querySelector('#testState');
         this.clock = root.querySelector('#testClock');
         this.picks = root.querySelector('#testPicks');
         this.action = root.querySelector('#testAction');
+        this.pauseBtn = root.querySelector('#testPause');
         this.file = root.querySelector('#testFile');
         this.onPick = onPick;
         this.done = new Set();    // 錄過的組：「代號|動作|這組要做的」
@@ -18,6 +19,7 @@ export class TestBar {
         this.recKey = '';
         this.conditions = [];
         this.action.addEventListener('click', () => onAction());
+        this.pauseBtn.addEventListener('click', () => onPause());
     }
 
     // 換人、換動作、開關實測模式時重畫：subject 是 null（沒開實測模式）或這個動作沒有可以選的組（自由模式）就整列藏起來
@@ -48,9 +50,10 @@ export class TestBar {
             else b.removeAttribute('aria-label');
         });
         // 用鍵盤操作時：焦點本來在「這組做完」（要藏起來了），移到還沒錄的第一組
-        const refocus = document.activeElement === this.action;
+        const refocus = document.activeElement === this.action || document.activeElement === this.pauseBtn;
         this.picks.hidden = false;
         this.action.hidden = true;
+        this.pauseBtn.hidden = true;
         this.setState(note, '');
         if (refocus) (this.picks.querySelector('button:not(.done)') || this.picks.firstElementChild).focus();
     }
@@ -72,7 +75,14 @@ export class TestBar {
         this.action.textContent = '■ 這組做完';
         this.action.classList.add('stop');
         this.action.hidden = false;
-        this.setState('● 錄製中：' + label(c), '');
+        this.pauseBtn.hidden = false;
+        this.paused(c, false);
+    }
+
+    // 暫停中（10/20）：暫停的時間不錄，網站在暫停時算到的次數也不算進這一組
+    paused(c, on) {
+        this.pauseBtn.textContent = on ? '▶ 繼續' : '❚❚ 暫停';
+        this.setState((on ? '❚❚ 暫停中：' : '● 錄製中：') + label(c), this.clock.textContent);
     }
 
     // 錄製中每秒更新已錄多久（和數據面板的「錄製中 0:07」同一個數字）
@@ -80,21 +90,21 @@ export class TestBar {
         if (this.clock.textContent !== text) this.clock.textContent = text;
     }
 
-    // 這組存好了：打勾、寫出檔名；count：網站算了幾下（棒式是 null）
-    saved(c, fileName, count) {
+    // 這組存好了：打勾、寫出檔名；count：網站算了幾下（棒式是 null）；how：已存好（存進錄製檔）、已存好、已下載、已下載
+    saved(c, fileName, count, how) {
         this.done.add(this.recKey + c.id);
         if (this.recKey !== this.key) return;   // 已經換到別的動作（例如關鏡頭後馬上選下一個）：只打勾
         this.action.classList.remove('stop');
         this.file.textContent = fileName;
         this.file.hidden = false;
-        this.idle('✓ 已下載：' + label(c) + (count === null ? '' : '（網站算 ' + count + ' 下）'));
+        this.idle('✓ ' + how + '：' + label(c) + (count === null ? '' : '（網站算 ' + count + ' 下）'));
     }
 
     // 下載失敗（例如手機記憶體不夠）：資料還在，請主持人從數據面板再匯出一次
     failed(c) {
         this.action.classList.remove('stop');
         this.file.hidden = true;
-        this.idle('✕ ' + label(c) + ' 沒有下載成功：按「數據」→「下載 JSON」再試一次');
+        this.idle('✕ ' + label(c) + ' 沒有存好也沒有下載成功：按「數據」→「下載 JSON」再試一次');
     }
 
     // 倒數取消、沒錄到東西就停了：回到選組，不打勾

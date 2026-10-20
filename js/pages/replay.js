@@ -16,6 +16,7 @@ import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording,
     WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
+import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
 
 const $ = id => document.getElementById(id);
 const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus');
@@ -824,6 +825,36 @@ function readFile(file) {
 }
 
 fileInput.addEventListener('change', () => readFile(fileInput.files[0]));
+
+// 這支手機裡的錄製檔（10/20，js/data/library.js）：鏡頭畫面錄的每一段都存在這支手機，不用先下載、不用上傳雲端就能分析
+// 列最新的 30 段；這個瀏覽器不能存（或還沒錄過）就不出現
+const PHONE_MAX = 30;
+listRecordings().then(items => {
+    if (!items.length) return;
+    $('phoneList').replaceChildren(...items.slice(0, PHONE_MAX).map(item => {
+        const li = document.createElement('li');
+        const text = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = itemTitle(item);
+        const detail = document.createElement('small');
+        detail.textContent = itemDetail(item);
+        text.append(title, detail);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '分析';
+        btn.setAttribute('aria-label', '分析 ' + itemTitle(item) + '（' + itemDetail(item) + '）');
+        btn.addEventListener('click', async () => {
+            try {
+                readFile(new File([await getRecordingFile(item.id)], item.name + '.json', { type: 'application/json' }));
+            } catch (err) {
+                setStatus('讀不到這一段：' + err.message, true);
+            }
+        });
+        li.append(text, btn);
+        return li;
+    }));
+    $('phoneFiles').hidden = false;
+}).catch(() => { /* 這個瀏覽器不能存錄製檔：只能選檔案 */ });
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', e => {

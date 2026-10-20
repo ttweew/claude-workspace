@@ -52,7 +52,7 @@
                  和受測者卡（組員當受測者，只寫照著做的步驟）。每一組要做幾下和首頁實測模式的按鈕一樣（js/data/test-mode.js） -->
             <section id="testday" aria-labelledby="testdayTitle">
                 <h2 id="testdayTitle">實測任務卡</h2>
-                <p class="prose">實測那天：主持人拿著拍的手機照「主持人卡」做，受測者照「受測者卡」做就好，每人約 20 分鐘。需要：拍的手機（最好有腳架）、捲尺；有第二支手機可以同時錄影片。首頁「進階設定」打開<strong>實測模式</strong>後，每一組自動錄製、做完自動下載，檔名已經寫好受測者代號、動作、這組要做的，不用另外改名。受測者只用代號（A、B、C…），不寫名字。</p>
+                <p class="prose">實測那天：主持人拿著拍的手機照「主持人卡」做，受測者照「受測者卡」做就好，每人約 20 分鐘。需要：拍的手機（最好有腳架）、捲尺；有第二支手機可以同時錄影片。首頁「進階設定」打開<strong>實測模式</strong>後，每一組自動錄製、做完存進手機的「錄製檔」，最後一次壓縮成 zip 下載；檔名已經寫好受測者代號、動作、這組要做的，不用另外改名。受測者只用代號（A、B、C…），不寫名字。</p>
                 <div class="task-card" id="taskCard">
                     <h3>主持人卡</h3>
                     <p class="task-sub">做完的項目打勾，勾選只存在這台裝置上。</p>
@@ -62,12 +62,12 @@
                         <li><label><input type="checkbox" data-task="prep-cloud"> <span>首頁打開「雲端同步運動紀錄」開關（大家的數字會自動集中到 Firebase）</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-test"> <span>首頁「進階設定」打開「實測模式」，「受測者代號」填第一位的代號（例如 A）</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-place"> <span>手機放 2～3 公尺外、腰的高度，受測者<strong>側面</strong>對著鏡頭，畫面出現綠色「已偵測到全身」</span></label></li>
-                        <li><label><input type="checkbox" data-task="prep-trial"> <span>先自己試錄一組（例如深蹲「做對」做 2、3 下就按「這組做完」），確認檔案有下載下來（iPhone 會先問要不要下載，檔案在「檔案」App 的「下載項目」）；確認完把試錄的檔案刪掉</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-trial"> <span>先自己試錄一組（例如深蹲「做對」做 2、3 下就按「這組做完」），回首頁打開「錄製檔」看有沒有這一組，按「下載」確認檔案下載得下來（iPhone 會先問要不要下載，檔案在「檔案」App 的「下載項目」）；確認完把試錄的這一段刪掉</span></label></li>
                     </ul>
                     <h4>每位受測者（約 20 分鐘，照受測者卡的順序）</h4>
                     <ul class="task-list">
                         <li><label><input type="checkbox" data-task="set-open"> <span>首頁按動作（深蹲、伏地挺身、弓箭步、棒式），鏡頭畫面上方出現「實測 · 受測者 A」和這個動作的 3 組按鈕</span></label></li>
-                        <li><label><input type="checkbox" data-task="set-each"> <span>每一組：唸受測者卡上這一組的做法 → 按這一組的按鈕 → 倒數完（聽到「開始」）受測者開始做 → 做完按「這組做完」，檔案自動下載，按鈕打勾</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-each"> <span>每一組：唸受測者卡上這一組的做法 → 按這一組的按鈕 → 倒數完（聽到「開始」）受測者開始做 → 做完按「這組做完」，這一組存進「錄製檔」、按鈕打勾。中途要停一下就按「❚❚ 暫停」，暫停時做的不算</span></label></li>
                         <li><label><input type="checkbox" data-task="set-redo"> <span>次數做錯、中途停下來：同一組再按一次重錄，之後以最後一個檔案為準（檔名後面是時間）</span></label></li>
                         <li><label><input type="checkbox" data-task="set-count"> <span>一個動作 3 組都打勾後按「結束」，總結下面「實際做了幾下？」填受測者總共做了幾下（照卡片做是 20 下，有重錄就加上去；棒式不用填）</span></label></li>
                         <li><label><input type="checkbox" data-task="rec-legs"> <span>用捲尺量大腿（髖到膝）、小腿（膝到腳踝）的長度，和代號一起記下來（實驗 D 對照 3D 腿長）</span></label></li>
@@ -87,7 +87,7 @@
                     </ul>
                     <h4>做完</h4>
                     <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="done-upload"> <span>下載的檔案（test_ 開頭的 JSON）和影片放到 Google Drive 共用資料夾，檔名不用改</span></label></li>
+                        <li><label><input type="checkbox" data-task="done-upload"> <span>首頁「錄製檔」按「全選」→「壓縮成 zip 下載」（一個檔案，iPhone 只要按一次下載），和影片一起放到 Google Drive 共用資料夾，檔名不用改；確定放好了再刪掉手機裡的錄製檔</span></label></li>
                         <li><label><input type="checkbox" data-task="done-notes"> <span>腿長、總結的計次準確率、有沒有紅字貼到群組（只寫代號，不寫名字）</span></label></li>
                     </ul>
                     <p class="task-progress" id="taskProgress" role="status"></p>
@@ -177,11 +177,11 @@
             <section id="record" aria-labelledby="recordTitle">
                 <h2 id="recordTitle">錄製與重播</h2>
                 <ol class="steps">
-                    <li><strong>按「數據」→「開始錄製」</strong>錄下每一格 33 個關鍵點的位置（不是影片）。一次最多錄幾分鐘可以選（5、10、15、20 分鐘，預設 5 分鐘），選單旁邊會寫檔案大約多大；剩 30 秒、錄滿自動停止時，畫面中間會出現大字並唸出來（不講話時嗶一聲）。按下後會先倒數（預設 5 秒，每秒唸一個數字，最後唸「開始」；不講話時每秒嗶一聲），讓你有時間走到定位；旁邊的選單可以改成 3、10 秒或不倒數</li>
-                    <li><strong>停止後下載</strong>CSV 可以用 Excel 打開；JSON 給重播分析或之後的後端使用</li>
-                    <li><strong>到「重播分析」選檔案</strong>畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
+                    <li><strong>按工具列的「錄影」</strong>下方出現和手機相機一樣的按鈕：紅色大圓鈕開始、錄的時候變成方塊（按了結束），旁邊 ❚❚ 暫停、再按繼續（暫停的時間不錄）。錄下的是每一格 33 個關鍵點的位置（不是影片）。數據面板的「開始錄製」也可以錄，兩個是同一個。一次最多錄幾分鐘可以選（5、10、15、20 分鐘，預設 5 分鐘），選單旁邊會寫檔案大約多大；剩 30 秒、錄滿自動停止時，畫面中間會出現大字並唸出來（不講話時嗶一聲）。按下後會先倒數（預設 5 秒，每秒唸一個數字，最後唸「開始」；不講話時每秒嗶一聲），讓你有時間走到定位；旁邊的選單可以改成 3、10 秒或不倒數</li>
+                    <li><strong>每一段自動存進「錄製檔」</strong>像手機相簿：再按開始就是新的一段，不會蓋掉上一段。鏡頭畫面左下角的「錄製檔」或首頁的「錄製檔」可以一段一段下載、勾選幾段一次下載，或壓縮成一個 zip（小很多，iPhone 只要按一次下載）。存在這支手機的瀏覽器裡，不用上傳雲端也留得住；清除瀏覽器資料會不見，重要的記得下載。數據面板還是可以下載剛錄好的那一段的 CSV（Excel 打得開）或 JSON</li>
+                    <li><strong>到「重播分析」選檔案</strong>（同一支手機錄的，重播分析頁會直接列出「這支手機裡的錄製檔」，按「分析」就好，不用先下載）畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
                 </ol>
-                <p class="note"><strong>實測模式：</strong>實測那天一組一組錄的時候，首頁「進階設定」打開「實測模式」、填受測者代號。鏡頭畫面上方會出現這個動作的每一組（例如深蹲「做對 10 下」「故意上身前傾 5 下」「故意腳跟離地 5 下」），按了就倒數、開始錄；做完按「這組做完」，自動下載 JSON，檔名寫好受測者代號、動作、這組要做的（例如 test_A_squat_heel_<wbr>20261021_<wbr>153012.json），重播分析也會寫出是哪一組。步驟見最上面的<a href="#testday">實測任務卡</a>。</p>
+                <p class="note"><strong>實測模式：</strong>實測那天一組一組錄的時候，首頁「進階設定」打開「實測模式」、填受測者代號。鏡頭畫面上方會出現這個動作的每一組（例如深蹲「做對 10 下」「故意上身前傾 5 下」「故意腳跟離地 5 下」），按了就倒數、開始錄；做完按「這組做完」，這一組存進「錄製檔」（進階設定可以改成每組做完也馬上下載），檔名寫好受測者代號、動作、這組要做的（例如 test_A_squat_heel_<wbr>20261021_<wbr>153012.json），重播分析也會寫出是哪一組。步驟見最上面的<a href="#testday">實測任務卡</a>。</p>
                 <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
             </section>
 

@@ -40,18 +40,19 @@ export function conditionOf(workoutId, id) {
     return conditionsFor(workoutId).find(c => c.id === id) || null;
 }
 
-// 開關和代號存在這台裝置上；存的值被改壞時用預設（關、A）
+// 開關、代號、每組做完要不要馬上下載（10/20：預設先存在「錄製檔」，最後再一起下載）存在這台裝置上；
+// 存的值被改壞時用預設（關、A、不馬上下載）
 export function loadTestMode() {
     try {
         const v = JSON.parse(localStorage.getItem(KEY) || 'null');
-        if (v && typeof v === 'object') return { on: v.on === true, subject: cleanSubject(v.subject) };
+        if (v && typeof v === 'object') return { on: v.on === true, subject: cleanSubject(v.subject), autoDownload: v.autoDownload === true };
     } catch (err) { /* 壞掉就用預設 */ }
-    return { on: false, subject: 'A' };
+    return { on: false, subject: 'A', autoDownload: false };
 }
 
 export function saveTestMode(state) {
     try {
-        localStorage.setItem(KEY, JSON.stringify({ on: !!state.on, subject: cleanSubject(state.subject) }));
+        localStorage.setItem(KEY, JSON.stringify({ on: !!state.on, subject: cleanSubject(state.subject), autoDownload: !!state.autoDownload }));
     } catch (err) { /* 不能存（無痕模式）就不記，這次照樣能用 */ }
 }
 
