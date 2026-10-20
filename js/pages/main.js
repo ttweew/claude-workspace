@@ -35,6 +35,8 @@ import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 import { phoneReport } from '../ui/phone-info.js';
 import { copyText } from '../ui/copy.js';
 import { keepBelowInfobar } from '../ui/infobar-space.js';
+import { loadTestMode, saveTestMode, cleanSubject, conditionsFor, testMeta, testFileName } from '../data/test-mode.js';
+import { TestBar } from '../ui/test-bar.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -171,6 +173,8 @@ const advancedTitle = document.getElementById('advancedTitle');
 const framingSound = new FramingSound(cueFraming);  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
+let testMode = loadTestMode();        // 實測模式（js/data/test-mode.js）：{ on, subject（受測者代號） }
+let testSet = null;                   // 實測正在倒數或錄製的這一組：{ condition（conditionsFor 的一項）, startReps }
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
 let videoSize = '';                   // 鏡頭畫面大小（例如 640x480）；手機轉向時會改變
 
@@ -1052,8 +1056,11 @@ function showWorkout() {
     hudRoot.classList.toggle('lab', !!tracker.counter);
     resetCounter();
     showPoseLabels();
+    showTestBar();
 }
 onWorkoutChange(next => {
+    // 實測的一組還在倒數就換動作：這一組作廢（要做的錯誤是上一個動作的）。錄製中不能換動作（setWorkoutLocked）
+    if (testSet) cancelCountdown();
     finishSession();
     workout = next;
     tracker = new WorkoutTracker(next.id);
@@ -1246,6 +1253,7 @@ function showRecordInfo() {
         ? '錄製中 ' + clock(recorder.seconds) + '／' + clock(recorder.maxSeconds) + ' · ' + recorder.frameCount + ' 格'
         : '已錄 ' + clock(recorder.seconds) + ' · ' + recorder.frameCount + ' 格'
             + (recLimitHit ? '（已錄滿 ' + recorder.maxSeconds / 60 + ' 分鐘，自動停止）' : '');
+    if (testSet && recorder.recording) testBar.tick(clock(recorder.seconds));
 }
 
 // 秒數 → 「4:05」（四捨五入：錄滿時最後一格約 299.97 秒，顯示 5:00）
@@ -1291,6 +1299,76 @@ try {
 countdownSelect.addEventListener('change', () => {
     try { localStorage.setItem('recordCountdown', countdownSelect.value); } catch (err) { /* 不能存就不記 */ }
 });
+
+// ---------- 實測模式（10/20，js/data/test-mode.js、js/ui/test-bar.js） ----------
+// 實測那天主持人用：每一組在鏡頭畫面選「這組要做的」（做對，或故意做哪一種錯）→ 倒數 → 自動錄製 →「這組做完」→ 自動下載 JSON
+// 檔名和檔案裡都記下受測者代號、動作、這組要做的，之後算準確率不用另外標記；錄製、倒數和數據面板的「開始錄製」共用
+
+const testBar = new TestBar(document.getElementById('testBar'), {
+    onPick: startTestSet,
+    // 倒數中按「取消」、錄製中按「這組做完」：和數據面板的錄製按鈕一樣
+    onAction: () => {
+        if (recorder.recording) stopRecording();
+        else if (countdown && !countdown.go) cancelCountdown();
+    }
+});
+
+// 開關實測模式、換代號、換動作時重畫（自由模式沒有可以選的組，整列藏起來）
+function showTestBar() {
+    if (testSet) return;   // 倒數、錄製中不重畫（錄製中不能換動作；換動作前會先取消倒數）
+    testBar.setPlan(testMode.on ? testMode.subject : null, workout, conditionsFor(workout.id));
+}
+
+function startTestSet(condition) {
+    if (recorder.recording || (countdown && !countdown.go)) {
+        // 用數據面板自己在錄（不是實測的一組）：先停掉那一段
+        testBar.idle('正在錄製（不是實測的一組）：先按「數據」→「停止錄製」');
+        return;
+    }
+    cancelCountdown();   // 上一組一開始錄就按了做完：畫面上的「開始」還沒收，先收掉
+    testSet = { condition, startReps: 0 };
+    testBar.counting(condition);
+    startCountdown();
+}
+
+// 這一組錄完（在 stopRecording 裡）：自動下載；網站算了幾下寫在控制列上，主持人當場就知道有沒有漏算
+function finishTestSet() {
+    const set = testSet;
+    testSet = null;
+    const name = testFileName(recorder.meta);
+    if (!name || !recorder.frameCount) {
+        testBar.cancel('沒有錄到畫面，這組再錄一次');
+        return;
+    }
+    const count = workout.kind === 'reps' ? Math.max(0, tracker.items.length - set.startReps) : null;
+    saveTestFile(set.condition, name + '.json', count);
+}
+
+async function saveTestFile(condition, name, count) {
+    try {
+        // jsonChunks 一開始就記住這一組的資料：產生檔案的途中（每一小段讓畫面喘口氣）開始錄下一組也不會混在一起
+        downloadBlob(name, await buildFile(recorder.jsonChunks(), 'application/json'));
+        testBar.saved(condition, name, count);
+    } catch (err) {
+        console.error(err);
+        testBar.failed(condition);
+    }
+}
+
+// 首頁進階設定裡的開關和受測者代號（存在這台裝置上）
+const testToggle = document.getElementById('testToggle');
+const testSubject = document.getElementById('testSubject');
+testToggle.checked = testMode.on;
+testSubject.value = testMode.subject;
+function changeTestMode() {
+    testMode = { on: testToggle.checked, subject: cleanSubject(testSubject.value) };
+    testSubject.value = testMode.subject;
+    saveTestMode(testMode);
+    showAdvancedTitle();
+    showTestBar();
+}
+testToggle.addEventListener('change', changeTestMode);
+testSubject.addEventListener('change', changeTestMode);
 
 // ---------- 錄製上限 ----------
 // 以前固定 5 分鐘；老師 10/12 回饋改成可以選 5、10、15、20 分鐘（會記住選擇）
@@ -1396,6 +1474,7 @@ function showAdvancedTitle() {
     else if (fpsChoice !== 30) changed.push('每秒 ' + fpsChoice + ' 格');
     const model = getModelChoice();
     if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
+    if (testMode.on) changed.push('實測模式：受測者 ' + testMode.subject);
     advancedTitle.textContent = '進階設定（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
 
@@ -1571,7 +1650,7 @@ function startCountdown() {
 function tickCountdown() {
     const left = Math.ceil((countdown.end - performance.now()) / 1000);
     if (left <= 0) {
-        cancelCountdown();
+        cancelCountdown(true);
         cueRecording('開始', true, COUNT_LIFE);
         startRecording();
         // 「開始」短暫顯示一下，站遠的人知道已經在錄了
@@ -1599,7 +1678,8 @@ function hideCountdown() {
 }
 
 // 取消倒數（按取消、關鏡頭、換鏡頭）；已經開始錄的「開始」字樣也一起收掉
-function cancelCountdown() {
+// starting：倒數完了、接著開始錄（只收掉倒數，不算取消）
+function cancelCountdown(starting = false) {
     if (!countdown) return;
     clearTimeout(countdown.timer);
     const counting = !countdown.go;
@@ -1609,6 +1689,11 @@ function cancelCountdown() {
         recordBtn.classList.remove('counting');
         countdownSelect.disabled = false;
         recordBtn.textContent = recorder.frameCount ? '● 重新錄製' : '● 開始錄製';
+        // 實測的一組在倒數中被取消：回到選組，不打勾
+        if (testSet && !starting) {
+            testSet = null;
+            testBar.cancel('已取消。選這組要做的，選了就倒數、開始錄');
+        }
     }
 }
 
@@ -1636,7 +1721,9 @@ function startRecording() {
         aiMsPerFrame: recentMs.length ? Math.round(median(recentMs)) : null,
         // 畫面只是顯示時鏡像；錄下的座標一律是鏡頭原始畫面（未鏡像）
         displayMirrored: video.classList.contains('mirrored'),
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        // 實測模式的一組（js/data/test-mode.js）：受測者代號、這組要做的、要做幾下（棒式是撐幾秒）；一般錄製沒有這一項
+        ...(testSet ? { test: testMeta(testMode.subject, testSet.condition.id, workout.id) } : {})
     }, limitMinutes() * 60);
     // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）、不能換動作
     limitSelect.disabled = true;
@@ -1652,6 +1739,10 @@ function startRecording() {
     updateDataBtn();
     csvBtn.hidden = true;
     jsonBtn.hidden = true;
+    if (testSet) {
+        testSet.startReps = tracker.items.length;
+        testBar.recording(testSet.condition);
+    }
     showRecordInfo();
 }
 
@@ -1670,6 +1761,8 @@ function stopRecording(limitHit = false) {
     updateDataBtn();
     showRecordInfo();
     csvBtn.hidden = jsonBtn.hidden = recorder.frameCount === 0;
+    // 實測的一組（按「這組做完」、數據面板的停止、錄滿、關鏡頭、換鏡頭、手機轉向都一樣）：自動下載
+    if (testSet) finishTestSet();
 }
 
 // 數據面板：數值表格（原始或平滑後），以及動作判斷用的資訊
@@ -1828,7 +1921,7 @@ function setExporting(on) {
 async function exportRecording(button, ext, chunks, mimeType) {
     if (exporting) return;
     const label = button.textContent;
-    const name = recordingName(recorder.meta) + ext;
+    const name = (testFileName(recorder.meta) || recordingName(recorder.meta)) + ext;
     setExporting(true);
     button.textContent = '產生中…';
     try {

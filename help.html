@@ -48,55 +48,82 @@
         </header>
 
         <main>
-            <!-- 實測任務卡（10/19）：組員實測那天照著做，每一項做完打勾（勾選只存在這台裝置上，js/pages/help.js） -->
+            <!-- 實測任務卡：10/19 第一版；10/20 分成兩份：主持人卡（使用者主持，每一項做完打勾，勾選只存在這台裝置上，js/pages/help.js）
+                 和受測者卡（組員當受測者，只寫照著做的步驟）。每一組要做幾下和首頁實測模式的按鈕一樣（js/data/test-mode.js） -->
             <section id="testday" aria-labelledby="testdayTitle">
-                <h2 id="testdayTitle">實測任務卡（組員用）</h2>
-                <p class="prose">實測聚會照著這張卡做，大約 60 分鐘。需要：兩支手機（一支拍、一支記錄也可以用同一支）、量角器、捲尺。做完的項目打勾，勾選只存在這台裝置上；全部做完，把下載的檔案和錄影放到 Google Drive 的共用資料夾。</p>
+                <h2 id="testdayTitle">實測任務卡</h2>
+                <p class="prose">實測那天：主持人拿著拍的手機照「主持人卡」做，受測者照「受測者卡」做就好，每人約 20 分鐘。需要：拍的手機（最好有腳架）、捲尺；有第二支手機可以同時錄影片。首頁「進階設定」打開<strong>實測模式</strong>後，每一組自動錄製、做完自動下載，檔名已經寫好受測者代號、動作、這組要做的，不用另外改名。受測者只用代號（A、B、C…），不寫名字。</p>
                 <div class="task-card" id="taskCard">
-                    <h3>開始前（5 分鐘）</h3>
+                    <h3>主持人卡</h3>
+                    <p class="task-sub">做完的項目打勾，勾選只存在這台裝置上。</p>
+                    <h4>開始前（10 分鐘）</h4>
                     <ul class="task-list">
                         <li><label><input type="checkbox" data-task="prep-check"> <span>在這一頁最上面按「檢查這支手機」，按「複製檢查結果」貼到群組</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-cloud"> <span>首頁打開「雲端同步運動紀錄」開關（大家的數字會自動集中到 Firebase）</span></label></li>
-                        <li><label><input type="checkbox" data-task="prep-place"> <span>手機放 2～3 公尺外、腰的高度，<strong>側面</strong>對著鏡頭，畫面出現綠色「已偵測到全身」</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-test"> <span>首頁「進階設定」打開「實測模式」，「受測者代號」填第一位的代號（例如 A）</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-place"> <span>手機放 2～3 公尺外、腰的高度，受測者<strong>側面</strong>對著鏡頭，畫面出現綠色「已偵測到全身」</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-trial"> <span>先自己試錄一組（例如深蹲「做對」做 2、3 下就按「這組做完」），確認檔案有下載下來（iPhone 會先問要不要下載，檔案在「檔案」App 的「下載項目」）；確認完把試錄的檔案刪掉</span></label></li>
                     </ul>
-                    <h3>1. 次數準不準（每人約 15 分鐘）</h3>
+                    <h4>每位受測者（約 20 分鐘，照受測者卡的順序）</h4>
                     <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="reps-squat"> <span>深蹲：首頁按「深蹲」，標準地做 10 下，按「結束」，記下總結寫的次數</span></label></li>
-                        <li><label><input type="checkbox" data-task="reps-pushup"> <span>伏地挺身：同上，做 10 下</span></label></li>
-                        <li><label><input type="checkbox" data-task="reps-lunge"> <span>弓箭步：同上，做 10 下（左右腳各 5 下）</span></label></li>
-                        <li><label><input type="checkbox" data-task="reps-plank"> <span>棒式：撐 30 秒，另一個人用手機碼表計時，比對網站的秒數</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-open"> <span>首頁按動作（深蹲、伏地挺身、弓箭步、棒式），鏡頭畫面上方出現「實測 · 受測者 A」和這個動作的 3 組按鈕</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-each"> <span>每一組：唸受測者卡上這一組的做法 → 按這一組的按鈕 → 倒數完（聽到「開始」）受測者開始做 → 做完按「這組做完」，檔案自動下載，按鈕打勾</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-redo"> <span>次數做錯、中途停下來：同一組再按一次重錄，之後以最後一個檔案為準（檔名後面是時間）</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-count"> <span>一個動作 3 組都打勾後按「結束」，總結下面「實際做了幾下？」填受測者總共做了幾下（照卡片做是 20 下，有重錄就加上去；棒式不用填）</span></label></li>
+                        <li><label><input type="checkbox" data-task="rec-legs"> <span>用捲尺量大腿（髖到膝）、小腿（膝到腳踝）的長度，和代號一起記下來（實驗 D 對照 3D 腿長）</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-next"> <span>換下一位：首頁「進階設定」改代號（B、C…），再從第一個動作開始</span></label></li>
+                        <li><label><input type="checkbox" data-task="rec-video"> <span>有第二支手機：同時從旁邊錄影片（之後核對每一下做對或做錯）</span></label></li>
                     </ul>
-                    <h3>2. 錯誤抓不抓得到（約 15 分鐘）</h3>
-                    <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="err-squat"> <span>深蹲：故意「上身太前傾」5 下、「腳跟離地」5 下，記下畫面有沒有紅字</span></label></li>
-                        <li><label><input type="checkbox" data-task="err-pushup"> <span>伏地挺身：故意「腰塌下去」5 下、「屁股太高」5 下</span></label></li>
-                        <li><label><input type="checkbox" data-task="err-lunge"> <span>弓箭步：故意「上身前傾」5 下、「前膝超過腳尖」5 下</span></label></li>
-                        <li><label><input type="checkbox" data-task="err-plank"> <span>棒式：故意「腰塌下去」、「屁股太高」各撐 10 秒</span></label></li>
-                    </ul>
-                    <h3>3. 角度準不準（實驗 A，約 10 分鐘）</h3>
+                    <h4>角度準不準（實驗 A，約 10 分鐘）</h4>
                     <ul class="task-list">
                         <li><label><input type="checkbox" data-task="angle"> <span>照下面「驗證實驗」的實驗 A：擺 5 個以上的姿勢，量角器量膝蓋，同時在數據面板按「記下角度」，再回這一頁填量角器的角度</span></label></li>
                     </ul>
-                    <h3>4. 錄下來（AI 模型要用，約 10 分鐘）</h3>
-                    <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="rec-each"> <span>每個動作<strong>分開錄</strong>：鏡頭畫面按「數據」→「開始錄製」，做完停止，下載 JSON（一次最多 5 分鐘）</span></label></li>
-                        <li><label><input type="checkbox" data-task="rec-video"> <span>另一支手機同時錄影片（之後標記每一下做對或做錯）</span></label></li>
-                        <li><label><input type="checkbox" data-task="rec-legs"> <span>用捲尺量每個人的大腿、小腿長（實驗 D 對照 3D 腿長）</span></label></li>
-                    </ul>
-                    <h3>5. 真手機要確認的事（有時間再做）</h3>
+                    <h4>真手機要確認的事（有時間再做）</h4>
                     <ul class="task-list">
                         <li><label><input type="checkbox" data-task="phone-mute"> <span>iPhone 側邊靜音開關打開時，還聽不聽得到提示音和語音</span></label></li>
                         <li><label><input type="checkbox" data-task="phone-long"> <span>手機錄 10 分鐘以上，會不會發燙、變慢</span></label></li>
                         <li><label><input type="checkbox" data-task="phone-auto"> <span>「進階設定」的畫面流暢度和 AI 模型都選「自動」，運動 5 分鐘，記下運算標籤的數字</span></label></li>
                         <li><label><input type="checkbox" data-task="phone-dark"> <span>暗的房間試「光線太暗」提醒；手機放高、放歪各試一次深蹲的校正</span></label></li>
                     </ul>
-                    <h3>做完</h3>
+                    <h4>做完</h4>
                     <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="done-upload"> <span>下載的 JSON、CSV 和影片放到 Google Drive 共用資料夾，檔名加上名字和動作</span></label></li>
-                        <li><label><input type="checkbox" data-task="done-notes"> <span>記下的次數、有沒有紅字、碼表秒數貼到群組（或拍照）</span></label></li>
+                        <li><label><input type="checkbox" data-task="done-upload"> <span>下載的檔案（test_ 開頭的 JSON）和影片放到 Google Drive 共用資料夾，檔名不用改</span></label></li>
+                        <li><label><input type="checkbox" data-task="done-notes"> <span>腿長、總結的計次準確率、有沒有紅字貼到群組（只寫代號，不寫名字）</span></label></li>
                     </ul>
                     <p class="task-progress" id="taskProgress" role="status"></p>
                     <button type="button" id="taskReset" class="task-reset">全部取消勾選</button>
+                </div>
+                <div class="task-card subject-card" id="subjectCard">
+                    <h3>受測者卡</h3>
+                    <p class="task-sub">側面對著手機站好，聽到「開始」再做；做完一組，主持人會說下一組。故意做錯的組，<strong>每一下都要做錯</strong>（不要一下對、一下錯），網站才知道每一下的答案。</p>
+                    <h4>1. 深蹲</h4>
+                    <ol class="subject-list">
+                        <li><strong>做對 10 下</strong>：腳跟踩穩、胸口挺起來，蹲到大腿差不多和地面平行</li>
+                        <li><strong>故意上身前傾 5 下</strong>：蹲的時候上身往前倒，胸口朝向地板</li>
+                        <li><strong>故意腳跟離地 5 下</strong>：蹲的時候墊腳尖，腳跟明顯抬起來</li>
+                    </ol>
+                    <h4>2. 伏地挺身</h4>
+                    <ol class="subject-list">
+                        <li><strong>做對 10 下</strong>：頭到腳一直線，胸口下到快碰到地</li>
+                        <li><strong>故意塌腰 5 下</strong>：腰往下沉，肚子靠近地面</li>
+                        <li><strong>故意屁股太高 5 下</strong>：屁股往上翹，身體像倒過來的 V</li>
+                    </ol>
+                    <h4>3. 弓箭步</h4>
+                    <ol class="subject-list">
+                        <li><strong>做對 10 下</strong>：左右腳各 5 下，前膝在腳踝正上方，上身挺直</li>
+                        <li><strong>故意上身前傾 5 下</strong>：往下的時候上身往前倒</li>
+                        <li><strong>故意前膝超過腳尖 5 下</strong>：步伐跨小一點，前膝往前推過腳尖</li>
+                    </ol>
+                    <h4>4. 棒式</h4>
+                    <ol class="subject-list">
+                        <li><strong>做對 30 秒</strong>：手肘在肩膀正下方，頭到腳一直線撐住</li>
+                        <li><strong>故意塌腰 10 秒</strong>：腰往下沉撐住</li>
+                        <li><strong>故意屁股太高 10 秒</strong>：屁股往上翹撐住</li>
+                    </ol>
+                    <h4>最後</h4>
+                    <ol class="subject-list">
+                        <li>站直不動，讓主持人用捲尺量大腿和小腿</li>
+                    </ol>
                 </div>
             </section>
 
@@ -154,6 +181,7 @@
                     <li><strong>停止後下載</strong>CSV 可以用 Excel 打開；JSON 給重播分析或之後的後端使用</li>
                     <li><strong>到「重播分析」選檔案</strong>畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
                 </ol>
+                <p class="note"><strong>實測模式：</strong>實測那天一組一組錄的時候，首頁「進階設定」打開「實測模式」、填受測者代號。鏡頭畫面上方會出現這個動作的每一組（例如深蹲「做對 10 下」「故意上身前傾 5 下」「故意腳跟離地 5 下」），按了就倒數、開始錄；做完按「這組做完」，自動下載 JSON，檔名寫好受測者代號、動作、這組要做的（例如 test_A_squat_heel_<wbr>20261021_<wbr>153012.json），重播分析也會寫出是哪一組。步驟見最上面的<a href="#testday">實測任務卡</a>。</p>
                 <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
             </section>
 

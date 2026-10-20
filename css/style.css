@@ -513,6 +513,34 @@ button:focus-visible, select:focus-visible {
 .fps-hint[hidden] {
     display: none;
 }
+/* 進階設定裡的實測模式（js/data/test-mode.js）：開關、受測者代號、說明 */
+.test-pick {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+.test-pick .fps-pick input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    max-width: 240px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 16px;
+    text-transform: uppercase;
+}
+.test-hint {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
 #status, #modelStatus {
     margin: 12px 0 0;
     color: var(--muted);
@@ -1755,6 +1783,84 @@ code {
 #stage:has(#banner:not([hidden]), #countdown:not([hidden]), #recNotice:not([hidden])) #advice {
     display: none;
 }
+/* 實測模式（js/ui/test-bar.js）：主持人每一組選「這組要做的」、做完按「這組做完」。和速度建議一樣自己一行，藍框分開；
+   主持人走到手機前才按，按鈕做大一點（高 44px）。實測時不跳速度建議：同一天的設定不要中途改 */
+#infobar > #testBar {
+    /* 排在第二行以後，已經在右上角「示範」按鈕的下面：可以用到狀態列右邊留給它的 84px，小手機上按鈕少換一行 */
+    flex: 0 0 calc(100% + 84px);
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: none;
+}
+#stage:has(#testBar:not([hidden])) #advice {
+    display: none;
+}
+.test-card {
+    max-width: 420px;
+    padding: 10px 12px;
+    border: 1px solid rgba(76, 195, 255, 0.7);
+    border-radius: 12px;
+    background: rgba(11, 18, 32, 0.92);
+    pointer-events: auto;
+}
+.test-head {
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+.test-head strong {
+    display: block;
+    color: var(--info);
+}
+#testClock {
+    font-variant-numeric: tabular-nums;
+}
+.test-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.test-picks[hidden], #testAction[hidden], .test-file[hidden] {
+    display: none;
+}
+.test-picks button, #testAction {
+    min-height: 44px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+/* 錄過的組：綠框打勾，還沒錄的一眼就看得出來 */
+.test-picks button.done {
+    border-color: rgba(46, 230, 166, 0.6);
+    color: #9FF0D0;
+}
+/* 「這組做完」：紅底白字（和偵測狀態的紅色一樣，對比 4.5:1 以上） */
+#testAction.stop {
+    border-color: var(--danger);
+    background: rgba(180, 35, 30, 0.95);
+    font-weight: 700;
+}
+.test-file {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    word-break: break-all;
+}
+/* 橫拿：和速度建議一樣放在下方中間、左右兩組大字之間（數據面板開著時維持左上） */
+@media (orientation: landscape) {
+    #stage:not(:has(#dataPanel:not([hidden]))) .test-card {
+        position: fixed;
+        left: calc(max(14px, env(safe-area-inset-left)) + 8 * clamp(18px, 5.5vmin, 34px) + 12px);
+        right: calc(max(14px, env(safe-area-inset-right)) + 8 * clamp(18px, 5.5vmin, 34px) + 12px);
+        bottom: max(12px, env(safe-area-inset-bottom));
+        margin: 0 auto;
+    }
+}
 
 /* ---------- 站遠也看得清楚：大字橫幅與大字儀表板 ---------- */
 /* 入鏡提示（例如「請往後退」）：畫面上方中央的大字，字體隨螢幕放大 */
@@ -2245,6 +2351,30 @@ code {
 /* 做完的項目變淡，一眼看出還剩哪些 */
 .task-list label:has(input:checked) {
     color: var(--muted);
+}
+/* 10/20 分成主持人卡、受測者卡：卡片裡的小標題（每一段）、說明 */
+.help .task-card h4 {
+    margin: 16px 0 4px;
+    color: var(--text);
+    font-size: 15px;
+}
+.task-sub {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+/* 受測者卡：沒有打勾，只寫照著做的步驟；和主持人卡（綠框）分開，用藍框 */
+.subject-card {
+    margin-top: 16px;
+    border-color: rgba(76, 195, 255, 0.45);
+}
+.subject-list {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding-left: 1.4em;
+    line-height: 1.6;
 }
 .task-progress {
     margin: 14px 0 0;

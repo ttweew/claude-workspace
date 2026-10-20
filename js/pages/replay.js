@@ -15,6 +15,7 @@ import { errorShort, errorRule } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
 import { setupOffline } from '../platform/offline.js';
+import { testInfo } from '../data/test-mode.js';
 
 const $ = id => document.getElementById(id);
 const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus');
@@ -468,6 +469,9 @@ function showSummary() {
         ['模型 · 運算', (m.model || '—') + ' · ' + (m.computeMode || '—')],
         ['錄製時間', m.startedAt && !m.synthetic ? new Date(m.startedAt).toLocaleString('zh-TW') : '—']
     ];
+    // 實測模式錄的（js/data/test-mode.js）：受測者代號、這組要做的
+    const test = testInfo(m);
+    if (test) items.unshift(['實測', '受測者 ' + test.subject + ' · ' + WORKOUTS[test.workout].name + ' · ' + test.name + ' ' + test.amount + ' ' + test.unit]);
     summary.replaceChildren(...items.map(([k, v]) => {
         const div = document.createElement('div');
         const dt = document.createElement('dt');
