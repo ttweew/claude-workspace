@@ -139,6 +139,15 @@
                         <select id="modelSelect" aria-describedby="modelPickHint"></select>
                     </label>
                     <p id="modelPickHint" class="fps-hint" hidden></p>
+                    <!-- 實測模式（10/20，js/data/test-mode.js）：實測那天主持人用。開著時鏡頭畫面上方出現「這組要做的」按鈕，
+                         選了就倒數、自動錄製，按「這組做完」自動下載 JSON（檔名有受測者代號、動作、這組要做的） -->
+                    <div class="test-pick">
+                        <label class="switch-pick"><input type="checkbox" id="testToggle" role="switch" aria-describedby="testHint"> <span>實測模式<small>實測那天主持人用：每一組自動錄製、做完自動下載</small></span></label>
+                        <label class="fps-pick">受測者代號
+                            <input id="testSubject" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="testHint">
+                        </label>
+                        <p id="testHint" class="test-hint">只用代號（A、B、C…），不寫名字。檔名例如 test_A_squat_good_20261021_153012.json</p>
+                    </div>
                 </details>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
@@ -267,6 +276,16 @@
                         <button id="adviceYes" type="button"></button>
                         <button id="adviceNo" type="button">不用了</button>
                     </div>
+                </div>
+            </div>
+            <!-- 實測模式（js/ui/test-bar.js）：主持人每一組選「這組要做的」，選了就倒數、自動錄製；做完按「這組做完」自動下載 JSON
+                 已錄多久每秒在變，不給螢幕閱讀器唸（aria-hidden） -->
+            <div id="testBar" hidden>
+                <div class="test-card" role="group" aria-labelledby="testTitle">
+                    <p class="test-head"><strong id="testTitle"></strong><span id="testState" role="status"></span> <span id="testClock" aria-hidden="true"></span></p>
+                    <div id="testPicks" class="test-picks"></div>
+                    <button id="testAction" type="button" hidden></button>
+                    <p id="testFile" class="test-file" hidden></p>
                 </div>
             </div>
         </div>
