@@ -85,6 +85,13 @@
                 <div id="summary" class="summary" aria-live="polite" hidden>
                     <h2>這次運動</h2>
                     <ul id="summaryLines"></ul>
+                    <!-- 計次準確率（10/20）：填自己數的次數，和網站算的比；只存在這台裝置（實測時用） -->
+                    <form id="actualForm" class="actual-form" hidden>
+                        <label for="actualInput">實際做了幾下？</label>
+                        <input id="actualInput" type="text" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="actualNote">
+                        <button type="submit">記下</button>
+                        <p id="actualNote" class="actual-note" role="status"></p>
+                    </form>
                     <!-- 第一次有總結時問一次要不要打開雲端同步（js/ui/cloud-ask.js）；選過就不再問 -->
                     <div id="cloudAsk" class="cloud-ask" hidden>
                         <p>要把運動紀錄存一份到雲端嗎？只存總結的數字，不含影像；之後可以畫成長曲線。</p>
@@ -96,8 +103,16 @@
                 </div>
                 <!-- 常用的開關：不用點開就看得到（10/19 組員回饋：收在進階設定裡沒人知道） -->
                 <div class="quick-settings">
-                    <!-- 語音提醒（動作錯誤、次數）：音量跟著鏡頭畫面的「音量」按鈕；想只留嗶聲可以關掉 -->
-                    <label class="switch-pick"><input type="checkbox" id="voiceToggle" role="switch"> <span>語音提醒<small>唸出次數和動作錯誤</small></span></label>
+                    <!-- 語音提示（10/20，js/ui/speech-plan.js）：完整＝站位、倒數、動作錯誤、次數都用講的；只講錯誤；不講話＝全部用嗶聲
+                         音量跟著鏡頭畫面的「音量」按鈕；網站會記住選擇 -->
+                    <fieldset id="voicePick" class="voice-pick">
+                        <legend>語音提示<small id="voiceNote">站位、倒數、動作錯誤、次數用講的；不講話時改用嗶聲</small></legend>
+                        <div class="voice-modes">
+                            <label><input type="radio" id="voiceFull" name="voiceMode" value="full"><span>完整</span></label>
+                            <label><input type="radio" id="voiceErrors" name="voiceMode" value="errors"><span>只講錯誤</span></label>
+                            <label><input type="radio" id="voiceOff" name="voiceMode" value="off"><span>不講話</span></label>
+                        </div>
+                    </fieldset>
                     <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
                     <div id="cloudBox" hidden>
                         <label class="switch-pick"><input type="checkbox" id="cloudToggle" role="switch" aria-describedby="cloudStatus"> <span>雲端同步運動紀錄<small>只存總結的數字，不含影像</small></span></label>
@@ -292,6 +307,9 @@
                 <!-- 驗證實驗（js/analysis/validate.js）：擺好姿勢不動時按，記下現在的關節角度，之後到使用說明「驗證實驗」和量角器比對 -->
                 <button id="snapBtn" title="擺好姿勢不動時按：記下現在的關節角度，之後到使用說明「驗證實驗」和量角器比對">記下角度</button>
                 <span id="snapInfo" role="status"></span>
+                <!-- 複製手機資訊（10/20）：系統、瀏覽器、AI 每格幾毫秒、每秒幾格；實測時每支手機按一下貼到筆記（js/ui/phone-info.js） -->
+                <button id="phoneInfoBtn" type="button" title="系統、瀏覽器、AI 速度，實測時貼到筆記">複製手機資訊</button>
+                <span id="phoneInfoStatus" role="status"></span>
                 <!-- 收合表格：只留上面這一列（錄製、下載），畫面上的人不會被擋住 -->
                 <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="panelBody">收合表格</button>
             </div>

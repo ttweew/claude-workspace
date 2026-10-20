@@ -345,6 +345,67 @@ button:focus-visible, select:focus-visible {
     outline: 3px solid var(--info);
     outline-offset: 2px;
 }
+/* 語音提示三選一（10/20）：完整、只講錯誤、不講話。圓點藏起來（還是可以用鍵盤的方向鍵選），選到的那個填滿顏色 */
+.voice-pick {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+.voice-pick legend {
+    padding: 0;
+    margin-bottom: 8px;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.4;
+}
+.voice-pick legend small {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+}
+.voice-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.voice-modes label {
+    position: relative;
+    cursor: pointer;
+}
+.voice-modes input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+}
+/* 左右留白 12px：320 寬的手機上三個選項才排得進同一行（卡片裡只剩約 240px） */
+.voice-modes span {
+    display: inline-block;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 22px;
+}
+.voice-modes input:checked + span {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+}
+.voice-modes input:focus-visible + span {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+.voice-modes input:disabled + span {
+    opacity: 0.5;
+    cursor: default;
+}
 /* 開關下面的說明連結、狀態：和開關右邊的字對齊（開關 46px＋間距 12px） */
 .switch-more {
     margin: 4px 0 0 58px;
@@ -680,6 +741,51 @@ h2 {
     color: var(--text);
     font-size: 14px;
     line-height: 1.6;
+}
+/* 總結下面：填實際做了幾下，算計次準確率（10/20） */
+.actual-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: var(--text);
+    font-size: 14px;
+}
+.actual-form input {
+    width: 4.5em;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+}
+.actual-form button {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.actual-form input:focus-visible, .actual-form button:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+.actual-note {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+.actual-note:empty {
+    display: none;
 }
 .history {
     margin: 10px 0 0;

@@ -1,5 +1,6 @@
 // 提示音（老師 10/12 回饋：人站遠、做動作時看不到螢幕）
 // 入鏡提示（離開畫面、站位不對、站好了）、錄製倒數與提醒，全部共用同一個音量：關、小、中、大
+// 10/20 起「語音提示」選完整時，入鏡提示和倒數改成用講的（js/ui/speech-plan.js）；只講錯誤、不講話，或找不到中文聲音時才嗶
 // 用 Web Audio 產生簡單的嗶聲，不用下載音檔。瀏覽器規定網頁要先被點過才能發出聲音，
 // 所以開鏡頭、按音量按鈕時都會呼叫 unlock()
 
@@ -79,7 +80,7 @@ const AWAY_TIMES = 3;         // 最多提醒幾次（休息、走開時不要�
 const WRONG_GAP_MS = 2000;    // 站位提示換來換去時，兩次「逼逼」至少隔這麼久
 
 export class FramingSound {
-    // play(name)：實際發出聲音的函式，例如 name => sound.play(name)
+    // play(name, text)：實際發出聲音的函式；name 是哪一種提示，text 是畫面上的提示文字（完整語音時改成唸出來，js/ui/speech-plan.js）
     constructor(play) {
         this.play = play;
         this.reset();
@@ -107,7 +108,7 @@ export class FramingSound {
             }
             if (this.seen && this.awayCount < AWAY_TIMES && now - this.awaySince >= AWAY_FIRST_MS + this.awayCount * AWAY_REPEAT_MS) {
                 this.awayCount++;
-                this.play('away');
+                this.play('away', text);
             }
             return;
         }
@@ -115,11 +116,11 @@ export class FramingSound {
         if (category === 'wrong') {
             if ((this.state !== 'wrong' || this.text !== text) && now - this.lastWrong >= WRONG_GAP_MS) {
                 this.lastWrong = now;
-                this.play('wrong');
+                this.play('wrong', text);
             }
             this.text = text;
         } else if (category === 'ok' && this.state !== 'ok') {
-            this.play('ok');
+            this.play('ok', text);
         }
         this.state = category;
     }

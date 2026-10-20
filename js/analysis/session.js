@@ -82,6 +82,10 @@ export function describe(s) {
         lines.push('最低 ' + s.best + '°、平均 ' + s.average + '°，每下約 ' + s.tempo + ' 秒'
             + (s.similarity !== null && s.similarity !== undefined ? '；和示範動作相似 ' + s.similarity + '%' : ''));
     }
+    // 計次準確率（10/20）：填了實際做幾下才有這一行
+    if (countsReps(s) && isCount(s.actual) && s.actual <= ACTUAL_MAX) {
+        lines.push('你數的 ' + s.actual + ' 下，網站算 ' + s.count + ' 下：計次準確率 ' + countAccuracy(s.count, s.actual) + '%');
+    }
     const errs = Object.entries(s.errors).sort((a, b) => b[1] - a[1]);
     lines.push(errs.length
         ? '要注意：' + errs.map(([id, n]) => errorName(id) + ' ' + n + ' ' + (w.kind === 'hold' ? '次' : '下')).join('、')
@@ -95,6 +99,41 @@ export function describe(s) {
         if (text) lines.push('最嚴重的一下：' + text);
     }
     return lines;
+}
+
+// ---------- 計次準確率（10/20）：關鏡頭後填「實際做了幾下」，和網站算的比 ----------
+// 實測時用：網站算 9 下、自己數 10 下 → 準確率 90%
+// 只存在這台裝置的紀錄裡（actual 欄位），不上傳雲端：js/cloud/sync.js 的白名單沒有這一欄
+export const ACTUAL_MAX = 999;
+
+// 這一次是計次的動作（深蹲、伏地挺身、弓箭步）才填實際次數；棒式是計時
+export const countsReps = s => !!s && isWorkout(s.workout) && WORKOUTS[s.workout].kind === 'reps';
+
+// 使用者填的字 → 整數；不是 0～999 的整數（空白、9.5、-1、1e3、abc）回傳 null
+// 中文輸入法打出來的全形數字（１０）也認得
+export function parseActual(text) {
+    const t = String(text ?? '').trim().replace(/[０-９]/g, c => String(c.charCodeAt(0) - 0xFF10));
+    return /^\d{1,3}$/.test(t) ? Number(t) : null;
+}
+
+// 準確率（%）：1 − |網站算的 − 實際| ÷ 實際，最低 0%；實際 0 下時網站也算 0 下才是 100%
+export function countAccuracy(counted, actual) {
+    if (actual === 0) return counted === 0 ? 100 : 0;
+    return Math.max(0, Math.round((1 - Math.abs(counted - actual) / actual) * 100));
+}
+
+// 把實際次數記到這一次的紀錄（用動作和開始時間找）；s 也一起改，總結重新寫的時候就有這一行
+export function setActual(s, actual) {
+    s.actual = actual;
+    try {
+        const list = JSON.parse(localStorage.getItem(KEY) || '[]');
+        if (!Array.isArray(list)) return;
+        // 從最新的往回找（不用 findLast：iPhone iOS 15.0～15.3 沒有）
+        const hit = [...list].reverse().find(x => x && x.workout === s.workout && x.date === s.date);
+        if (!hit) return;
+        hit.actual = actual;
+        localStorage.setItem(KEY, JSON.stringify(list));
+    } catch (err) { /* 存不了就只在畫面上顯示 */ }
 }
 
 // ---------- 紀錄（這台裝置的 localStorage） ----------

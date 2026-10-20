@@ -20,17 +20,20 @@ import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
-import { errorShort, whyText } from '../analysis/form.js';
+import { errorShort, errorRule, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { cloud } from '../cloud/cloud.js';
 import { shouldAskCloud, loadAsked, saveAsked } from '../ui/cloud-ask.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
-import { summarize, compare, describe, saveSession, loadHistory, clearHistory } from '../analysis/session.js';
-import { Voice } from '../ui/voice.js';
+import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
+import { Voice, loadVoiceMode, saveVoiceMode } from '../ui/voice.js';
+import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine, VOICE_MODES } from '../ui/speech-plan.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
+import { phoneReport } from '../ui/phone-info.js';
+import { copyText } from '../ui/copy.js';
 
 // ---------- 畫面元素 ----------
 const stage = document.getElementById('stage');
@@ -156,10 +159,15 @@ let sessionStart = Date.now();            // 這次運動從什麼時候開始�
 // 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
 let shownAngleKeys = [];
 const sound = new Sound();             // 提示音：所有聲音共用同一個音量（關、小、中、大）
-const voice = new Voice(() => sound.level);  // 語音提醒（動作錯誤、次數）：音量和提示音一樣
-const voiceToggle = document.getElementById('voiceToggle');
+const voice = new Voice(() => sound.level);  // 講話（站位、倒數、動作錯誤、次數）：音量和提示音一樣
+// 說話規則（js/ui/speech-plan.js）：一次一句、過時的不講、先講重要的、錯誤連續兩下才講、一下做完才講
+const speech = new SpeechPlan(voice);
+voice.onIdle = () => speech.tick(performance.now());
+const errorStreak = new ErrorStreak();    // 計次的動作：同一種錯誤連續兩下才講
+const lastingError = new LastingError();  // 棒式：錯誤持續 2 秒才講
+let voiceMode = loadVoiceMode();          // 首頁「語音提示」：完整、只講錯誤、不講話
 const advancedTitle = document.getElementById('advancedTitle');
-const framingSound = new FramingSound(name => sound.play(name));  // 離開畫面、站位不對、站好了
+const framingSound = new FramingSound(cueFraming);  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
@@ -187,8 +195,28 @@ function setPoseStatus(text, kind) {
     if (poseStatus.hidden !== warn) poseStatus.hidden = warn;
 }
 
-// 偵測中每一格：顯示入鏡提示，狀況改變時發出提示音（離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」）
-// 「偵測中」「腳被擋住了」不是使用者站錯，不響
+// 這一類（js/ui/speech-plan.js 的 KINDS）要不要用講的：使用者選的模式要講、瀏覽器能講話、音量不是關
+// 站位、倒數另外要找得到中文的聲音，不然改用嗶聲（用預設的英文聲音唸中文會亂唸，站遠的人反而不知道怎麼做）
+function canSpeak(kind) {
+    if (!speaks(voiceMode, kind) || !voice.supported || sound.level === 'off') return false;
+    return kind !== 'setup' || voice.chinese;
+}
+
+// 入鏡提示（js/ui/sound.js 的 FramingSound 決定什麼時候提醒）：完整語音時唸出來（「請往後退」「站好了」），不然照舊嗶聲
+function cueFraming(name, text) {
+    if (canSpeak('setup')) speech.offer('setup', spokenHint(name === 'away' ? NO_PERSON.text : text), performance.now());
+    else sound.play(name);
+}
+
+// 錄製倒數、錄製快結束的提醒：完整語音時唸出來，不然嗶一聲（long：開始錄製、錄滿這種長音）
+// 倒數每秒一個數字，0.9 秒內沒講出來就過時了，不講
+function cueRecording(text, long, life) {
+    if (canSpeak('setup')) speech.offer('setup', text, performance.now(), life);
+    else sound.play(long ? 'long' : 'count');
+}
+
+// 偵測中每一格：顯示入鏡提示，狀況改變時提醒（完整語音時用講的；不然離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」）
+// 「偵測中」「腳被擋住了」不是使用者站錯，不提醒
 function showHint(text, kind, now) {
     setPoseStatus(text, kind);
     const category = text === NO_PERSON.text ? 'away'
@@ -691,6 +719,8 @@ function showResult(result, now) {
     }
     // 畫布和影像的長寬比例相同，座標才會對齊
     const dpr = fitOverlay();
+    // 排隊的那句話：上一句講完了就接著講，過時的丟掉（講完一句時也會叫，這裡是保險：有些瀏覽器講完不通知）
+    speech.tick(performance.now());
     if (fps.tick(now)) {
         checkLight();
         updatePerfInfo();
@@ -781,34 +811,51 @@ function showCount(tracked) {
         text = formatSeconds(result.seconds);
         // 姿勢對、正在計時：數字變綠；姿勢跑掉暫停時恢復白色
         if (hudRepsBox.classList.contains('holding') !== result.holding) hudRepsBox.classList.toggle('holding', result.holding);
-        if (result.hold) finishRep(result.hold, 'good', '撐了 ' + Math.floor(result.hold.seconds) + ' 秒');
+        if (result.hold) finishRep(result.hold, 'good');
     } else {
         text = String(result.reps);
-        if (result.rep) finishRep(result.rep, result.rep.depth, result.rep.n + ' 下' + (result.rep.depth === 'good' ? '' : '，' + (result.rep.depth === 'close' ? '再低一點' : '太淺了')));
+        if (result.rep) finishRep(result.rep, result.rep.depth);
     }
     if (hudReps.textContent !== text) hudReps.textContent = text;
     return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
 }
 
-// 完成一下（或一次棒式）：顯示提示（含這一下出現過的錯誤）、唸出來
+// 完成一下（或一次棒式）：顯示提示（含這一下出現過的錯誤）、講出來
 // 有錯誤時，深度到位也用黃色（提醒還有地方要改）
-function finishRep(rep, depth, speech) {
+function finishRep(rep, depth) {
     const shorts = (rep.errors || []).map(errorShort);
     const kind = shorts.length && depth === 'good' ? 'close' : depth;
     const similar = rep.similarity === null || rep.similarity === undefined ? '' : ' · 相似 ' + rep.similarity + '%';
     showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + similar, kind);
-    voice.say(speech);
+    sayRep(rep, depth);
 }
 
-// 動作錯誤：畫面上方紅字（只顯示第一個），新出現的唸出來
+// 一下做完的空檔才講話（js/ui/speech-plan.js）：「3 下」＋最多一個提醒；同一種錯誤連續兩下才講
+// 棒式撐完一次：「撐了 30 秒」（棒式的錯誤在撐的時候講，見 showForm）
+function sayRep(rep, depth) {
+    let line;
+    if (workout.kind === 'hold') {
+        line = voiceMode === 'full' ? { kind: 'count', text: '撐了 ' + Math.floor(rep.seconds) + ' 秒' } : null;
+    } else {
+        const words = errorStreak.update(rep.errors || []).map(id => (errorRule(workout.id, id) || {}).speech).filter(Boolean);
+        line = repLine(voiceMode, rep.n, depth, words);
+    }
+    if (line && canSpeak(line.kind)) speech.offer(line.kind, line.text, performance.now());
+}
+
+// 動作錯誤：畫面上方紅字（只顯示第一個）
 // 紅字和每一下的提示在同一個位置：剛做完一下時先讓那一下的提示顯示完（2.5 秒，裡面也寫了這一下的錯誤），之後紅字才回來
-// 「新出現」是指這次能顯示時才出現的：錯誤開始時剛好在提示站位（例如請側身），站位好了、紅字出現時才唸
+// 講話：計次的動作等一下做完才講（sayRep）；棒式沒有「一下」，錯誤持續 2 秒才講（js/ui/speech-plan.js 的 LastingError）
 let formShown = new Set();
 // 說出原因：這次紅字出現以來最嚴重的數字（每一格都換數字的話會一直跳，站遠看不清楚）
 const whyPeak = new Map();
 function showForm(formResult) {
     const errors = formResult ? formResult.errors : [];
-    errors.forEach(e => { if (!formShown.has(e.id)) voice.say(e.speech, true); });
+    if (workout.kind === 'hold') {
+        for (const id of lastingError.update(errors.map(e => e.id), performance.now())) {
+            if (canSpeak('form')) speech.offer('form', errors.find(e => e.id === id).speech, performance.now());
+        }
+    }
     formShown = new Set(errors.map(e => e.id));
     for (const id of [...whyPeak.keys()]) if (!formShown.has(id)) whyPeak.delete(id);
     const values = formResult ? formResult.values : {};
@@ -834,11 +881,19 @@ function showRepToast(text, kind) {
     toastTimer = setTimeout(() => { repToast.hidden = true; }, 2500);
 }
 
+// 講話的狀態重新開始：排隊的不講、正在講的停掉、錯誤連續幾下重新算
+function resetSpeech() {
+    speech.clear();
+    voice.stop();
+    errorStreak.reset();
+    lastingError.reset();
+}
+
 function resetCounter() {
     tracker.reset();
     formTip.hidden = true;
     formShown.clear();
-    voice.stop();
+    resetSpeech();
     hudReps.textContent = workout.kind === 'hold' ? '0:00' : '0';
     hudRepsBox.classList.remove('holding');
     clearTimeout(toastTimer);
@@ -850,7 +905,7 @@ function interruptCounter() {
     tracker.interrupt();
     formTip.hidden = true;
     formShown.clear();
-    voice.stop();
+    resetSpeech();
     clearTimeout(toastTimer);
     repToast.hidden = true;
 }
@@ -873,16 +928,46 @@ function finishSession() {
     cloudAsk.hidden = !shouldAskCloud({ available: cloud.available, enabled: cloud.enabled, hasSummary: true, asked: cloudAsked });
 }
 
+// 首頁正在顯示的總結（填實際次數後重新寫一次總結用）
+let shownSummary = null;
 function showSummary(s, previous) {
+    shownSummary = { s, previous };
+    writeSummary();
+    // 計次準確率：計次的動作才有（棒式是計時）
+    actualForm.hidden = !countsReps(s);
+    actualInput.value = Number.isInteger(s.actual) ? String(s.actual) : '';
+    actualNote.textContent = '';
+    summaryBox.hidden = false;
+    showHistory();
+}
+
+function writeSummary() {
+    const { s, previous } = shownSummary;
     const lines = [...describe(s), ...compare(s, previous)];
     summaryLines.replaceChildren(...lines.map(text => {
         const li = document.createElement('li');
         li.textContent = text;
         return li;
     }));
-    summaryBox.hidden = false;
-    showHistory();
 }
+
+// 計次準確率（10/20）：關鏡頭後填「實際做了幾下」，總結多一行「計次準確率 90%」；實測時記下網站數得準不準
+// 只存在這台裝置的紀錄裡，不上傳雲端（js/analysis/session.js）
+const actualForm = document.getElementById('actualForm');
+const actualInput = document.getElementById('actualInput');
+const actualNote = document.getElementById('actualNote');
+actualForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!shownSummary) return;
+    const actual = parseActual(actualInput.value);
+    if (actual === null) {
+        actualNote.textContent = '請填 0～' + ACTUAL_MAX + ' 的整數';
+        return;
+    }
+    setActual(shownSummary.s, actual);
+    writeSummary();
+    actualNote.textContent = '已記下：網站算 ' + shownSummary.s.count + ' 下，計次準確率 ' + countAccuracy(shownSummary.s.count, actual) + '%';
+});
 
 // 最近 10 次的紀錄（新的在上面）
 function showHistory() {
@@ -901,6 +986,31 @@ document.getElementById('clearHistory').addEventListener('click', () => {
     summaryBox.hidden = true;
     showHistory();
 });
+// ---------- 複製手機資訊（10/20，js/ui/phone-info.js）：實測時記下每支手機的速度 ----------
+const phoneInfoBtn = document.getElementById('phoneInfoBtn');
+const phoneInfoStatus = document.getElementById('phoneInfoStatus');
+phoneInfoBtn.addEventListener('click', () => {
+    const text = phoneReport({
+        time: new Date(),
+        device: describeDevice(),
+        ua: navigator.userAgent,
+        screen: { width: screen.width, height: screen.height, dpr: window.devicePixelRatio || 1 },
+        compute: pose ? pose.computeMode : null,
+        computeDetail: pose ? pose.computeDetail : null,
+        model: modelLabel(),
+        aiMs: recentMs.length ? median(recentMs) : null,
+        aiFps: currentStream ? fps.value : 0,
+        cameraFps: currentStream ? cameraFps.value : 0,
+        cameraMax: cameraMaxFps,
+        size: currentStream && video.videoWidth ? video.videoWidth + '×' + video.videoHeight : '',
+        fpsSetting: isAutoFps() ? '自動，目前 ' + getFrameRate() + ' 格' : '每秒 ' + getFrameRate() + ' 格',
+        luma: lightMeter.luma,
+        wake: !currentStream ? '' : !isWakeLockSupported() ? '這個瀏覽器無法保持螢幕亮著' : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗',
+        baseline: tracker.baseline
+    });
+    copyText(text, phoneInfoBtn, phoneInfoStatus);
+});
+
 // ---------- 驗證實驗：記下角度（js/analysis/validate.js） ----------
 // 擺好姿勢不動時按，記下現在的關節角度；預設比對看得比較清楚那一側的主要關節（深蹲是膝蓋、伏地挺身是手肘）
 const snapInfo = document.getElementById('snapInfo');
@@ -1143,7 +1253,7 @@ function clock(seconds) {
 // ---------- 錄製快結束、錄滿時的提醒 ----------
 // 錄製上限是使用者選的 5～20 分鐘（下面的「錄製上限」）。以前錄滿只有數據面板的小字改變，
 // 人在 2～3 公尺外運動時看不到也聽不到，後面的動作沒錄到也不知道（真實錄影：棒式、伏地挺身被截掉）
-// 所以剩 30 秒、錄滿時都在畫面中間顯示大字並嗶一聲，和錄製前倒數一樣站遠也知道
+// 所以剩 30 秒、錄滿時都在畫面中間顯示大字並唸出來（不講話時嗶一聲），和錄製前倒數一樣站遠也知道
 const WARN_BEFORE_END = 30;
 let recWarned = false;     // 這次錄製已經提醒過「剩 30 秒」
 let recLimitHit = false;   // 這次錄製是錄滿自動停止的
@@ -1154,7 +1264,7 @@ function showRecNotice(text, final) {
     recNoticeEl.textContent = text;
     recNoticeEl.classList.toggle('final', final);
     recNoticeEl.hidden = false;
-    beep(final);
+    cueRecording(text, final);
     recNoticeTimer = setTimeout(hideRecNotice, final ? 6000 : 3000);
 }
 
@@ -1165,9 +1275,10 @@ function hideRecNotice() {
 
 // ---------- 錄製前倒數 ----------
 // 一個人錄的時候，按下錄製還要走到 2～3 公尺外、轉成側面；倒數讓開頭不會都是走路的畫面
-// 每一秒嗶一聲（站遠看不到畫面也知道），最後一聲比較長、比較高，代表開始錄
+// 每一秒唸一個數字、最後唸「開始」（語音提示選完整時）；不講話時每秒嗶一聲，最後一聲比較長、比較高，代表開始錄
 
 let countdown = null;   // 倒數中：{ timer, end }
+const COUNT_LIFE = 900; // 倒數唸的數字：0.9 秒內沒講出來（上一句還沒講完）就不講了，下一秒會唸新的數字
 
 try {
     const saved = localStorage.getItem('recordCountdown');
@@ -1284,10 +1395,22 @@ function showAdvancedTitle() {
     advancedTitle.textContent = '進階設定（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
 
-// ---------- 首頁的常用開關：語音提醒、雲端同步（10/19 從進階設定拿出來） ----------
-voiceToggle.checked = voice.enabled;
-voiceToggle.disabled = !voice.supported;
-voiceToggle.addEventListener('change', () => voice.setEnabled(voiceToggle.checked));
+// ---------- 首頁的常用開關：語音提示、雲端同步（10/19 從進階設定拿出來） ----------
+// 語音提示三種模式（js/ui/speech-plan.js）：完整（站位、倒數、錯誤、次數都用講的）、只講錯誤、不講話（全部用嗶聲）
+// 瀏覽器不能講話時三個都鎖住，說明只有嗶聲
+const voicePick = document.getElementById('voicePick');
+const voiceNote = document.getElementById('voiceNote');
+for (const input of voicePick.querySelectorAll('input[name="voiceMode"]')) {
+    input.checked = input.value === voiceMode;
+    input.disabled = !voice.supported;
+    input.addEventListener('change', () => {
+        if (!input.checked || !VOICE_MODES.includes(input.value)) return;
+        voiceMode = input.value;
+        saveVoiceMode(voiceMode);
+        if (voiceMode === 'off') resetSpeech();
+    });
+}
+if (!voice.supported) voiceNote.textContent = '這個瀏覽器不能講話，提示只有嗶聲';
 
 // ---------- 雲端同步（js/cloud/cloud.js） ----------
 // 預設關閉；打開時把這台裝置的運動紀錄傳上去，之後每次運動完自動上傳；網站還沒接上 Firebase 時整段不出現
@@ -1428,11 +1551,6 @@ async function switchPoseModel(key, note) {
 }
 showModelChoice();
 
-// 短促的嗶聲（倒數每秒一聲、開始錄製和錄滿是長音）；跟著工具列的音量，沒有聲音（瀏覽器不支援、手機靜音）也不影響倒數
-function beep(long) {
-    sound.play(long ? 'long' : 'count');
-}
-
 function startCountdown() {
     const seconds = Number(countdownSelect.value) || 0;
     if (!seconds) {
@@ -1450,7 +1568,7 @@ function tickCountdown() {
     const left = Math.ceil((countdown.end - performance.now()) / 1000);
     if (left <= 0) {
         cancelCountdown();
-        beep(true);
+        cueRecording('開始', true, COUNT_LIFE);
         startRecording();
         // 「開始」短暫顯示一下，站遠的人知道已經在錄了
         countdownEl.textContent = '開始';
@@ -1465,7 +1583,7 @@ function tickCountdown() {
         countdownEl.classList.remove('go');
         countdownEl.hidden = false;
         recordBtn.textContent = '✕ 取消倒數（' + left + '）';
-        beep(false);
+        cueRecording(String(left), false, COUNT_LIFE);
     }
     countdown.timer = setTimeout(tickCountdown, 100);
 }
