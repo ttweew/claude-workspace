@@ -53,5 +53,11 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
 - 首頁（10/19 改版）：`home19/home_check.py`（四個大按鈕、雲端同步的詢問、實測任務卡、手機版面；要先開 Firebase 模擬器）。
 - 無障礙（10/19）：`a11y/maint19.py`、`a11y/axe_more.py`（要先 `cd a11y && npm init -y && npm install axe-core@4.10.3`，maint19 要開 Firebase 模擬器）。錯誤說出原因：`why19/why_check.py <網站資料夾>`。
 - 教練影片分析（10/19）：`coach/`。`node an.mjs <錄製檔.json> squat <每秒摘要.txt>` 重算次數和錯誤；`trace.mjs` 逐格看計次狀態；`python3 sheet.py <檔> <開始秒> <結束秒> <間隔> <輸出.png>` 畫骨架縮圖；`heelall.mjs`／`leanall.mjs 名稱=檔案 …` 列出每一下的腳跟、前傾；`sim_stand.mjs`、`sim_two.mjs` 試改計次；`frontcount.mjs` 試算正面計次。錄製檔是網路教練影片，不放進這個分支。
+- 10/20：
+  - `voice20/voice_check.py`：語音提示、說話規則、計次準確率、複製手機資訊（51 項；用假的講話記下每一句的時間）。`voice20/pick_only.py`：首頁語音三選一。
+  - `maint20/check.py <網站資料夾> [old]`：小手機上狀態列變高時，大字（入鏡提示、紅字、每一下的提示）在狀態列下面 8px；加 `old` 在舊程式上跑，預期失敗。`maint20/shot.py <網站資料夾> <old|new>`：紅字出現時拍照比較。
+  - `test20/test_check.py [網站資料夾]`：實測模式、主持人卡、受測者卡（56 項；要先裝 axe-core，見上面）。`test20/overflow.py <網站資料夾> <port>`：使用說明 320 寬是誰超出畫面。
+  - 教練影片：`coach/sim_real.mjs <錄製檔>`（專案的程式和第二個資料夾的程式各算一次，比次數和錯誤；第二個資料夾寫死在 `wt-maint`，換成要比的程式）、`coach/knee_window.mjs <錄製檔> <開始秒> <結束秒>`（每 0.2 秒的膝蓋角度、方向、計次狀態，新舊並排）、`coach/sim_stand2.mjs`、`coach/heelmag.mjs`。
+  - `home19/home_check.py`、`a11y/maint19.py`、`audit2/chaos.py`：改成新的語音三選一；首頁測試的任務卡改用 10/20 的項目。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

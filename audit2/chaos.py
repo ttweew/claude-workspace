@@ -115,8 +115,8 @@ def run(b, seed, kind):
                 pg.evaluate("window.__hidden = false; document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(300)
             elif a == 'wait': pg.wait_for_timeout(rnd.randint(1000, 4000))
             elif a == 'voice':
-                if pg.is_hidden("#voiceToggle"): pg.click("#advanced summary")
-                pg.click("#voiceToggle")
+                # 10/20 起：語音提示三選一（完整、只講錯誤、不講話）
+                pg.click('label:has(#' + rnd.choice(['voiceFull', 'voiceErrors', 'voiceOff']) + ')')
             elif a == 'history':
                 if pg.is_visible("#historyBox"): pg.click("#historyBox summary")
             elif a in ('advanced_fps', 'advanced_model'):

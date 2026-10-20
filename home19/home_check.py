@@ -95,7 +95,7 @@ with sync_playwright() as p:
     check(st['place'] == 'freeLine' and st['cls'] == 'free-start' and '只看骨架' in st['text'] and st['grid'] == ['squat', 'pushup', 'plank', 'lunge'] and not st['freeBtn'],
           f'第一次來：四個大按鈕＋最下面「只看骨架」：{st}')
     check(pg.inner_text('#advancedTitle') == '進階設定（畫面流暢度、AI 模型，一般不用改）', '進階設定的標題：' + pg.inner_text('#advancedTitle'))
-    check(pg.is_visible('#voiceToggle') and pg.is_visible('#cloudToggle') and not pg.evaluate("document.getElementById('advanced').open"),
+    check(pg.is_visible('#voicePick') and pg.is_visible('#cloudToggle') and not pg.evaluate("document.getElementById('advanced').open"),
           '語音提醒、雲端同步的開關不用點開進階設定就看得到')
     # 第一個畫面就看得到四個大按鈕（筆電 1280×800）
     r = pg.evaluate("[...document.querySelectorAll('#workoutGrid > button')].map(b => Math.round(b.getBoundingClientRect().bottom))")
@@ -161,10 +161,10 @@ with sync_playwright() as p:
     pg.click('#startBtn'); pg.wait_for_selector('#stage:not([hidden])'); pg.wait_for_timeout(5000); pg.click('#stopBtn'); pg.wait_for_timeout(800)
     check(pg.is_hidden('#summary') and pg.is_hidden('#cloudAsk'), '自由模式沒有總結：不問')
     # 5. 語音提醒
-    pg.click('#voiceToggle')
-    check(pg.evaluate("localStorage.getItem('voiceOn')") == '0' and not pg.is_checked('#voiceToggle'), '關掉語音提醒會記住')
+    pg.click('label:has(#voiceOff)')
+    check(pg.evaluate("localStorage.getItem('voiceMode')") == 'off' and pg.is_checked('#voiceOff'), '語音提示選「不講話」會記住')
     pg.reload(); pg.wait_for_function(READY, timeout=60000)
-    check(not pg.is_checked('#voiceToggle'), '重新整理還是關的')
+    check(pg.is_checked('#voiceOff'), '重新整理還是不講話')
     ctx.close()
 
     # 6. 使用說明
@@ -173,12 +173,12 @@ with sync_playwright() as p:
     pg.goto(base + 'help.html'); pg.wait_for_timeout(800)
     total = pg.evaluate("document.querySelectorAll('#taskCard input[data-task]').length")
     check(pg.inner_text('#taskProgress') == f'還沒開始：共 {total} 項' and total >= 15, f'任務卡：{total} 項，' + pg.inner_text('#taskProgress'))
-    pg.click('#taskCard input[data-task="prep-check"]'); pg.click('#taskCard input[data-task="reps-squat"]')
+    pg.click('#taskCard input[data-task="prep-check"]'); pg.click('#taskCard input[data-task="set-each"]')
     check(pg.inner_text('#taskProgress') == f'做完 2／{total} 項', '打勾 2 項：' + pg.inner_text('#taskProgress'))
     pg.reload(); pg.wait_for_timeout(800)
-    check(pg.is_checked('#taskCard input[data-task="reps-squat"]') and pg.inner_text('#taskProgress') == f'做完 2／{total} 項', '重新整理：勾選還在')
+    check(pg.is_checked('#taskCard input[data-task="set-each"]') and pg.inner_text('#taskProgress') == f'做完 2／{total} 項', '重新整理：勾選還在')
     pg.click('#taskReset')
-    check(pg.inner_text('#taskProgress') == f'還沒開始：共 {total} 項' and not pg.is_checked('#taskCard input[data-task="reps-squat"]'), '全部取消勾選')
+    check(pg.inner_text('#taskProgress') == f'還沒開始：共 {total} 項' and not pg.is_checked('#taskCard input[data-task="set-each"]'), '全部取消勾選')
     pg.evaluate("localStorage.setItem('testdayTasks', '{壞掉')"); pg.reload(); pg.wait_for_timeout(800)
     pg.evaluate("localStorage.setItem('testdayTasks', JSON.stringify(['angle', 'constructor', 5]))"); pg.reload(); pg.wait_for_timeout(800)
     check(pg.inner_text('#taskProgress') == f'做完 1／{total} 項' and not errs, '勾選被改壞：只留認得的，沒有錯誤 ' + str(errs[:1]))

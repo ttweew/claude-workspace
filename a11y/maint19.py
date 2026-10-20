@@ -94,8 +94,8 @@ with sync_playwright() as p:
         order.append(f)
         if f == 'cloudToggle': break
     grid = [x for x in order if x in ('squat', 'startBtn', 'plank', 'lunge')]
-    check(grid == ['squat', 'startBtn', 'plank', 'lunge'] and order.index('lunge') < order.index('freeBtn') < order.index('voiceToggle') < order.index('cloudToggle'),
-          f'Tab 的順序和畫面一樣（深蹲 → 伏地挺身（上次）→ 棒式 → 弓箭步 → 只看骨架 → 語音 → 雲端）：{order[-12:]}')
+    check(grid == ['squat', 'startBtn', 'plank', 'lunge'] and order.index('lunge') < order.index('freeBtn') < order.index('voiceFull') < order.index('cloudToggle'),
+          f'Tab 的順序和畫面一樣（深蹲 → 伏地挺身（上次）→ 棒式 → 弓箭步 → 只看骨架 → 語音提示 → 雲端）：{order[-12:]}')
     pg.focus('#workoutGrid button[data-workout="squat"]'); pg.keyboard.press('Enter')
     pg.wait_for_selector('#stage:not([hidden])', timeout=20000); pg.wait_for_timeout(1500)
     check(pg.evaluate("document.activeElement.id") == 'stopBtn' and pg.text_content('#hudRepsName') == '深蹲', '鍵盤按 Enter 開深蹲；焦點在「結束」：' + pg.evaluate("document.activeElement.id"))
@@ -103,8 +103,9 @@ with sync_playwright() as p:
     a = pg.evaluate("(() => { const e = document.activeElement; return [e.id, e.textContent.trim()]; })()")
     check(a[0] == 'startBtn' and a[1].startswith('深蹲'), f'結束後焦點回到首頁的「深蹲（上次）」：{a}')
     # 開關用空白鍵切換
-    pg.focus('#voiceToggle'); pg.keyboard.press('Space')
-    check(not pg.is_checked('#voiceToggle') and pg.evaluate("document.getElementById('voiceToggle').getAttribute('role')") == 'switch', '語音提醒開關：空白鍵切換、螢幕閱讀器會唸「開關」')
+    pg.focus('#voiceFull'); pg.keyboard.press('ArrowRight')
+    check(pg.is_checked('#voiceErrors') and pg.evaluate("document.getElementById('voicePick').tagName") == 'FIELDSET' and pg.evaluate("document.querySelector('#voicePick legend').textContent").startswith('語音提示'),
+          '語音提示：方向鍵換選項；螢幕閱讀器會唸「語音提示」和三個選項')
     check(not ctx.errs, '沒有程式錯誤 ' + str(ctx.errs[:2]))
     ctx.close()
 
