@@ -17,6 +17,9 @@ export class WorkoutTracker {
         this.form = new FormChecker(this.workout.id);
         this.errors = new Set();   // 這一下（或這一次棒式）出現過的錯誤規則
         this.peaks = new Map();    // 這一下每種錯誤最嚴重的數字（度或 %，說出原因用，見 form.js 的 why）
+        // 棒式：姿勢跑掉（不在計時）時看到的錯誤先放這裡，之後又回到姿勢對才記；這一次就此結束（起身）就不記（見 collectHold）
+        this.pending = new Set();
+        this.pendingPeaks = new Map();
         // 個人校正（calibrate.js）：站直不動約 2 秒後，「站直」的門檻和上身前傾的判斷依這個人調整
         this.calibrator = CALIBRATED.includes(this.workout.id) ? new Calibrator() : null;
         this.defaults = this.counter ? { up: this.counter.config.up, down: this.counter.config.down } : null;
@@ -50,8 +53,7 @@ export class WorkoutTracker {
     reset() {
         if (this.counter) this.counter.reset();
         this.form.reset();
-        this.errors.clear();
-        this.peaks.clear();
+        this.clearErrors();
         if (this.calibrator) this.calibrator.reset();
         this.applyBaseline(null);
     }
@@ -61,8 +63,7 @@ export class WorkoutTracker {
         const hold = this.counter ? this.counter.interrupt() : null;
         if (hold) this.attach(hold);
         this.form.reset();
-        this.errors.clear();
-        this.peaks.clear();
+        this.clearErrors();
         // 重開鏡頭（可能換了鏡頭、手機重放）：重新校正
         if (this.calibrator) this.calibrator.reset();
         this.applyBaseline(null);
@@ -77,19 +78,49 @@ export class WorkoutTracker {
         const form = this.form.update(pose, timeMs);
         if (!this.counter) return { form, count: null, done: null, calibrated };
         const count = this.counter.update(pose, timeMs);
-        // 做這一下的期間：彎下去到站起來；棒式是撐著的時候
-        const during = this.workout.kind === 'hold' ? !!this.counter.current : count.state === 'down' || count.state === 'squat';
-        if (during) {
-            form.errors.forEach(e => this.errors.add(e));
-            for (const [id, v] of Object.entries(form.values)) if (!(this.peaks.get(id) >= v)) this.peaks.set(id, v);
-        }
+        // 做這一下的期間：彎下去到站起來；棒式是撐著的時候（這一次開始計時到結束）
+        const hold = this.workout.kind === 'hold';
+        const during = hold ? !!this.counter.current : count.state === 'down' || count.state === 'squat';
+        if (during && hold) this.collectHold(form, timeMs);
+        else if (during) this.collect(form, form.errors, this.errors, this.peaks);
         const done = count.rep || count.hold || null;
         if (done) this.attach(done);
-        else if (!during) {
-            this.errors.clear();
-            this.peaks.clear();
-        }
+        else if (!during) this.clearErrors();
         return { form, count, done, calibrated };
+    }
+
+    // 把這一格顯示中的錯誤（rules）記到 errors，最嚴重的數字記到 peaks
+    collect(form, rules, errors, peaks) {
+        for (const e of rules) {
+            errors.add(e);
+            const v = form.values[e.id];
+            if (v !== undefined && !(peaks.get(e.id) >= v)) peaks.set(e.id, v);
+        }
+    }
+
+    // 棒式的錯誤（10/20 實測：受測者 A、B 做對的那組，趴下準備、做完起身那幾秒屁股翹起來，也被記成「屁股太高」）：
+    //   這一格姿勢對、正在計時：看到的錯誤直接記（例如塌腰：髖部角度還夠大，照樣計時）
+    //   姿勢跑掉：看到的先放著；之後又回到姿勢對才記（中途屁股翹高、又放下來，是真的做錯）；這一次就此結束（起身）就不記
+    //   只記這一格真的做錯的：紅字在姿勢改好之後還會多留一下（form.js 的 hideMs），那段不算
+    collectHold(form, timeMs) {
+        const goodNow = this.counter.lastGood === timeMs;
+        const bad = form.errors.filter(e => this.form.states.get(e.id).badSince !== null);
+        if (goodNow) {
+            this.collect(form, bad, this.errors, this.peaks);
+            for (const e of this.pending) this.errors.add(e);
+            for (const [id, v] of this.pendingPeaks) if (!(this.peaks.get(id) >= v)) this.peaks.set(id, v);
+            this.pending.clear();
+            this.pendingPeaks.clear();
+        } else {
+            this.collect(form, bad, this.pending, this.pendingPeaks);
+        }
+    }
+
+    clearErrors() {
+        this.errors.clear();
+        this.peaks.clear();
+        this.pending.clear();
+        this.pendingPeaks.clear();
     }
 
     // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度，曲線算完就不留（省記憶體）
@@ -98,8 +129,7 @@ export class WorkoutTracker {
         // 最嚴重的數字取整數（畫面、總結、錄製檔都一樣）；只留這一下有出現的錯誤
         item.peaks = {};
         for (const id of item.errors) if (this.peaks.has(id)) item.peaks[id] = Math.round(this.peaks.get(id));
-        this.errors.clear();
-        this.peaks.clear();
+        this.clearErrors();
         if (item.samples) {
             item.similarity = repSimilarity(this.workout.id, item.samples);
             delete item.samples;

@@ -7,7 +7,7 @@
 // 都要從側面拍：這些都是「前後彎」的動作，正面拍的角度不準（js/analysis/view.js）
 // 門檻是依示範動畫（js/ui/demo.js）和一般健身教學訂的，要請組員實際做做看再調整（docs/roadmap.md）
 
-import { RepCounter, HoldTimer, REP_DEFAULTS, bodyTilt, clearerAngle } from './reps.js';
+import { RepCounter, HoldTimer, REP_DEFAULTS, SHALLOW_QUICK_MS, bodyTilt, clearerAngle } from './reps.js';
 import { SquatCounter, SQUAT, DEPTH_TEXT as SQUAT_DEPTH } from './squat.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 
@@ -31,6 +31,7 @@ function lungeKnee(pose) {
 
 export const LUNGE_CONFIG = {
     up: 150, down: 130, good: 100, close: 115,
+    shallowMs: SHALLOW_QUICK_MS,   // 太淺又不到 0.8 秒的一下不算：換姿勢、兩下之間很快的小蹲（10/20 實測，見 reps.js）
     metric: pose => lungeKnee(pose),
     frontPrompt: '請側身對著鏡頭，正面拍膝蓋角度不準'
 };

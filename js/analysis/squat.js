@@ -6,10 +6,11 @@
 //   90° 是老師 10/12 決定的門檻（很多健身 App 也用 90°）：只看髖、膝、踝三點的夾角，不用考慮地面，
 //   手機放歪、整個畫面跟著轉時夾角也不變；不用「大腿和地面平行」（約 60～70°），那要先知道哪裡是水平
 
-import { RepCounter, REP_DEFAULTS, clearerAngle, depthOf as depthWith } from './reps.js';
+import { RepCounter, REP_DEFAULTS, SHALLOW_QUICK_MS, clearerAngle, depthOf as depthWith } from './reps.js';
 
 export const SQUAT = {
     ...REP_DEFAULTS,
+    shallowMs: SHALLOW_QUICK_MS,   // 太淺又不到 0.8 秒的一下不算：換姿勢（轉身、很快的小蹲；10/20 實測，見 reps.js）
     STAND: 160,       // 膝蓋 ≥ 這個角度算站直
     DOWN: 140,        // 膝蓋 ≤ 這個角度才算有蹲下去
     GOOD: 90,         // 最低膝蓋角度 ≤ 這個：蹲到位
@@ -19,7 +20,7 @@ export const SQUAT = {
 export const DEPTH_TEXT = { good: '蹲到位', close: '再低一點', shallow: '太淺' };
 
 export const SQUAT_CONFIG = {
-    up: SQUAT.STAND, down: SQUAT.DOWN, good: SQUAT.GOOD, close: SQUAT.CLOSE,
+    up: SQUAT.STAND, down: SQUAT.DOWN, good: SQUAT.GOOD, close: SQUAT.CLOSE, shallowMs: SQUAT.shallowMs,
     metric: (pose, counter) => clearerAngle(pose, counter, 'KNEE'),
     // 髖部角度也記下最小值（身體前傾多少），重播分析的表格會列出來
     aux: (pose, counter) => pose.angles[counter.side + '_HIP'] ?? null,
