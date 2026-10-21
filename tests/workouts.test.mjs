@@ -6,6 +6,7 @@ import { P } from '../js/skeleton/landmarks.js';
 import { demoLandmarks } from './helpers.mjs';
 import { PosePipeline } from '../js/skeleton/pipeline.js';
 import { WORKOUTS, formatSeconds } from '../js/analysis/workouts.js';
+import { WorkoutTracker } from '../js/analysis/tracker.js';
 
 const W = 640, H = 480;
 
@@ -107,4 +108,91 @@ test('自由模式不計算；秒數格式', () => {
     assert.equal(WORKOUTS.free.create, undefined);
     assert.equal(formatSeconds(0), '0:00');
     assert.equal(formatSeconds(83.7), '1:23');
+});
+
+// 直接給角度、拍攝方向、身體傾斜的假骨架（只測計次的規則，不經過骨架處理）
+// lying：肩、髖接近水平（身體和地面約 10°）；不然肩在髖正上方（站著，90°）
+function fakePose(angles, view, lying = false) {
+    const landmarks = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+    for (const side of ['LEFT', 'RIGHT']) {
+        landmarks[P[side + '_SHOULDER']] = lying ? { x: 0.3, y: 0.5, z: 0, visibility: 0.9 } : { x: 0.5, y: 0.3, z: 0, visibility: 0.9 };
+        landmarks[P[side + '_HIP']] = lying ? { x: 0.6, y: 0.55, z: 0, visibility: 0.9 } : { x: 0.5, y: 0.6, z: 0, visibility: 0.9 };
+    }
+    const a = {};
+    for (const [k, v] of Object.entries(angles)) { a['LEFT_' + k] = v; a['RIGHT_' + k] = v; }
+    return { angles: a, landmarks, view: { view }, width: W, height: H };
+}
+
+test('深蹲、弓箭步：太淺又不到 0.8 秒的不算（換姿勢：倒數完轉身、兩下之間很快的小蹲；10/20 實測）；蹲得深的快速深蹲照樣算', () => {
+    for (const id of ['squat', 'lunge']) {
+        const counter = WORKOUTS[id].create();
+        let t = 0;
+        const run = (knee, ms) => { for (let e = 0; e < ms; e += 33) counter.update(fakePose({ KNEE: knee, HIP: knee }, 'side'), t += 33); };
+        run(175, 600);
+        run(120, 300); run(175, 600);     // 0.3 秒的小蹲：不算（不到 0.5 秒，本來就不算）
+        assert.equal(counter.reps.length, 0, id + ' 0.3 秒');
+        run(120, 600); run(175, 600);     // 約 0.6 秒、太淺（實測多算的那幾下 0.55～0.62 秒、膝蓋 129～139°）：不算
+        assert.equal(counter.reps.length, 0, id + ' 太淺 0.6 秒');
+        run(120, 1000); run(175, 600);    // 1 秒、太淺（實測最快的真的一下 1.02 秒）：算，標太淺
+        assert.equal(counter.reps.length, 1, id + ' 太淺 1 秒');
+        assert.equal(counter.reps[0].depth, 'shallow');
+        run(80, 600); run(175, 600);      // 0.6 秒、蹲得深（快速深蹲）：算
+        assert.equal(counter.reps.length, 2, id + ' 深 0.6 秒');
+        // 很快的小蹲、站起來時被判斷成正面：一樣不算（正面拍時也用同一個規則）
+        run(120, 550);
+        for (let e = 0; e < 1200; e += 33) counter.update(fakePose({ KNEE: 175, HIP: 175 }, 'front'), t += 33);
+        run(175, 600);
+        assert.equal(counter.reps.length, 2, id + ' 正面站起來的小蹲');
+    }
+    // 伏地挺身不受影響：實測故意屁股太高時一下只要 0.67 秒
+    const push = WORKOUTS.pushup.create();
+    let t = 0;
+    const run = (elbow, ms) => { for (let e = 0; e < ms; e += 33) push.update(fakePose({ ELBOW: elbow }, 'side', true), t += 33); };
+    run(170, 600); run(100, 600); run(170, 400);
+    assert.equal(push.reps.length, 1, '伏地挺身 0.6 秒的一下照樣算');
+});
+
+test('伏地挺身：做完起身（已經不是趴著）轉成正面、手撐一下地，不算一下；之後趴回去做的照樣算（10/20 實測）', () => {
+    const counter = WORKOUTS.pushup.create();
+    let t = 0;
+    const run = (elbow, view, lying, ms) => { for (let e = 0; e < ms; e += 33) counter.update(fakePose({ ELBOW: elbow }, view, lying), t += 33); };
+    run(170, 'side', true, 600);
+    run(85, 'side', true, 800);
+    run(170, 'side', true, 600);
+    assert.equal(counter.reps.length, 1);
+    run(110, 'side', true, 300);       // 起身前手肘彎一下（還算趴著）
+    run(160, 'front', false, 1000);    // 站起來、面對鏡頭：以前這裡算成一下
+    assert.equal(counter.reps.length, 1, '起身不算');
+    run(170, 'side', true, 1000);      // 趴回去
+    run(85, 'side', true, 800);
+    run(170, 'side', true, 600);
+    assert.equal(counter.reps.length, 2, '趴回去做的照樣算');
+    assert.ok(Math.abs(counter.reps[1].min - 85) < 1 && counter.reps[1].end - counter.reps[1].start < 2, '第二下是新的一下（不是起身前那一下接著算）');
+});
+
+test('棒式的錯誤：做完起身時屁股翹起來不記；中途屁股翹高又放下來、塌腰都記（10/20 實測：做對的那組被記成屁股太高）', () => {
+    const flat = demoLandmarks('plank', 0);
+    const shift = dy => flat.map((p, i) => (i === P.LEFT_HIP || i === P.RIGHT_HIP ? { ...p, y: p.y + dy } : p));
+    const piked = shift(-0.08), sagged = shift(0.06);
+    const up = flat.map(p => ({ ...p, x: 0.5 + (p.y - 0.5) * 0.75, y: 0.5 - (p.x - 0.5) * 1.333 }));
+    const session = steps => {
+        const pipeline = new PosePipeline(), tracker = new WorkoutTracker('plank');
+        let t = 0;
+        for (const [lm, sec] of steps) for (let i = 0; i < sec * 30; i++) tracker.update(pipeline.process(lm, t += 33, W, H), t);
+        return tracker.items;
+    };
+    // 撐 10 秒 → 屁股翹起來 2 秒 → 起身：這一次沒有錯誤（以前記成屁股太高）
+    let holds = session([[flat, 10], [piked, 2], [up, 4]]);
+    assert.equal(holds.length, 1);
+    assert.deepEqual(holds[0].errors, [], '起身前屁股翹起來不記');
+    // 撐 5 秒 → 屁股翹高 3 秒 → 放下來再撐 5 秒 → 起身：記屁股太高，也有最嚴重的數字
+    holds = session([[flat, 5], [piked, 3], [flat, 5], [up, 4]]);
+    assert.deepEqual(holds[0].errors, ['pike']);
+    assert.ok(holds[0].peaks.pike > 0, JSON.stringify(holds[0].peaks));
+    // 塌腰 3 秒（髖部角度還夠大時照樣計時）→ 記塌腰
+    holds = session([[flat, 3], [sagged, 3], [flat, 3], [up, 4]]);
+    assert.deepEqual(holds[0].errors, ['sag']);
+    // 趴下準備時屁股先翹著（還沒開始計時）→ 放下來撐：不記（還沒開始這一次）
+    holds = session([[piked, 3], [flat, 8], [up, 4]]);
+    assert.deepEqual(holds[0].errors, [], '開始前的紅字還沒消失也不記');
 });

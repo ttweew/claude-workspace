@@ -193,7 +193,8 @@
     padding: 0 10px;
     border-radius: 999px;
     font-size: 13px;
-    opacity: 0.5;
+    /* 沒選的變淡：0.5 時橘色、灰色的字對比只有 3.2～4.4（10/20 axe-core 找到，要 4.5 以上）；0.7 時最暗的橘色是 5.2 */
+    opacity: 0.7;
 }
 .replay .toggle[aria-pressed="true"] {
     opacity: 1;

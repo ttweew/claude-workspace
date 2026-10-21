@@ -1322,6 +1322,7 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
 /* 手機：名稱只留圖示，連結改成「圖示在上、字在下」的分頁樣式，三個都排得下
    字隨螢幕寬度放大：320 寬約 14px、390 寬以上 16px（原本 12px） */
 @media (max-width: 560px) {
+    /* 名稱藏起來時連結就沒有字了：三頁的 <a class="nav-brand"> 都有 aria-label，螢幕閱讀器才唸得出來（10/20 axe-core 找到） */
     .nav-name {
         display: none;
     }

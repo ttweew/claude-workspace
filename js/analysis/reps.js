@@ -2,6 +2,7 @@
 //
 // RepCounter：看一個角度（膝蓋、手肘…）「伸直 → 彎下去 → 再伸直」算一下
 //   伸直和「有彎下去」用兩個不同的門檻，角度在門檻附近抖動時才不會多算；太快（不到 0.5 秒）的不算，通常是偵測跳動
+//   深蹲、弓箭步太淺又太快（不到 0.8 秒）的也不算：通常是換姿勢（轉身、兩下之間很快的小蹲）
 //   每一下記錄最小的角度，判斷深度：≤ good 到位、≤ close 再低一點、更大是太淺
 //   只在側面、斜側面拍時計算：正面拍的角度誤差太大（見 view.js），會提示使用者側身
 // HoldTimer：姿勢對的時候計時（棒式）；姿勢跑掉時暫停，起身就結束這一次
@@ -9,7 +10,7 @@
 import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
 
 export const REP_DEFAULTS = {
-    minRepMs: 500,    // 一下至少要這麼久
+    minRepMs: 500,    // 一下至少要這麼久（伏地挺身：10/20 實測受測者 B 故意屁股太高時一下只要 0.67 秒）
     lostMs: 1500,     // 看不到人（或那個角度）超過這麼久，這一下作廢，重新從伸直開始
     frontMs: 700,     // 判斷成正面拍持續這麼久，才作廢這一下、提示側身（短暫跳一下不算）
     positionMs: 700   // 姿勢不對（例如伏地挺身沒有趴下）持續這麼久才作廢這一下
@@ -38,8 +39,9 @@ export function clearerAngle(pose, counter, joint) {
     return a !== null && a !== undefined ? a : pose.angles[other + '_' + joint] ?? null;
 }
 
-// config：{ up, down, good, close, metric(pose, counter), aux(pose, counter)?, position(pose)?, frontPrompt, decorate(rep)? }
+// config：{ up, down, good, close, metric(pose, counter), aux(pose, counter)?, position(pose)?, shallowMs?, frontPrompt, decorate(rep)? }
 //   up：角度 ≥ 這個算伸直；down：≤ 這個才算有彎下去；good／close：判斷深度
+//   shallowMs：太淺又不到這麼久的一下不算，可省略（見 SHALLOW_QUICK_MS）
 //   metric：這一格要看的角度（算不出來回傳 null）；aux：另外記錄最小值的角度（例如深蹲的髖部），可省略
 //   position：姿勢對不對（例如伏地挺身要趴下），不對時回傳提示文字，可省略
 export class RepCounter {
@@ -84,11 +86,15 @@ export class RepCounter {
             // 已經在側面彎到底（最小的角度量好了），起身時轉成正面：伸直了就算這一下
             // 伸直不管從哪個方向拍都看得出來；第一次真實錄影有人蹲完轉身面向手機，以前這一下會被作廢
             // 正面拍的角度不拿來更新最小角度，也不會因為正面而開始新的一下
+            // 只限站著做的動作（沒有 position，例如深蹲）：伏地挺身做完起身時（已經不是趴著）常常轉成正面、手撐一下地，
+            // 10/20 實測受測者 B 的兩組都因此多算一下；伏地挺身轉成正面拍時照舊等 frontMs 作廢
             const cur = this.current;
-            if (cur && cur.reachedDown) {
+            if (cur && cur.reachedDown && !c.position) {
                 this.lastSeen = timeMs;
-                if (value >= c.up && timeMs - cur.start >= c.minRepMs) {
-                    out.rep = this.finish(timeMs);
+                // 伸直了：這一下結束。太快的作廢，和側面拍一樣（見 counts）；
+                // 以前正面時太快的會留著，等夠久再伸直一次才算（教練影片 2 轉場時 0.5 秒亂掉的骨架因此被算成一下）
+                if (value >= c.up) {
+                    if (this.counts(cur, timeMs)) out.rep = this.finish(timeMs);
                     this.abandon();
                     out.reps = this.reps.length;
                 }
@@ -132,7 +138,7 @@ export class RepCounter {
         const aux = c.aux ? c.aux(pose, this) : null;
 
         if (value >= c.up) {
-            if (this.current && this.current.reachedDown && timeMs - this.current.start >= c.minRepMs) {
+            if (this.current && this.current.reachedDown && this.counts(this.current, timeMs)) {
                 this.current.samples.push({ t: timeMs, v: value });
                 out.rep = this.finish(timeMs);
             }
@@ -158,6 +164,14 @@ export class RepCounter {
         out.reps = this.reps.length;
         out.state = this.state;
         return out;
+    }
+
+    // 這一下夠不夠久、可以算：不到 minRepMs 的不算（通常是偵測跳動）；
+    // 有設 shallowMs 的動作（深蹲、弓箭步），太淺又不到 shallowMs 的也不算（換姿勢，見 SHALLOW_QUICK_MS）
+    counts(cur, timeMs) {
+        const c = this.config, ms = timeMs - cur.start;
+        if (ms < c.minRepMs) return false;
+        return !(c.shallowMs && ms < c.shallowMs && depthOf(cur.min, c) === 'shallow');
     }
 
     finish(timeMs) {
@@ -194,6 +208,13 @@ export class RepCounter {
         this.offSince = null;
     }
 }
+
+// 站著做的動作（深蹲、弓箭步）：太淺又不到這麼久的一下不算
+// 10/20 實測 A、B 的深蹲、弓箭步 120 下真的動作，最快 1.02 秒；多算的 3 下都是換姿勢（倒數完從正面轉成側面、兩下之間很快的小蹲），
+// 0.55～0.62 秒，而且都太淺（膝蓋 129～139°）。只看秒數擋不行：快速深蹲（下去、起來各 0.5 秒）一下只要 0.67～0.70 秒，
+// 但是蹲得深，要算到（深蹲的測試；10/21 先試過「一律不到 0.8 秒不算」，這個測試沒過）
+// 取 0.62 和 1.02 中間的 0.8 秒；蹲到「再低一點」以上的照舊只要 0.5 秒（minRepMs）
+export const SHALLOW_QUICK_MS = 800;
 
 export const HOLD_DEFAULTS = {
     graceMs: 1000,   // 姿勢跑掉不到這麼久：畫面上還是「撐住中」（偵測跳一下不會一直閃），但這段時間不算秒數
