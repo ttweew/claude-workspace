@@ -12,6 +12,8 @@
     --accent-ink: #052B1E;      /* 綠色按鈕上的深色字 */
     --info: #4CC3FF;            /* 編號、資訊 */
     --danger: #FF5C5C;          /* 錯誤、錄製中 */
+    --attn: #FFC857;            /* 提醒：重要但不容易發現的地方（進階設定、實測模式開著、錄製檔還沒下載）；一個畫面最多兩、三個，全部都亮就等於都不亮 */
+    --muted-2: #B8C4D4;         /* 設定卡片裡的說明字：比 --muted 亮一點（10/21 使用者回饋：灰字在黑底上不顯眼） */
     --glass: rgba(11, 18, 32, 0.72);  /* 鏡頭畫面上的半透明底 */
     --radius: 14px;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
@@ -252,21 +254,25 @@ h1 .accent {
 .free-line {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 16px;
-    margin: 8px 0 0;
+    gap: 8px;
+    margin: 10px 0 0;
 }
+/* 自由模式：和四個動作同一排下面的次要按鈕（10/21 整理：以前是一行底線連結，看起來和其他東西不是一組） */
 .free-start {
-    min-height: 40px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--info);
+    flex: 1 1 100%;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
     font: inherit;
-    font-size: 14px;
-    text-align: left;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    font-size: 15px;
+    text-align: center;
     cursor: pointer;
+}
+.free-start:hover {
+    border-color: rgba(255, 255, 255, 0.25);
 }
 .workout-btn:disabled, .free-start:disabled {
     opacity: 0.5;
@@ -282,27 +288,39 @@ button:focus-visible, select:focus-visible {
     outline: 3px solid var(--info);
     outline-offset: 2px;
 }
-/* 首頁的常用開關（語音提醒、雲端同步）：不用點開就看得到，開關樣式一眼看出開或關 */
+/* 首頁的設定（10/21 整理）：每一項一張卡片，排法一樣：左邊標題（粗體）＋說明（亮一點的灰），右邊開關 */
 .quick-settings {
     display: grid;
-    gap: 12px;
+    gap: 10px;
     margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
 }
+.set-card {
+    min-width: 0;
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+/* 開關放右邊（DOM 裡開關在前面，鍵盤的順序不變）；左邊的字太長時換行，開關不會被擠小 */
 .switch-pick {
     display: flex;
+    flex-direction: row-reverse;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     color: var(--text);
     font-size: 15px;
+    font-weight: 700;
     line-height: 1.4;
     cursor: pointer;
 }
 .switch-pick small {
     display: block;
-    color: var(--muted);
+    margin-top: 2px;
+    color: var(--muted-2);
     font-size: 13px;
+    font-weight: 400;
 }
 .switch-pick input {
     appearance: none;
@@ -346,25 +364,30 @@ button:focus-visible, select:focus-visible {
     outline-offset: 2px;
 }
 /* 語音提示三選一（10/20）：完整、只講錯誤、不講話。圓點藏起來（還是可以用鍵盤的方向鍵選），選到的那個填滿顏色 */
+/* 外框、留白用 .set-card 的（10/21：以前是沒有外框的 fieldset） */
 .voice-pick {
-    margin: 0;
-    padding: 0;
-    border: 0;
     min-width: 0;
 }
+/* legend 預設會壓在外框線上；float 讓它變成卡片裡的一般內容（和其他卡片的標題一樣） */
 .voice-pick legend {
+    float: left;
+    width: 100%;
     padding: 0;
     margin-bottom: 8px;
     color: var(--text);
     font-size: 15px;
+    font-weight: 700;
     line-height: 1.4;
 }
 .voice-pick legend small {
     display: block;
-    color: var(--muted);
+    margin-top: 2px;
+    color: var(--muted-2);
     font-size: 13px;
+    font-weight: 400;
 }
 .voice-modes {
+    clear: both;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -380,17 +403,28 @@ button:focus-visible, select:focus-visible {
     height: 1px;
     margin: 0;
 }
-/* 左右留白 12px：320 寬的手機上三個選項才排得進同一行（卡片裡只剩約 240px） */
+/* 左右留白 12px；360 寬以下縮成 8px、字 14px（見下面）：320 寬的手機上三個選項才排得進同一行（卡片裡只剩約 210px） */
 .voice-modes span {
     display: inline-block;
     min-height: 44px;
     padding: 10px 12px;
     border: 1px solid var(--line);
     border-radius: 22px;
-    background: var(--surface-2);
+    background: var(--bg);
     color: var(--text);
     font-size: 15px;
     line-height: 22px;
+}
+/* 小手機：自由模式的按鈕字也小一點，320 寬才不會斷成兩行 */
+@media (max-width: 360px) {
+    .voice-modes span {
+        padding: 10px 8px;
+        font-size: 14px;
+    }
+    .free-start {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
 }
 .voice-modes input:checked + span {
     border-color: var(--accent);
@@ -406,16 +440,13 @@ button:focus-visible, select:focus-visible {
     opacity: 0.5;
     cursor: default;
 }
-/* 開關下面的說明連結、狀態：和開關右邊的字對齊（開關 46px＋間距 12px） */
+/* 開關下面的說明連結、狀態：和左邊的標題對齊（10/21 開關移到右邊） */
 .switch-more {
-    margin: 4px 0 0 58px;
+    margin: 4px 0 0;
     font-size: 13px;
 }
 .switch-more a {
     color: var(--info);
-}
-#cloudBox .cloud-status, #cloudBox .cloud-delete {
-    margin-left: 58px;
 }
 /* 總結下面：問一次要不要打開雲端同步 */
 .cloud-ask {
@@ -454,16 +485,47 @@ button:focus-visible, select:focus-visible {
     color: #04202E;
     font-weight: 700;
 }
-/* 進階設定：收起來的一列，點開才看到每秒格數、AI 模型 */
+/* 進階設定：收起來的一張卡片，點開才看到每秒格數、AI 模型
+   10/21 使用者回饋：以前是灰色小字，在黑底上看不到 → 整列可以點、「進階設定」黃色粗體、前面有 ▸（打開時轉向下） */
 .advanced {
-    margin-top: 12px;
-    color: var(--muted);
-    font-size: 14px;
+    color: var(--text);
+    font-size: 15px;
+    border-color: rgba(255, 200, 87, 0.45);
 }
+/* 不用 flex：標題和說明是同一行的文字（螢幕閱讀器、innerText 讀起來和以前一樣是一句），太長自己換行 */
 .advanced > summary {
-    min-height: 32px;
-    padding: 4px 0;
+    display: block;
+    min-height: 44px;
+    margin: -12px -14px;
+    padding: 12px 14px;
+    list-style: none;
     cursor: pointer;
+}
+.advanced[open] > summary {
+    margin-bottom: -6px;
+}
+.advanced > summary::-webkit-details-marker, .row-card > summary::-webkit-details-marker {
+    display: none;
+}
+.advanced > summary::before, .row-card > summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.15s ease;
+}
+.advanced[open] > summary::before, .row-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+.adv-name {
+    color: var(--attn);
+    font-weight: 700;
+}
+.adv-note {
+    color: var(--muted-2);
+    font-size: 13px;
+}
+.advanced > summary::before {
+    color: var(--attn);
 }
 .check-pick {
     display: flex;
@@ -513,11 +575,10 @@ button:focus-visible, select:focus-visible {
 .fps-hint[hidden] {
     display: none;
 }
-/* 進階設定裡的實測模式（js/data/test-mode.js）：開關、受測者代號、說明 */
-.test-pick {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
+/* 實測模式（js/data/test-mode.js）：開關；打開後才出現受測者代號、下載的選項（#testMore），卡片變黃 */
+.test-pick.on {
+    border-color: var(--attn);
+    background: rgba(255, 200, 87, 0.08);
 }
 .test-pick .fps-pick input {
     flex: 1 1 0;
@@ -822,6 +883,63 @@ h2 {
 }
 .history summary {
     cursor: pointer;
+}
+/* 運動紀錄、錄製檔（10/21 整理）：收起來是一整列可以點的卡片，前面有 ▸ */
+.history.row-card {
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+.history.row-card[open] {
+    padding-bottom: 12px;
+}
+.row-card > summary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    margin: 0 -14px;
+    padding: 6px 14px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    list-style: none;
+}
+.row-card > summary::before {
+    flex: none;
+    align-self: flex-start;
+    color: var(--muted-2);
+}
+.row-card > summary small {
+    display: block;
+    color: var(--muted-2);
+    font-size: 13px;
+    font-weight: 400;
+}
+/* 有還沒下載的錄製檔：整列變黃（清除瀏覽器資料就會不見，要記得下載） */
+#libraryBox.attn {
+    border-color: var(--attn);
+}
+#libraryBox.attn > summary, #libraryBox.attn > summary::before {
+    color: var(--attn);
+}
+/* 實測模式開著：首頁最上面一條黃色提醒 */
+.attn-bar {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--attn);
+    border-radius: 10px;
+    background: rgba(255, 200, 87, 0.12);
+    color: var(--attn);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+.attn-bar small {
+    display: block;
+    color: var(--text);
+    font-weight: 400;
 }
 /* 雲端同步：狀態一行小字；連不上、等網路時變黃 */
 .cloud-status {

@@ -172,7 +172,7 @@ voice.onIdle = () => speech.tick(performance.now());
 const errorStreak = new ErrorStreak();    // 計次的動作：同一種錯誤連續兩下才講
 const lastingError = new LastingError();  // 棒式：錯誤持續 2 秒才講
 let voiceMode = loadVoiceMode();          // 首頁「語音提示」：完整、只講錯誤、不講話
-const advancedTitle = document.getElementById('advancedTitle');
+const advancedNote = document.getElementById('advancedNote');
 const framingSound = new FramingSound(cueFraming);  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
@@ -1339,20 +1339,35 @@ function startTestSet(condition) {
     startCountdown();
 }
 
-// 首頁進階設定裡的開關、受測者代號、每組做完要不要馬上下載（存在這台裝置上）
+// 首頁「實測模式」卡片的開關、受測者代號、每組做完要不要馬上下載（存在這台裝置上）
+// 10/21 從進階設定拿出來（使用者回饋：收在裡面不容易發現）；開著時卡片變黃、首頁最上面一條黃色提醒（用完忘了關，平常運動也會一直錄）
 const testToggle = document.getElementById('testToggle');
 const testSubject = document.getElementById('testSubject');
 const testAutoDownload = document.getElementById('testAutoDownload');
+const testBox = document.getElementById('testBox');
+const testMore = document.getElementById('testMore');
+const testOnNote = document.getElementById('testOnNote');
 testToggle.checked = testMode.on;
 testSubject.value = testMode.subject;
 testAutoDownload.checked = testMode.autoDownload;
+function showTestOn() {
+    testBox.classList.toggle('on', testMode.on);
+    testMore.hidden = !testMode.on;
+    testOnNote.hidden = !testMode.on;
+    if (testMode.on) {
+        const small = document.createElement('small');
+        small.textContent = '選動作後每一組自動錄製。實測做完記得到下面「實測模式」關掉';
+        testOnNote.replaceChildren('實測模式開著 · 受測者 ' + testMode.subject, small);
+    }
+}
 function changeTestMode() {
     testMode = { on: testToggle.checked, subject: cleanSubject(testSubject.value), autoDownload: testAutoDownload.checked };
     testSubject.value = testMode.subject;
     saveTestMode(testMode);
-    showAdvancedTitle();
+    showTestOn();
     showTestBar();
 }
+showTestOn();
 testToggle.addEventListener('change', changeTestMode);
 testSubject.addEventListener('change', changeTestMode);
 testAutoDownload.addEventListener('change', changeTestMode);
@@ -1500,7 +1515,13 @@ function libraryChanged(items) {
     libraryBox.hidden = !items.length;
     const bytes = items.reduce((sum, i) => sum + i.size, 0);
     const fresh = items.filter(i => !i.downloaded).length;
-    librarySummary.textContent = '錄製檔（' + items.length + ' 段 · ' + sizeText(bytes) + (fresh ? '，' + fresh + ' 段還沒下載' : '') + '）';
+    libraryBox.classList.toggle('attn', fresh > 0);   // 有還沒下載的：整列變黃（清除瀏覽器資料就會不見）
+    // 標題「錄製檔」一行、下面一行小字寫幾段、多大、幾段還沒下載（10/21：以前擠在一行，手機上斷在奇怪的地方）
+    const name = document.createElement('span');
+    const info = document.createElement('small');
+    info.textContent = items.length + ' 段 · ' + sizeText(bytes) + (fresh ? ' · ' + fresh + ' 段還沒下載' : ' · 都下載過了');
+    name.append('錄製檔', info);
+    librarySummary.replaceChildren(name);
 }
 new LibraryList(document.getElementById('homeLibrary'), libraryChanged);
 new LibraryList(document.getElementById('galleryList'), libraryChanged);
@@ -1621,8 +1642,9 @@ fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
 fpsLive.addEventListener('change', () => chooseFps(fpsLive));
 showFpsChoice();
 
-// ---------- 進階設定（首頁收起來的一列：畫面流暢度、AI 模型） ----------
+// ---------- 進階設定（首頁收起來的一張卡片：畫面流暢度、AI 模型） ----------
 // 預設（每秒 30 格、lite 模型）最穩，一般不用改；改過的設定寫在標題上（例如「進階設定（每秒 60 格、full 模型）」），收起來也知道現在用什麼
+// 實測模式 10/21 拿到外面，有自己的卡片和提醒，這裡不再寫
 function showAdvancedTitle() {
     const changed = [];
     const fpsChoice = getFpsChoice();
@@ -1630,8 +1652,7 @@ function showAdvancedTitle() {
     else if (fpsChoice !== 30) changed.push('每秒 ' + fpsChoice + ' 格');
     const model = getModelChoice();
     if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
-    if (testMode.on) changed.push('實測模式：受測者 ' + testMode.subject);
-    advancedTitle.textContent = '進階設定（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
+    advancedNote.textContent = '（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
 
 // ---------- 首頁的常用開關：語音提示、雲端同步（10/19 從進階設定拿出來） ----------

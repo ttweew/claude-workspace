@@ -75,6 +75,8 @@
                 <!-- 先選動作（10/19 組員回饋：很多人直接按「開啟鏡頭」，進了只看骨架的自由模式，不計次、沒有總結）：
                      四個大按鈕按了就選好動作並開鏡頭（js/ui/start-pick.js 放進 #workoutGrid）。
                      #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在那個動作的位置（標「上次」），自由模式時是最下面那一行小字 -->
+                <!-- 實測模式開著時，最上面一條黃色提醒（10/21 使用者回饋：重要但不容易發現的地方要用醒目的顏色；用完忘了關，平常運動也會一直錄） -->
+                <p id="testOnNote" class="attn-bar" role="status" hidden></p>
                 <h2 id="pickTitle" class="pick-title">今天要做什麼運動？</h2>
                 <div id="workoutGrid" class="workout-grid" role="group" aria-labelledby="pickTitle"></div>
                 <p id="freeLine" class="free-line">
@@ -101,34 +103,15 @@
                         </div>
                     </div>
                 </div>
-                <!-- 常用的開關：不用點開就看得到（10/19 組員回饋：收在進階設定裡沒人知道） -->
-                <div class="quick-settings">
-                    <!-- 語音提示（10/20，js/ui/speech-plan.js）：完整＝站位、倒數、動作錯誤、次數都用講的；只講錯誤；不講話＝全部用嗶聲
-                         音量跟著鏡頭畫面的「音量」按鈕；網站會記住選擇 -->
-                    <fieldset id="voicePick" class="voice-pick">
-                        <legend>語音提示<small id="voiceNote">站位、倒數、動作錯誤、次數用講的；不講話時改用嗶聲</small></legend>
-                        <div class="voice-modes">
-                            <label><input type="radio" id="voiceFull" name="voiceMode" value="full"><span>完整</span></label>
-                            <label><input type="radio" id="voiceErrors" name="voiceMode" value="errors"><span>只講錯誤</span></label>
-                            <label><input type="radio" id="voiceOff" name="voiceMode" value="off"><span>不講話</span></label>
-                        </div>
-                    </fieldset>
-                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
-                    <div id="cloudBox" hidden>
-                        <label class="switch-pick"><input type="checkbox" id="cloudToggle" role="switch" aria-describedby="cloudStatus"> <span>雲端同步運動紀錄<small>只存總結的數字，不含影像</small></span></label>
-                        <p class="switch-more"><a href="help.html#cloudFaq">雲端同步是什麼？</a></p>
-                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
-                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
-                    </div>
-                </div>
-                <details id="historyBox" class="history" hidden>
+                <details id="historyBox" class="history row-card" hidden>
                     <summary>運動紀錄</summary>
                     <ul id="historyList"></ul>
                     <button id="clearHistory" type="button">清除紀錄</button>
                 </details>
                 <!-- 錄製檔（10/20，js/data/library.js、js/ui/library-list.js）：每一段停止錄製後自動存在這支手機（像相簿），
-                     可以一段一段下載、勾選的一次下載、壓縮成一個 zip、刪除；不上傳雲端也能留著、拿到重播分析 -->
-                <details id="libraryBox" class="history" hidden>
+                     可以一段一段下載、勾選的一次下載、壓縮成一個 zip、刪除；不上傳雲端也能留著、拿到重播分析
+                     有還沒下載的段落時整列變黃（.attn）：清除瀏覽器資料就會不見 -->
+                <details id="libraryBox" class="history row-card" hidden>
                     <summary id="librarySummary">錄製檔</summary>
                     <div class="library" id="homeLibrary">
                         <p class="lib-note">存在這支手機的瀏覽器裡，關掉網頁還在；清除瀏覽器資料就會不見（iPhone 太久沒打開這個網站也可能被清掉），重要的記得下載。重播分析頁可以直接打開這裡的每一段。</p>
@@ -142,30 +125,55 @@
                         <p class="lib-status" role="status"></p>
                     </div>
                 </details>
-                <!-- 進階設定：一般不用改（預設每秒 30 格、lite 模型最穩）；改過的設定會寫在標題上 -->
-                <details id="advanced" class="advanced">
-                    <summary id="advancedTitle">進階設定（畫面流暢度、AI 模型，一般不用改）</summary>
-                    <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
-                    <label class="fps-pick">畫面流暢度
-                        <select id="fpsSelect" aria-describedby="fpsHint"></select>
-                    </label>
-                    <p id="fpsHint" class="fps-hint" hidden></p>
-                    <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
-                    <label class="fps-pick">AI 模型
-                        <select id="modelSelect" aria-describedby="modelPickHint"></select>
-                    </label>
-                    <p id="modelPickHint" class="fps-hint" hidden></p>
-                    <!-- 實測模式（10/20，js/data/test-mode.js）：實測那天主持人用。開著時鏡頭畫面上方出現「這組要做的」按鈕，
-                         選了就倒數、自動錄製，按「這組做完」存進錄製檔（可以改成也馬上下載；檔名有受測者代號、動作、這組要做的） -->
-                    <div class="test-pick">
-                        <label class="switch-pick"><input type="checkbox" id="testToggle" role="switch" aria-describedby="testHint"> <span>實測模式<small>實測那天主持人用：每一組自動錄製，做完存進「錄製檔」</small></span></label>
-                        <label class="fps-pick">受測者代號
-                            <input id="testSubject" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="testHint">
-                        </label>
-                        <label class="check-pick"><input type="checkbox" id="testAutoDownload"> 每組做完也馬上下載（不勾：先存在「錄製檔」，最後再一起下載）</label>
-                        <p id="testHint" class="test-hint">只用代號（A、B、C…），不寫名字。檔名例如 test_A_squat_good_20261021_153012.json</p>
+                <!-- 設定（10/21 整理）：每一項一張卡片，排法一樣：左邊標題＋說明，右邊開關（語音的三個選項在下面）
+                     常用的語音、雲端同步放前面（10/19 組員回饋：收在進階設定裡沒人知道）；實測模式、進階設定在後面 -->
+                <div class="quick-settings">
+                    <!-- 語音提示（10/20，js/ui/speech-plan.js）：完整＝站位、倒數、動作錯誤、次數都用講的；只講錯誤；不講話＝全部用嗶聲
+                         音量跟著鏡頭畫面的「音量」按鈕；網站會記住選擇 -->
+                    <fieldset id="voicePick" class="voice-pick set-card">
+                        <legend>語音提示<small id="voiceNote">站位、倒數、動作錯誤、次數用講的；不講話時改用嗶聲</small></legend>
+                        <div class="voice-modes">
+                            <label><input type="radio" id="voiceFull" name="voiceMode" value="full"><span>完整</span></label>
+                            <label><input type="radio" id="voiceErrors" name="voiceMode" value="errors"><span>只講錯誤</span></label>
+                            <label><input type="radio" id="voiceOff" name="voiceMode" value="off"><span>不講話</span></label>
+                        </div>
+                    </fieldset>
+                    <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
+                    <div id="cloudBox" class="set-card" hidden>
+                        <label class="switch-pick"><input type="checkbox" id="cloudToggle" role="switch" aria-describedby="cloudStatus"> <span>雲端同步運動紀錄<small>只存總結的數字，不含影像</small></span></label>
+                        <p class="switch-more"><a href="help.html#cloudFaq">雲端同步是什麼？</a></p>
+                        <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
+                        <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
                     </div>
-                </details>
+                    <!-- 實測模式（10/20，js/data/test-mode.js）：實測那天主持人用。開著時鏡頭畫面上方出現「這組要做的」按鈕，
+                         選了就倒數、自動錄製，按「這組做完」存進錄製檔（可以改成也馬上下載；檔名有受測者代號、動作、這組要做的）
+                         10/21 從進階設定拿出來（使用者回饋：收在裡面不容易發現）；開著時卡片變黃，代號、下載的選項才出現 -->
+                    <div id="testBox" class="test-pick set-card">
+                        <label class="switch-pick"><input type="checkbox" id="testToggle" role="switch" aria-describedby="testHint"> <span>實測模式<small>實測那天主持人用：每一組自動錄製，做完存進「錄製檔」</small></span></label>
+                        <div id="testMore" hidden>
+                            <label class="fps-pick">受測者代號
+                                <input id="testSubject" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="testHint">
+                            </label>
+                            <label class="check-pick"><input type="checkbox" id="testAutoDownload"> 每組做完也馬上下載（不勾：先存在「錄製檔」，最後再一起下載）</label>
+                            <p id="testHint" class="test-hint">只用代號（A、B、C…），不寫名字。檔名例如 test_A_squat_good_20261021_153012.json</p>
+                        </div>
+                    </div>
+                    <!-- 進階設定：一般不用改（預設每秒 30 格、lite 模型最穩）；改過的設定會寫在標題上（#advancedNote）
+                         10/21 使用者回饋：灰色小字在黑底上看不到 → 整列像按鈕、「進階設定」用黃色 -->
+                    <details id="advanced" class="advanced set-card">
+                        <summary id="advancedTitle"><span class="adv-name">進階設定</span><span id="advancedNote" class="adv-note">（畫面流暢度、AI 模型，一般不用改）</span></summary>
+                        <!-- 每秒格數（老師 10/12 回饋：讓使用者依自己手機的能力選；會記住選擇）。選項由 main.js 填入 -->
+                        <label class="fps-pick">畫面流暢度
+                            <select id="fpsSelect" aria-describedby="fpsHint"></select>
+                        </label>
+                        <p id="fpsHint" class="fps-hint" hidden></p>
+                        <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
+                        <label class="fps-pick">AI 模型
+                            <select id="modelSelect" aria-describedby="modelPickHint"></select>
+                        </label>
+                        <p id="modelPickHint" class="fps-hint" hidden></p>
+                    </details>
+                </div>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
                 <p id="status" aria-live="polite">尚未開啟鏡頭</p>
                 <p id="modelStatus" aria-live="polite">AI 準備中…</p>
