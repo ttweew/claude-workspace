@@ -1,0 +1,77 @@
+/* 實測報表（report.html，10/21）：其他樣式和重播分析共用（css/replay.css） */
+.back-link {
+    margin: 8px 0 0;
+    font-size: 15px;
+}
+.back-link a {
+    color: var(--info);
+}
+.phone-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.report-summary {
+    margin: 0 0 8px;
+    padding-left: 1.2em;
+    display: grid;
+    gap: 4px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+/* 每一組：字比較長，不強制同一行（手機上左右捲動也看得到全部） */
+.report-table {
+    white-space: normal;
+}
+.report-table td {
+    vertical-align: top;
+}
+.report-table td:nth-child(3), .report-table td:nth-child(6),
+.report-table th:nth-child(3), .report-table th:nth-child(6) {
+    text-align: left;
+}
+/* 「這組」「結果」比較寬，比較好讀；手機上不設最小寬度，讓這兩欄換行，390 寬時「結果」才不會被擠到畫面外 */
+@media (min-width: 481px) {
+    .report-table td:nth-child(3), .report-table td:nth-child(6) {
+        min-width: 7em;
+    }
+}
+/* 標題、受測者、動作、次數不換行：手機上以前「受測者」「深蹲」一個字一行；放不下時表格在自己的框裡左右捲動 */
+.report-table th, .report-table td:nth-child(-n+2), .report-table td:nth-child(4), .report-table td:nth-child(5) {
+    white-space: nowrap;
+}
+/* 次數不對、故意做錯沒抓到、做對被誤報：黃色（和首頁的提醒同一個顏色） */
+.report-table .warn {
+    color: var(--attn);
+    font-weight: 700;
+}
+/* 重錄的（不算進統計）：變淡 */
+.report-table tr.redo td {
+    color: var(--muted);
+}
+.report-table small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    word-break: break-all;
+}
+.bad-files h3 {
+    margin: 16px 0 6px;
+    font-size: 15px;
+}
+.bad-files ul {
+    margin: 0;
+    padding-left: 1.2em;
+    color: var(--muted);
+    font-size: 14px;
+    word-break: break-all;
+}
+/* 表格的框可以用鍵盤捲動（手機上表格比畫面寬）：按 Tab 到這裡時看得出來 */
+.table-wrap:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}

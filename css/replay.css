@@ -131,6 +131,14 @@
     color: var(--accent-ink);
     font-weight: 700;
 }
+/* 到實測報表的連結（10/21） */
+.report-link {
+    margin: 12px 0 0;
+    font-size: 15px;
+}
+.report-link a {
+    color: var(--info);
+}
 .load-status {
     margin: 10px 0 0;
     color: var(--muted);
