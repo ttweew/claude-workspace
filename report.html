@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="一次讀很多個實測檔，比對每一組應該做的和網站算的">
+    <meta name="theme-color" content="#0B1220">
+    <title>實測報表 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/replay.css">
+    <link rel="stylesheet" href="css/report.css">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./" aria-label="AI 運動分析（首頁）">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+    <!-- 實測報表（10/21，js/pages/report.js）：重播分析底下的一頁，導覽列標在「重播分析」 -->
+    <div class="page replay report">
+        <header class="replay-head">
+            <h1>實測報表</h1>
+            <p class="intro">一次讀很多個實測檔（實測模式錄的，檔名 test_ 開頭），每一組比對<strong>應該做的</strong>和<strong>網站算的</strong>：次數對不對、故意做錯有沒有抓到、做對的有沒有被誤報。網站算的和鏡頭畫面上當時看到的一樣（重播分析同一套算法）。檔案只在這個瀏覽器裡處理，不會上傳。</p>
+            <p class="back-link"><a href="replay.html">← 回重播分析（一次看一個檔案的角度曲線）</a></p>
+        </header>
+
+        <section class="card" aria-labelledby="pickTitle">
+            <h2 id="pickTitle">選擇實測檔</h2>
+            <label class="drop" id="drop">
+                <input type="file" id="fileInput" multiple accept=".json,.zip,application/json,application/zip">
+                <span class="drop-main">選擇檔案（可以選很多個）</span>
+                <span class="drop-sub">JSON 檔，或錄製檔清單「壓縮成 zip 下載」的 zip 檔；也可以拖到這裡</span>
+            </label>
+            <!-- 這支手機裡的錄製檔（js/data/library.js）有實測檔時才出現 -->
+            <div id="phoneRow" class="phone-row" hidden>
+                <button id="phoneBtn" type="button" class="primary-btn">讀這支手機裡的實測檔</button>
+                <span id="phoneNote"></span>
+            </div>
+            <p id="loadStatus" class="load-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <div id="result" hidden>
+            <section class="card" aria-labelledby="sumTitle">
+                <h2 id="sumTitle">整體</h2>
+                <ul id="reportSummary" class="report-summary"></ul>
+                <p class="note">同一個人、同一個動作、同一組錄了好幾次時，以最後一次為準（主持人卡的規則），前面的標成「重錄」、不算進統計。「抓到」是故意做錯的那幾下有幾下被判成那種錯誤；「誤報」是做對的那幾下有幾下被報了錯誤。</p>
+                <button id="csvBtn" type="button" class="primary-btn">下載報表 CSV</button>
+            </section>
+
+            <section class="card" aria-labelledby="tableTitle">
+                <h2 id="tableTitle">每一組</h2>
+                <!-- 手機上表格比畫面寬，要能用鍵盤捲動（tabindex），螢幕閱讀器才知道這一塊是什麼 -->
+                <div class="table-wrap" tabindex="0" role="region" aria-labelledby="tableTitle">
+                    <table id="reportTable" class="stats report-table"></table>
+                </div>
+                <div id="badFiles" class="bad-files" hidden>
+                    <h3>沒有讀到的檔案</h3>
+                    <ul id="badList"></ul>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/report.js"></script>
+    <script nomodule>
+        document.getElementById('loadStatus').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
+    </script>
+</body>
+</html>
