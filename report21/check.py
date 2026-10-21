@@ -1,5 +1,5 @@
 # 10/21 提案：實測報表（report.html）
-#  1. 選很多個檔案：重錄的以最後一次為準、次數不對變黃、故意做錯沒抓到變黃、不是實測檔的列在最下面說明原因
+#  1. 選很多個檔案：重錄的以最後一次為準、次數不對變黃、故意做錯沒抓到變黃、不是實測檔的列在最下面說明原因；算的時候拖進來的不理
 #  2. 選 zip（錄製檔清單壓的）：一樣讀得到
 #  3. 這支手機裡的錄製檔：只拿實測的
 #  4. 下載 CSV；背景執行緒開不起來時改在主畫面算；重播分析頁有連結
@@ -37,7 +37,11 @@ with sync_playwright() as p:
     ctx, pg, errs = page()
     check(not pg.is_visible('#result') and not pg.is_visible('#phoneRow'), '一開始：沒有結果；手機裡沒有實測檔時不出現「讀這支手機裡的實測檔」')
     pg.set_input_files('#fileInput', [FILES + '/' + n for n in names])
+    # 還在算的時候又拖一個檔案進來：不理它（不會兩批同時算、報表混在一起）
+    pg.evaluate("""() => { const dt = new DataTransfer(); dt.items.add(new File(['{}'], 'late.json'));
+        document.getElementById('drop').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); }""")
     wait_done(pg)
+    pg.wait_for_timeout(500)
     status = pg.text_content('#loadStatus')
     rows = pg.evaluate(TABLE)
     summ = pg.inner_text('#reportSummary')
@@ -49,12 +53,13 @@ with sync_playwright() as p:
     check(good['cells'][:5] == ['A', '深蹲', '做對', '10 下', '10 下'] and good['cells'][5] == '沒有誤報' and not any(good['warn']), '做對 10 下：網站算 10 下、沒有誤報、不變黃 ' + str(good['cells']))
     check(lean['cells'][2] == '故意上身前傾' and lean['cells'][4] == '5 下' and lean['cells'][5].startswith('抓到 0／5 下') and lean['warn'][5], '故意前傾（示範資料沒有前傾）：抓到 0／5、變黃 ' + str(lean['cells']))
     check(rows[0]['cells'][4] == '5 下' and not any(rows[0]['warn']), '重錄的那組：變淡、不變黃')
-    check('受測者：A（共 2 組；重錄的 1 組不算）' in summ and '次數完全正確：2／2（100%） 組' in summ and '故意上身前傾（深蹲）：抓到 0／5（0%） 下' in summ and '做對的被誤報：0／10（0%） 下' in summ,
+    check('受測者：A（共 2 組；重錄的 1 組不算）' in summ and '次數完全正確：2／2（100%） 組' in summ and '故意上身前傾（深蹲）：抓到 0／5（0%） 下' in summ and '故意故意' not in summ and '做對的被誤報：0／10（0%） 下' in summ,
           '整體：受測者、重錄不算、次數、抓到、誤報')
+    check('late.json' not in bad and not pg.is_disabled('#fileInput') and not pg.is_disabled('#phoneBtn'), '算的時候拖進來的檔案不理；算完按鈕恢復可以按')
     check('pose_20261020_211500.json：不是實測模式錄的檔案' in bad and 'broken.json：檔案內容不完整或格式不正確' in bad and 'notes.txt：不是 JSON 或 zip 檔' in bad, '沒有讀到的檔案寫出原因')
     with pg.expect_download() as d:
         pg.click('#csvBtn')
-    csv = open(d.value.path(), encoding='utf-8-sig').read().split('\r\n')
+    csv = open(d.value.path(), encoding='utf-8-sig', newline='').read().split('\r\n')   # newline=''：保留 \r\n（Excel 要的換行）
     check(d.value.suggested_filename.startswith('test_report_') and csv[0].startswith('受測者,動作,這組,應做') and len(csv) == 5 and csv[1].split(',')[11] == '是',
           '下載 CSV：' + d.value.suggested_filename + '，3 組＋標題，重錄的標「是」')
     pg.screenshot(path=HERE + '/report_390.png', full_page=True)
@@ -97,6 +102,10 @@ with sync_playwright() as p:
         wait_done(pg)
         over = pg.evaluate("document.documentElement.scrollWidth - innerWidth")
         check(over <= 0, f'{vw}：整頁不左右超出（{over}）')
+        if vw >= 390:
+            # 390 以上：表格放得進框裡，「結果」那一欄不用左右捲動才看得到
+            inner = pg.evaluate("(() => { const w = document.querySelector('.table-wrap'); return w.scrollWidth - w.clientWidth; })()")
+            check(inner <= 1, f'{vw}：表格放得進框裡（多 {inner}）')
         if vw in (320, 1280):
             pg.add_script_tag(path=AXE)
             r = pg.evaluate("async () => (await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } })).violations.map(v => v.id + '×' + v.nodes.length + ' ' + v.nodes.slice(0, 2).map(n => n.target.join(' ')).join(' | '))")
