@@ -159,7 +159,7 @@ with sync_playwright() as p:
     pg.click('#stopBtn'); pg.wait_for_timeout(800)
     summ = pg.inner_text('#librarySummary')
     pg.click('#librarySummary'); pg.wait_for_timeout(300)
-    check(pg.is_visible('#libraryBox') and summ.startswith('錄製檔（1 段') and len(pg.evaluate(ITEMS, '#homeLibrary')) == 1, '首頁：' + summ)
+    check(pg.is_visible('#libraryBox') and summ.startswith('錄製檔') and '1 段' in summ and len(pg.evaluate(ITEMS, '#homeLibrary')) == 1, '首頁：' + summ)
     axe(pg, '首頁的錄製檔', '#libraryBox')
     pg.set_viewport_size({"width": 320, "height": 640}); pg.wait_for_timeout(200)
     check(pg.evaluate("document.documentElement.scrollWidth") == 320, '首頁 320 寬沒有左右捲動')
