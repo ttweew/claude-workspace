@@ -52,7 +52,7 @@
                  和受測者卡（組員當受測者，只寫照著做的步驟）。每一組要做幾下和首頁實測模式的按鈕一樣（js/data/test-mode.js） -->
             <section id="testday" aria-labelledby="testdayTitle">
                 <h2 id="testdayTitle">實測任務卡</h2>
-                <p class="prose">實測那天：主持人拿著拍的手機照「主持人卡」做，受測者照「受測者卡」做就好，每人約 20 分鐘。需要：拍的手機（最好有腳架）、捲尺；有第二支手機可以同時錄影片。首頁「進階設定」打開<strong>實測模式</strong>後，每一組自動錄製、做完存進手機的「錄製檔」，最後一次壓縮成 zip 下載；檔名已經寫好受測者代號、動作、這組要做的，不用另外改名。受測者只用代號（A、B、C…），不寫名字。</p>
+                <p class="prose">實測那天：主持人拿著拍的手機照「主持人卡」做，受測者照「受測者卡」做就好，每人約 20 分鐘。需要：拍的手機（最好有腳架）、捲尺；有第二支手機可以同時錄影片。首頁的<strong>實測模式</strong>卡片打開後（開著時首頁最上面有一條黃色提醒），每一組自動錄製、做完存進手機的「錄製檔」，最後一次壓縮成 zip 下載；檔名已經寫好受測者代號、動作、這組要做的，不用另外改名。受測者只用代號（A、B、C…），不寫名字。</p>
                 <div class="task-card" id="taskCard">
                     <h3>主持人卡</h3>
                     <p class="task-sub">做完的項目打勾，勾選只存在這台裝置上。</p>
@@ -60,7 +60,7 @@
                     <ul class="task-list">
                         <li><label><input type="checkbox" data-task="prep-check"> <span>在這一頁最上面按「檢查這支手機」，按「複製檢查結果」貼到群組</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-cloud"> <span>首頁打開「雲端同步運動紀錄」開關（大家的數字會自動集中到 Firebase）</span></label></li>
-                        <li><label><input type="checkbox" data-task="prep-test"> <span>首頁「進階設定」打開「實測模式」，「受測者代號」填第一位的代號（例如 A）</span></label></li>
+                        <li><label><input type="checkbox" data-task="prep-test"> <span>首頁「實測模式」卡片打開開關，「受測者代號」填第一位的代號（例如 A）</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-place"> <span>手機放 2～3 公尺外、腰的高度，受測者<strong>側面</strong>對著鏡頭，畫面出現綠色「已偵測到全身」</span></label></li>
                         <li><label><input type="checkbox" data-task="prep-trial"> <span>先自己試錄一組（例如深蹲「做對」做 2、3 下就按「這組做完」），回首頁打開「錄製檔」看有沒有這一組，按「下載」確認檔案下載得下來（iPhone 會先問要不要下載，檔案在「檔案」App 的「下載項目」）；確認完把試錄的這一段刪掉</span></label></li>
                     </ul>
@@ -71,7 +71,7 @@
                         <li><label><input type="checkbox" data-task="set-redo"> <span>次數做錯、中途停下來：同一組再按一次重錄，之後以最後一個檔案為準（檔名後面是時間）</span></label></li>
                         <li><label><input type="checkbox" data-task="set-count"> <span>一個動作 3 組都打勾後按「結束」，總結下面「實際做了幾下？」填受測者總共做了幾下（照卡片做是 20 下，有重錄就加上去；棒式不用填）</span></label></li>
                         <li><label><input type="checkbox" data-task="rec-legs"> <span>用捲尺量大腿（髖到膝）、小腿（膝到腳踝）的長度，和代號一起記下來（實驗 D 對照 3D 腿長）</span></label></li>
-                        <li><label><input type="checkbox" data-task="set-next"> <span>換下一位：首頁「進階設定」改代號（B、C…），再從第一個動作開始</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-next"> <span>換下一位：首頁「實測模式」卡片改代號（B、C…），再從第一個動作開始</span></label></li>
                         <li><label><input type="checkbox" data-task="rec-video"> <span>有第二支手機：同時從旁邊錄影片（之後核對每一下做對或做錯）</span></label></li>
                     </ul>
                     <h4>角度準不準（實驗 A，約 10 分鐘）</h4>
@@ -181,7 +181,7 @@
                     <li><strong>每一段自動存進「錄製檔」</strong>像手機相簿：再按開始就是新的一段，不會蓋掉上一段。鏡頭畫面左下角的「錄製檔」、數據面板的「看錄製檔」或首頁的「錄製檔」可以一段一段下載、勾選幾段一次下載，或壓縮成一個 zip（小很多，iPhone 只要按一次下載）。存在這支手機的瀏覽器裡，不用上傳雲端也留得住；清除瀏覽器資料會不見，重要的記得下載。數據面板還是可以下載剛錄好的那一段的 CSV（Excel 打得開）或 JSON</li>
                     <li><strong>到「重播分析」選檔案</strong>（同一支手機錄的，重播分析頁會直接列出「這支手機裡的錄製檔」，按「分析」就好，不用先下載）畫出角度曲線、統計抖動，並列出每一下深蹲蹲多深</li>
                 </ol>
-                <p class="note"><strong>實測模式：</strong>實測那天一組一組錄的時候，首頁「進階設定」打開「實測模式」、填受測者代號。鏡頭畫面上方會出現這個動作的每一組（例如深蹲「做對 10 下」「故意上身前傾 5 下」「故意腳跟離地 5 下」），按了就倒數、開始錄；做完按「這組做完」，這一組存進「錄製檔」（進階設定可以改成每組做完也馬上下載），檔名寫好受測者代號、動作、這組要做的（例如 test_A_squat_heel_<wbr>20261021_<wbr>153012.json），重播分析也會寫出是哪一組。步驟見最上面的<a href="#testday">實測任務卡</a>。</p>
+                <p class="note"><strong>實測模式：</strong>實測那天一組一組錄的時候，首頁打開「實測模式」、填受測者代號（做完記得關掉：開著時首頁最上面有黃色提醒）。鏡頭畫面上方會出現這個動作的每一組（例如深蹲「做對 10 下」「故意上身前傾 5 下」「故意腳跟離地 5 下」），按了就倒數、開始錄；做完按「這組做完」，這一組存進「錄製檔」（進階設定可以改成每組做完也馬上下載），檔名寫好受測者代號、動作、這組要做的（例如 test_A_squat_heel_<wbr>20261021_<wbr>153012.json），重播分析也會寫出是哪一組。步驟見最上面的<a href="#testday">實測任務卡</a>。</p>
                 <p class="note">還沒有錄影？重播分析頁有「合成示範資料」可以先試用。</p>
             </section>
 
@@ -360,7 +360,7 @@
 
             <section id="privacy" aria-labelledby="privacyTitle">
                 <h2 id="privacyTitle">隱私</h2>
-                <p class="prose">所有分析都在你自己的手機或電腦上完成，鏡頭影像不會上傳到任何地方。錄製的資料只有關鍵點的座標（不是影片），而且只會存成你自己下載的檔案；重播分析讀檔案也只在瀏覽器裡處理。運動紀錄預設只存在這台裝置；只有你在首頁「進階設定」打開「雲端同步」，才會把運動總結的數字（不含影像、不含座標）存一份到雲端，隨時可以關閉或刪除。</p>
+                <p class="prose">所有分析都在你自己的手機或電腦上完成，鏡頭影像不會上傳到任何地方。錄製的資料只有關鍵點的座標（不是影片），存在這支手機的「錄製檔」或你自己下載的檔案；重播分析讀檔案也只在瀏覽器裡處理。運動紀錄預設只存在這台裝置；只有你在首頁打開「雲端同步運動紀錄」，才會把運動總結的數字（不含影像、不含座標）存一份到雲端，隨時可以關閉或刪除。</p>
             </section>
         </main>
 
