@@ -20,6 +20,10 @@ export class WorkoutTracker {
         // 棒式：姿勢跑掉（不在計時）時看到的錯誤先放這裡，之後又回到姿勢對才記；這一次就此結束（起身）就不記（見 collectHold）
         this.pending = new Set();
         this.pendingPeaks = new Map();
+        // 棒式：趴好、還沒一直線過（準備）時看到的錯誤；之後一直線了就不記（在調整姿勢），整次都沒一直線才記
+        this.prep = new Set();
+        this.prepPeaks = new Map();
+        this.timed = false;        // 這一次有沒有一直線（計時）過
         // 個人校正（calibrate.js）：站直不動約 2 秒後，「站直」的門檻和上身前傾的判斷依這個人調整
         this.calibrator = CALIBRATED.includes(this.workout.id) ? new Calibrator() : null;
         this.defaults = this.counter ? { up: this.counter.config.up, down: this.counter.config.down } : null;
@@ -78,7 +82,7 @@ export class WorkoutTracker {
         const form = this.form.update(pose, timeMs);
         if (!this.counter) return { form, count: null, done: null, calibrated };
         const count = this.counter.update(pose, timeMs);
-        // 做這一下的期間：彎下去到站起來；棒式是撐著的時候（這一次開始計時到結束）
+        // 做這一下的期間：彎下去到站起來；棒式是這一次（趴好開始到起身結束）
         const hold = this.workout.kind === 'hold';
         const during = hold ? !!this.counter.current : count.state === 'down' || count.state === 'squat';
         if (during && hold) this.collectHold(form, timeMs);
@@ -101,19 +105,30 @@ export class WorkoutTracker {
     // 棒式的錯誤（10/20 實測：受測者 A、B 做對的那組，趴下準備、做完起身那幾秒屁股翹起來，也被記成「屁股太高」）：
     //   這一格姿勢對、正在計時：看到的錯誤直接記（例如塌腰：髖部角度還夠大，照樣計時）
     //   姿勢跑掉：看到的先放著；之後又回到姿勢對才記（中途屁股翹高、又放下來，是真的做錯）；這一次就此結束（起身）就不記
+    //   趴好、還沒一直線過：在調整姿勢，之後一直線了就不記；整次都沒一直線（10/20 受測者 B 故意屁股太高的那組）才記（見 attach）
     //   只記這一格真的做錯的：紅字在姿勢改好之後還會多留一下（form.js 的 hideMs），那段不算
     collectHold(form, timeMs) {
         const goodNow = this.counter.lastGood === timeMs;
         const bad = form.errors.filter(e => this.form.states.get(e.id).badSince !== null);
         if (goodNow) {
+            this.timed = true;
             this.collect(form, bad, this.errors, this.peaks);
-            for (const e of this.pending) this.errors.add(e);
-            for (const [id, v] of this.pendingPeaks) if (!(this.peaks.get(id) >= v)) this.peaks.set(id, v);
-            this.pending.clear();
-            this.pendingPeaks.clear();
-        } else {
+            this.merge(this.pending, this.pendingPeaks);
+            this.prep.clear();
+            this.prepPeaks.clear();
+        } else if (this.timed) {
             this.collect(form, bad, this.pending, this.pendingPeaks);
+        } else {
+            this.collect(form, bad, this.prep, this.prepPeaks);
         }
+    }
+
+    // 先放著的錯誤記進這一次（放著的就清掉）
+    merge(errors, peaks) {
+        for (const e of errors) this.errors.add(e);
+        for (const [id, v] of peaks) if (!(this.peaks.get(id) >= v)) this.peaks.set(id, v);
+        errors.clear();
+        peaks.clear();
     }
 
     clearErrors() {
@@ -121,10 +136,15 @@ export class WorkoutTracker {
         this.peaks.clear();
         this.pending.clear();
         this.pendingPeaks.clear();
+        this.prep.clear();
+        this.prepPeaks.clear();
+        this.timed = false;
     }
 
     // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度，曲線算完就不留（省記憶體）
     attach(item) {
+        // 棒式整次都沒一直線：趴著時看到的錯誤就是這一次的錯誤
+        if (this.workout.kind === 'hold' && !this.timed) this.merge(this.prep, this.prepPeaks);
         item.errors = [...this.errors].map(e => e.id);
         // 最嚴重的數字取整數（畫面、總結、錄製檔都一樣）；只留這一下有出現的錯誤
         item.peaks = {};
