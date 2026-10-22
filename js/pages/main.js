@@ -22,20 +22,21 @@ import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '..
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { errorShort, errorRule, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
-import { cloud } from '../cloud/cloud.js';
-import { shouldAskCloud, loadAsked, saveAsked } from '../ui/cloud-ask.js';
+import { setupCloudPanel } from '../ui/cloud-panel.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
-import { Voice, loadVoiceMode, saveVoiceMode } from '../ui/voice.js';
-import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine, VOICE_MODES } from '../ui/speech-plan.js';
+import { Voice, loadVoiceMode } from '../ui/voice.js';
+import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
+import { setupVoicePick } from '../ui/voice-pick.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 import { phoneReport } from '../ui/phone-info.js';
 import { copyText } from '../ui/copy.js';
 import { keepBelowInfobar } from '../ui/infobar-space.js';
-import { loadTestMode, saveTestMode, cleanSubject, conditionsFor, testMeta, testFileName } from '../data/test-mode.js';
+import { loadTestMode, conditionsFor, testMeta, testFileName } from '../data/test-mode.js';
+import { setupTestCard } from '../ui/test-card.js';
 import { TestBar } from '../ui/test-bar.js';
 import { libraryAvailable, saveRecording, markDownloaded, sizeText } from '../data/library.js';
 import { LibraryList, refreshAll as refreshLibraries } from '../ui/library-list.js';
@@ -98,8 +99,6 @@ const formTipText = document.getElementById('formTipText');
 const formWhy = document.getElementById('formWhy');    // 紅字下面說出原因的小字
 const summaryBox = document.getElementById('summary');      // 首頁：這次運動的總結
 const summaryLines = document.getElementById('summaryLines');
-const cloudAsk = document.getElementById('cloudAsk');       // 總結下面：問一次要不要打開雲端同步
-let cloudAsked = loadAsked();
 const historyBox = document.getElementById('historyBox');   // 首頁：運動紀錄
 const historyList = document.getElementById('historyList');
 const hudReps = document.getElementById('hudReps');
@@ -935,10 +934,8 @@ function finishSession() {
     if (!s) return;
     const previous = saveSession(s);
     showSummary(s, previous);
-    // 打開了雲端同步：這一筆存一份到雲端（沒有網路時先存在這台裝置，之後自動補傳）
-    cloud.sync(loadHistory());
-    // 還沒打開、也還沒問過：在總結下面問一次要不要打開（js/ui/cloud-ask.js）
-    cloudAsk.hidden = !shouldAskCloud({ available: cloud.available, enabled: cloud.enabled, hasSummary: true, asked: cloudAsked });
+    // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
+    cloudPanel.afterSession();
 }
 
 // 首頁正在顯示的總結（填實際次數後重新寫一次總結用）
@@ -1341,38 +1338,11 @@ function startTestSet(condition) {
     startCountdown();
 }
 
-// 首頁「實測模式」卡片的開關、受測者代號、每組做完要不要馬上下載（存在這台裝置上）
-// 10/21 從進階設定拿出來（使用者回饋：收在裡面不容易發現）；開著時卡片變黃、首頁最上面一條黃色提醒（用完忘了關，平常運動也會一直錄）
-const testToggle = document.getElementById('testToggle');
-const testSubject = document.getElementById('testSubject');
-const testAutoDownload = document.getElementById('testAutoDownload');
-const testBox = document.getElementById('testBox');
-const testMore = document.getElementById('testMore');
-const testOnNote = document.getElementById('testOnNote');
-testToggle.checked = testMode.on;
-testSubject.value = testMode.subject;
-testAutoDownload.checked = testMode.autoDownload;
-function showTestOn() {
-    testBox.classList.toggle('on', testMode.on);
-    testMore.hidden = !testMode.on;
-    testOnNote.hidden = !testMode.on;
-    if (testMode.on) {
-        const small = document.createElement('small');
-        small.textContent = '選動作後每一組自動錄製。實測做完記得到下面「實測模式」關掉';
-        testOnNote.replaceChildren('實測模式開著 · 受測者 ' + testMode.subject, small);
-    }
-}
-function changeTestMode() {
-    testMode = { on: testToggle.checked, subject: cleanSubject(testSubject.value), autoDownload: testAutoDownload.checked };
-    testSubject.value = testMode.subject;
-    saveTestMode(testMode);
-    showTestOn();
+// 首頁「實測模式」卡片（js/ui/test-card.js）：改了設定就重畫鏡頭畫面上的實測列
+setupTestCard(testMode, mode => {
+    testMode = mode;
     showTestBar();
-}
-showTestOn();
-testToggle.addEventListener('change', changeTestMode);
-testSubject.addEventListener('change', changeTestMode);
-testAutoDownload.addEventListener('change', changeTestMode);
+});
 
 // ---------- 錄影（10/20 使用者要求：像手機相機一樣開始、暫停、結束；每一段自動存進錄製檔） ----------
 // 工具列「錄影」打開下方的錄影控制列（js/ui/rec-bar.js）；數據面板的錄製按鈕照舊可以用，兩邊是同一個錄製
@@ -1657,65 +1627,12 @@ function showAdvancedTitle() {
     advancedNote.textContent = '（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
 
-// ---------- 首頁的常用開關：語音提示、雲端同步（10/19 從進階設定拿出來） ----------
-// 語音提示三種模式（js/ui/speech-plan.js）：完整（站位、倒數、錯誤、次數都用講的）、只講錯誤、不講話（全部用嗶聲）
-// 瀏覽器不能講話時三個都鎖住，說明只有嗶聲
-const voicePick = document.getElementById('voicePick');
-const voiceNote = document.getElementById('voiceNote');
-for (const input of voicePick.querySelectorAll('input[name="voiceMode"]')) {
-    input.checked = input.value === voiceMode;
-    input.disabled = !voice.supported;
-    input.addEventListener('change', () => {
-        if (!input.checked || !VOICE_MODES.includes(input.value)) return;
-        voiceMode = input.value;
-        saveVoiceMode(voiceMode);
-        if (voiceMode === 'off') resetSpeech();
-    });
-}
-if (!voice.supported) voiceNote.textContent = '這個瀏覽器不能講話，提示只有嗶聲';
-
-// ---------- 雲端同步（js/cloud/cloud.js） ----------
-// 預設關閉；打開時把這台裝置的運動紀錄傳上去，之後每次運動完自動上傳；網站還沒接上 Firebase 時整段不出現
-const cloudBox = document.getElementById('cloudBox');
-const cloudToggle = document.getElementById('cloudToggle');
-const cloudStatus = document.getElementById('cloudStatus');
-const cloudDelete = document.getElementById('cloudDelete');
-cloudBox.hidden = !cloud.available;
-cloudToggle.checked = cloud.enabled;
-cloud.onStatus(s => {
-    cloudStatus.textContent = s.text;
-    cloudStatus.dataset.state = s.state;
-    cloudDelete.hidden = !cloud.hasData || s.state === 'working';
+// ---------- 首頁的常用開關：語音提示、雲端同步（10/19 從進階設定拿出來；10/22 搬到 js/ui/voice-pick.js、js/ui/cloud-panel.js） ----------
+setupVoicePick(voiceMode, voice.supported, mode => {
+    voiceMode = mode;
+    if (mode === 'off') resetSpeech();
 });
-// 自己開、關過：之後運動完不用再問
-function answerCloudAsk() {
-    cloudAsked = true;
-    saveAsked();
-    cloudAsk.hidden = true;
-}
-cloudToggle.addEventListener('change', () => {
-    cloud.setEnabled(cloudToggle.checked, loadHistory());
-    answerCloudAsk();
-});
-// 運動完的詢問：「打開」和直接打開開關一樣；「不用了」之後不再問（開關還在首頁上，隨時可以打開）
-document.getElementById('cloudAskYes').addEventListener('click', () => {
-    cloudToggle.checked = true;
-    cloud.setEnabled(true, loadHistory());
-    answerCloudAsk();
-    cloudToggle.focus();
-});
-document.getElementById('cloudAskNo').addEventListener('click', answerCloudAsk);
-// 刪除雲端上這台裝置的紀錄（這台裝置上的不動），同時關閉同步
-cloudDelete.addEventListener('click', async () => {
-    if (!confirm('確定要刪除雲端上這台裝置的運動紀錄嗎？這台裝置上的紀錄不會被刪掉，雲端同步也會關閉。')) return;
-    cloudToggle.checked = false;
-    cloudToggle.disabled = true;
-    await cloud.deleteAll();
-    cloudToggle.disabled = false;
-});
-// 網路恢復、打開網頁時：補傳還沒上傳的
-window.addEventListener('online', () => cloud.sync(loadHistory()));
-cloud.sync(loadHistory());
+const cloudPanel = setupCloudPanel();
 
 // ---------- AI 模型（自動調整的第 3 步） ----------
 // 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）

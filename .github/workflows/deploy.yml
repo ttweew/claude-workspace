@@ -29,10 +29,13 @@ jobs:
       - name: Add version to file links
         run: |
           v="${GITHUB_SHA::8}"
-          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z/-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" index.html replay.html help.html
+          # 最上層的每一頁（*.html）都加：以前只寫了 index、replay、help 三頁，10/21 新增的實測報表（report.html）沒加到
+          sed -i "s#href=\"css/\([a-z-]*\)\.css\"#href=\"css/\1.css?v=$v\"#g; s#src=\"js/\([a-z/-]*\)\.js\"#src=\"js/\1.js?v=$v\"#g" *.html
           # js 分在幾個子資料夾裡：每個檔案的 import（./x.js、../skeleton/x.js）都加上版本號
           find js -name '*.js' -exec sed -i -E "s#(from '\.{1,2}/[A-Za-z/.-]*\.js)'#\1?v=$v'#g" {} +
-          grep -c "?v=$v" index.html replay.html help.html $(find js -name '*.js' | sort)
+          grep -c "?v=$v" *.html $(find js -name '*.js' | sort)
+          # 安全檢查：每一頁的 CSS、JS 連結都要加到版本號
+          if grep -nE 'href="css/[^"?]*\.css"|src="js/[^"?]*\.js"' *.html; then echo "有頁面的連結沒加到版本號"; exit 1; fi
           # 安全檢查：還有沒加到版本號的 import 就停止發布（手機可能拿到新舊混在一起的檔案）
           if grep -rnE "from '\.{1,2}/[^'?]*\.js'" js; then echo "有 import 沒加到版本號"; exit 1; fi
       - uses: actions/configure-pages@v5
