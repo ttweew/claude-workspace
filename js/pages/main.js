@@ -846,7 +846,9 @@ function finishRep(rep, depth) {
 function sayRep(rep, depth) {
     let line;
     if (workout.kind === 'hold') {
-        line = voiceMode === 'full' ? { kind: 'count', text: '撐了 ' + Math.floor(rep.seconds) + ' 秒' } : null;
+        // 整次都沒一直線（0 秒）：說沒有計時，不說「撐了 0 秒」
+        const sec = Math.floor(rep.seconds);
+        line = voiceMode === 'full' ? { kind: 'count', text: sec ? '撐了 ' + sec + ' 秒' : '這次身體沒有一直線，沒有計時' } : null;
     } else {
         const words = errorStreak.update(rep.errors || []).map(id => (errorRule(workout.id, id) || {}).speech).filter(Boolean);
         line = repLine(voiceMode, rep.n, depth, words);

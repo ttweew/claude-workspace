@@ -5,7 +5,7 @@
 //   深蹲、弓箭步太淺又太快（不到 0.8 秒）的也不算：通常是換姿勢（轉身、兩下之間很快的小蹲）
 //   每一下記錄最小的角度，判斷深度：≤ good 到位、≤ close 再低一點、更大是太淺
 //   只在側面、斜側面拍時計算：正面拍的角度誤差太大（見 view.js），會提示使用者側身
-// HoldTimer：姿勢對的時候計時（棒式）；姿勢跑掉時暫停，起身就結束這一次
+// HoldTimer：趴好就算開始這一次（棒式），姿勢對（一直線）的時候才計時；姿勢跑掉時暫停，起身就結束這一次
 
 import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
 
@@ -219,7 +219,7 @@ export const SHALLOW_QUICK_MS = 800;
 export const HOLD_DEFAULTS = {
     graceMs: 1000,   // 姿勢跑掉不到這麼久：畫面上還是「撐住中」（偵測跳一下不會一直閃），但這段時間不算秒數
     endMs: 3000,     // 起身（不是趴著）超過這麼久：這一次結束
-    minHoldMs: 3000, // 撐不到這麼久的不記成一次（例如剛趴下就起來）
+    minHoldMs: 3000, // 趴不到這麼久的不記成一次（例如剛趴下就起來）
     frontMs: 700,
     lostMs: 1500,
     maxStepMs: 200   // 兩格之間最多算這麼久（中間漏掉的畫面不算秒數）
@@ -234,8 +234,9 @@ export class HoldTimer {
 
     reset() {
         this.holds = [];          // 每一次：{ n, start, end（秒）, seconds }
-        this.current = null;      // 這一次：{ start, ms }
+        this.current = null;      // 這一次：{ start, ms（一直線、有計時的毫秒）, lyingMs（趴著的毫秒） }
         this.lastGood = null;
+        this.lastLying = null;
         this.lastTime = null;
         this.offSince = null;     // 從什麼時候開始沒有趴著
         this.frontSince = null;
@@ -270,16 +271,20 @@ export class HoldTimer {
                 if (this.current && timeMs - this.offSince >= c.endMs) out.hold = this.end(timeMs);
                 if (!this.current) out.prompt = off;
             } else {
+                // 趴好了：這一次開始（還沒一直線也算，只是不計時）
+                // 以前要一直線才開始：10/20 實測受測者 B 故意屁股太高的那組一直沒開始，紀錄裡沒有這一次（畫面上有紅字）
                 this.offSince = null;
                 good = c.good(pose);
+                if (!this.current) this.current = { start: timeMs, ms: 0, lyingMs: 0 };
+                else this.current.lyingMs += dt;
+                this.lastLying = timeMs;
             }
-        } else if (this.current && this.lastGood !== null && timeMs - this.lastGood > c.endMs + c.lostMs) {
+        } else if (this.current && this.lastLying !== null && timeMs - this.lastLying > c.endMs + c.lostMs) {
             // 很久看不到人：這一次結束
             out.hold = this.end(timeMs);
         }
         if (good) {
-            if (!this.current) this.current = { start: timeMs, ms: 0 };
-            else if (this.lastGood !== null && timeMs - this.lastGood <= c.graceMs) this.current.ms += dt;
+            if (this.lastGood !== null && timeMs - this.lastGood <= c.graceMs) this.current.ms += dt;
             this.lastGood = timeMs;
         }
         out.holding = !!this.current && this.lastGood !== null && timeMs - this.lastGood <= c.graceMs;
@@ -300,7 +305,8 @@ export class HoldTimer {
         const cur = this.current;
         this.current = null;
         this.lastGood = null;
-        if (cur.ms < this.config.minHoldMs) return null;
+        this.lastLying = null;
+        if (cur.lyingMs < this.config.minHoldMs) return null;
         const hold = { n: this.holds.length + 1, start: cur.start / 1000, end: timeMs / 1000, seconds: cur.ms / 1000 };
         this.holds.push(hold);
         return hold;

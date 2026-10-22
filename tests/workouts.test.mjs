@@ -192,7 +192,36 @@ test('棒式的錯誤：做完起身時屁股翹起來不記；中途屁股翹�
     // 塌腰 3 秒（髖部角度還夠大時照樣計時）→ 記塌腰
     holds = session([[flat, 3], [sagged, 3], [flat, 3], [up, 4]]);
     assert.deepEqual(holds[0].errors, ['sag']);
-    // 趴下準備時屁股先翹著（還沒開始計時）→ 放下來撐：不記（還沒開始這一次）
+    // 趴下準備時屁股先翹著（還沒一直線過）→ 放下來撐：不記（在調整姿勢）
     holds = session([[piked, 3], [flat, 8], [up, 4]]);
     assert.deepEqual(holds[0].errors, [], '開始前的紅字還沒消失也不記');
+});
+
+test('棒式：趴好就算開始這一次、一直線才計時；整次都沒一直線也記一次（0 秒＋錯誤）；趴不到 3 秒的不記（10/22）', () => {
+    const flat = demoLandmarks('plank', 0);
+    const piked = flat.map((p, i) => (i === P.LEFT_HIP || i === P.RIGHT_HIP ? { ...p, y: p.y - 0.08 } : p));
+    const up = flat.map(p => ({ ...p, x: 0.5 + (p.y - 0.5) * 0.75, y: 0.5 - (p.x - 0.5) * 1.333 }));
+    const session = steps => {
+        const pipeline = new PosePipeline(), tracker = new WorkoutTracker('plank');
+        let t = 0, shown = 0;
+        for (const [lm, sec] of steps) for (let i = 0; i < sec * 30; i++) shown = tracker.update(pipeline.process(lm, t += 33, W, H), t).count.seconds;
+        return { holds: tracker.items, shown };
+    };
+    // 10/20 受測者 B 故意屁股太高 10 秒：以前一直沒開始，紀錄裡沒有；現在記一次 0 秒＋屁股太高
+    let { holds, shown } = session([[up, 1], [piked, 10], [up, 4]]);
+    assert.equal(holds.length, 1, '屁股一直翹著也記一次');
+    assert.equal(holds[0].seconds, 0, '沒有一直線不計時');
+    assert.deepEqual(holds[0].errors, ['pike']);
+    assert.ok(holds[0].peaks.pike > 0, JSON.stringify(holds[0].peaks));
+    // 屁股翹著時畫面上的秒數停在 0
+    ({ holds, shown } = session([[piked, 5]]));
+    assert.equal(shown, 0);
+    // 趴不到 3 秒就起來：不記（不管有沒有一直線）
+    assert.equal(session([[flat, 2], [up, 4]]).holds.length, 0, '一直線 2 秒');
+    assert.equal(session([[piked, 2], [up, 4]]).holds.length, 0, '屁股翹著 2 秒');
+    // 一直線 10 秒：和以前一樣
+    ({ holds } = session([[flat, 10], [up, 4]]));
+    assert.equal(holds.length, 1);
+    assert.ok(Math.abs(holds[0].seconds - 10) < 0.6, '撐 ' + holds[0].seconds);
+    assert.deepEqual(holds[0].errors, []);
 });
