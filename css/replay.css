@@ -139,6 +139,14 @@
 .report-link a {
     color: var(--info);
 }
+/* 實測報表、照片量角器上面「回重播分析／回使用說明」的連結 */
+.back-link {
+    margin: 8px 0 0;
+    font-size: 15px;
+}
+.back-link a {
+    color: var(--info);
+}
 .load-status {
     margin: 10px 0 0;
     color: var(--muted);

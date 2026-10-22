@@ -1,11 +1,4 @@
 /* 實測報表（report.html，10/21）：其他樣式和重播分析共用（css/replay.css） */
-.back-link {
-    margin: 8px 0 0;
-    font-size: 15px;
-}
-.back-link a {
-    color: var(--info);
-}
 .phone-row {
     display: flex;
     flex-wrap: wrap;

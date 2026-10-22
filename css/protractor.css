@@ -1,0 +1,136 @@
+/* 照片量角器（protractor.html，10/22）：其他樣式和重播分析共用（css/replay.css） */
+.joint-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 0;
+}
+.joint-pick legend {
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.joint-pick label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+}
+.joint-pick input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.joint-pick label:has(input:checked) {
+    border-color: var(--info);
+    background: rgba(76, 195, 255, 0.14);
+    font-weight: 700;
+}
+.joint-pick label:has(input:focus-visible) {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+}
+
+/* 照片、連線、三個圈疊在一起；照片多大，框就多大（手機上照片縮到畫面寬，圈的位置用百分比跟著縮） */
+.photo-stage {
+    position: relative;
+    margin: 8px 0 0;
+    touch-action: none;   /* 拖圈的時候不要捲動畫面 */
+    user-select: none;
+    -webkit-user-select: none;
+}
+.photo-stage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+.photo-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.photo-lines line {
+    stroke: var(--info);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+.photo-lines circle {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.7);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 3;
+    vector-effect: non-scaling-stroke;
+}
+/* 圈：中間是空的，看得到下面的關節；外面一圈透明的範圍讓手指好按（44px） */
+.replay .handle {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+}
+.replay .handle::before {
+    content: "";
+    position: absolute;
+    inset: 11px;
+    border: 3px solid var(--info);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+/* 中間那個（關節）：黃色，和兩端分得出來 */
+.replay .handle.joint::before {
+    border-color: var(--attn);
+}
+.replay .handle:active {
+    cursor: grabbing;
+}
+.replay .handle:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -4px;
+}
+
+.readout {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0 0;
+}
+.readout p {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.readout span {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+}
+.readout strong {
+    font-size: 24px;
+    font-variant-numeric: tabular-nums;
+}
+.protractor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 0;
+}
+@media (max-width: 400px) {
+    .readout strong {
+        font-size: 20px;
+    }
+}
