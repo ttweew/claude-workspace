@@ -68,6 +68,11 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `report21/make_files.mjs <網站資料夾> <輸出資料夾>` 做合成的實測檔（示範資料加上實測資訊），`report21/check.py <網站資料夾> <port>`：實測報表頁。
   - `real20/`：重算實測檔的工具（實測檔本身是組員的錄影，不放進這個分支）。`table.mjs <資料夾>` 每一組的次數和錯誤（`ROOT=<程式資料夾>` 指定用哪一份程式，改前改後比較）；`trace_win.mjs <檔> <動作> <開始秒> <結束秒>` 逐格看計次狀態；`plank_timeline.mjs <檔>` 棒式每 0.5 秒的狀態；`heelbase.mjs`、`heelrise.mjs`、`heelrise2.mjs` 三種腳跟量法比較；`coach_cmp.mjs <教練影片資料夾>`。
   - 10/21 下午：`report21/check.py` 加上「算的時候又拖檔案進來」「390 以上表格放得進框裡」，CSV 用 `newline=''` 讀（保留 \r\n）；`report21/real_report.mjs <資料夾>`（`ROOT=<程式資料夾>`）用報表的程式跑實測檔、印每一組和總結。`real20/quick.mjs <資料夾>` 列出不到 1 秒的那幾下（時間、最低角度、深度）；`real20/coach_rep.mjs <教練影片.json>` 列出 160～200 秒的每一下。`step5/replay_squat.py`：表格超過 2 列才點（10/14 起沒有 nolab 那一列）。
+- 10/22：
+  - `plank22/`：棒式趴好就算開始（`node make_fake.mjs <網站資料夾>` 做出屁股一直翹著 10 秒再起身的假 AI，`python3 check.py <網站資料夾>`：秒數停在 0:00、紅字、提示、講的話、總結；背景執行緒和主畫面）。
+  - `prop22/check.py <網站資料夾> <port>`：照片量角器（真的 AI 看 `mp/pose.jpg`：拖圈、方向鍵、換關節、記下來、使用說明的表格和 CSV、沒有人的照片 `empty.png`、不是照片 `notes.txt`、AI 下載失敗、版面、axe-core）。
+  - `real20/plank_holds.mjs <資料夾>`（`ROOT=<程式資料夾>`）：棒式實測檔每一次的開始、結束、秒數、錯誤。
+  - `prEcheck/validate.py`：每一下的錯誤 10/19 起後面有數字（「塌腰 19°」），改成比開頭（以前這兩項一直失敗，不在完整回歸測試裡所以沒發現）。
   - `reg2_from10.sh`：容器重開、回歸測試跑到一半斷掉時，從第 10 行（squat）接著跑；前面的輸出要逐段和 `reg_r22.txt` 比對行數，確定是完整的再接起來。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

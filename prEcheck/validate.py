@@ -96,8 +96,9 @@ with sync_playwright() as p:
     rows = pg.evaluate("[...document.querySelectorAll('#squatTable tbody tr')].map(tr => [...tr.children].map(c => c.textContent))")
     check(pg.inner_text("#workoutPick option:first-child") == '錄製時選的（伏地挺身）', '選單寫錄製時選的動作')
     check(summ.startswith('伏地挺身 3 下：到位 3') and '要注意：塌腰 2 下' in summ, '重播總結：' + summ)
-    check(len(rows) == 3 and rows[0][-1] == '—' and rows[1][-1] == '塌腰' and rows[2][-1] == '塌腰', '每一下的錯誤：' + str([r[-1] for r in rows]))
-    check(len(live) == 3 and all(('塌腰' in t) == (r[-1] == '塌腰') for t, r in zip(live, rows)), '和鏡頭畫面的結果一樣：' + str(live))
+    # 10/19（PR #86）起錯誤後面寫出最嚴重的數字（例如「塌腰 19°」）：比開頭
+    check(len(rows) == 3 and rows[0][-1] == '—' and rows[1][-1].startswith('塌腰') and rows[2][-1].startswith('塌腰'), '每一下的錯誤：' + str([r[-1] for r in rows]))
+    check(len(live) == 3 and all(('塌腰' in t) == r[-1].startswith('塌腰') for t, r in zip(live, rows)), '和鏡頭畫面的結果一樣：' + str(live))
     # 換成用深蹲分析：伏地挺身的檔案用深蹲看，算不到
     pg.select_option("#workoutPick", 'squat')
     pg.wait_for_function("document.getElementById('squatSummary').textContent.includes('深蹲')", timeout=30000)
