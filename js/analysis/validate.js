@@ -1,6 +1,7 @@
 // 驗證工具：網站算的關節角度準不準
 // 做法：擺一個姿勢不動，一個人用量角器量關節角度，另一個人在鏡頭畫面按「記下角度」；
 //      做完後到使用說明頁「驗證實驗」把量角器的角度填進去，網站算出平均差幾度
+// 10/22 起也可以用照片量角器（js/analysis/protractor.js）：在照片上拖三個點量，和 AI 在同一張照片上算的比，存成同一種紀錄（source: 'photo'）
 // 記下的角度存在這台裝置上（最多 200 筆），不會上傳；可以下載成 CSV 放進報告
 
 import { ANGLES } from './angles.js';
@@ -29,7 +30,9 @@ function clean(s) {
         view: ['side', 'oblique', 'front'].includes(s.view) ? s.view : null,
         joint: s.joint,
         angles,
-        measured: validMeasure(s.measured) ? s.measured : null
+        measured: validMeasure(s.measured) ? s.measured : null,
+        // 照片量角器量的才有；其他值（被改過）當成鏡頭畫面記下的
+        ...(s.source === 'photo' ? { source: 'photo' } : {})
     };
 }
 
@@ -84,14 +87,15 @@ export function stats(list) {
 
 // 下載用的 CSV（Excel 打得開：開頭加 BOM，中文才不會變亂碼）
 export function toCSV(list) {
-    const head = ['時間', '動作', '拍攝方向', '比對的關節', '網站角度', '量角器角度', '差距', ...ANGLES.map(([, name]) => name)];
+    // 來源放最後一欄（10/22 加的）：前面的欄位和以前一樣，舊的整理方式不用改
+    const head = ['時間', '動作', '拍攝方向', '比對的關節', '網站角度', '量角器角度', '差距', ...ANGLES.map(([, name]) => name), '來源'];
     // 文字開頭是 = + - @ 時，Excel 會當成公式執行：前面加 ' 當成一般文字（數字不受影響）
     const cell = v => (v === null || v === undefined ? '' : typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : String(v));
     const rows = list.map(s => {
         const site = s.angles[s.joint];
         const diff = !validMeasure(s.measured) || site === null || site === undefined ? '' : Math.round((site - s.measured) * 10) / 10;
         return [new Date(s.time).toLocaleString('zh-TW', { hour12: false }), s.workout, s.view, JOINT_NAMES[s.joint] || s.joint, site, s.measured, diff,
-            ...ANGLES.map(([key]) => s.angles[key])].map(cell).join(',');
+            ...ANGLES.map(([key]) => s.angles[key]), s.source === 'photo' ? '照片' : '鏡頭'].map(cell).join(',');
     });
     return '﻿' + [head.join(','), ...rows].join('\r\n') + '\r\n';
 }

@@ -72,6 +72,8 @@ function showValidation() {
             pick.append(o);
         }
         pick.value = s.joint;
+        // 照片量角器量的：量的就是這個關節，不能換（換了量角器那欄就對不上）
+        pick.disabled = s.source === 'photo';
         const site = td('');
         const input = document.createElement('input');
         input.type = 'number';
@@ -106,7 +108,7 @@ function showValidation() {
         jointCell.append(pick);
         const inputCell = document.createElement('td');
         inputCell.append(input);
-        tr.append(td(String(i + 1)), td(time), jointCell, site, inputCell, diff);
+        tr.append(td(String(i + 1)), td(time + (s.source === 'photo' ? '（照片）' : '')), jointCell, site, inputCell, diff);
         return tr;
     }));
     showStats(list);
