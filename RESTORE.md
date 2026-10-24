@@ -74,5 +74,11 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `real20/plank_holds.mjs <資料夾>`（`ROOT=<程式資料夾>`）：棒式實測檔每一次的開始、結束、秒數、錯誤。
   - `prEcheck/validate.py`：每一下的錯誤 10/19 起後面有數字（「塌腰 19°」），改成比開頭（以前這兩項一直失敗，不在完整回歸測試裡所以沒發現）。
   - `reg2_from10.sh`：容器重開、回歸測試跑到一半斷掉時，從第 10 行（squat）接著跑；前面的輸出要逐段和 `reg_r22.txt` 比對行數，確定是完整的再接起來。
+- 10/24（10/23 颱風假）：
+  - `heel24/`：腳跟離地改成和站直時比（`node make_fake.mjs <網站資料夾>` 做出深蹲 4 下、後 2 下腳跟往上移 25% 的假 AI，`python3 check.py <網站資料夾>`：每一下的提示、說出原因、連續兩下才講、總結；背景執行緒和主畫面）。`real20/heelrise3.mjs 名稱=檔案 …`（`ROOT=<程式資料夾>`）：兩種腳跟量法每一下的最大值。
+  - `sec24/fuzz_history.mjs <網站資料夾>`：存在手機上的運動紀錄改成 43 種奇怪的值，看總結、比較、雲端上傳會不會出錯或出現 NaN、[object Object]。
+  - `prop22/check.py`：加上檔案很小、寫很大的圖 `huge.png`（8000×8000，7.8 KB）要說「照片太大」。
+  - `prCcheck/form.py`：跟上 10/19（紅字多一行說出原因）、10/20（講「3 下，收緊腹部」）、10/24（腳跟離地的新量法）。
+  - `bal24/`：平衡與重心。`node make_fake.mjs <網站資料夾>` 做出站直 → 往前倒 15° → 正面的假 AI，也算出網站應該算的重心（`expected.json`）和重播用的 `stand.json`；`python3 check.py <網站資料夾>`：數據面板、畫面上的記號、重播分析（36 項）。`real.mjs 檔案 …`（`ROOT=<程式資料夾>`）：實測檔每一下最低時、站直時的重心和前後晃動；`com.mjs`、`com_ankle.mjs`、`ratio.mjs`：比較「腳跟 0%～腳尖 100%」和「以腳踝、小腿長為準」兩種寫法。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

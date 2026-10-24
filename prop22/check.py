@@ -104,6 +104,9 @@ with sync_playwright() as p:
     ctx, pg, errs = page()
     clear(pg); pg.set_input_files('#photoInput', HERE + '/notes.txt'); wait_ai(pg)
     check(pg.text_content('#photoStatus').startswith('這不是照片') and not pg.is_visible('#measureCard'), '不是照片：' + pg.text_content('#photoStatus'))
+    # 10/24 安全複查：檔案很小（7.8 KB）、寫 8000×8000 的圖，整張解開要 256 MB：先看大小就說明
+    clear(pg); pg.set_input_files('#photoInput', HERE + '/huge.png'); wait_ai(pg)
+    check(pg.text_content('#photoStatus').startswith('照片太大（超過 6000 萬像素）') and not pg.is_visible('#measureCard'), '太大的圖：' + pg.text_content('#photoStatus'))
     clear(pg); pg.set_input_files('#photoInput', HERE + '/empty.png'); wait_ai(pg)
     s = pg.evaluate(STATE)
     check(s['status'].startswith('AI 在這張照片裡找不到人') and s['ai'] == '—' and s['mine'] == '180.0°' and s['diff'] == '—' and pg.is_hidden('#resetBtn'), f'沒有人：{s["status"][:20]} 你量的 {s["mine"]} AI {s["ai"]}')

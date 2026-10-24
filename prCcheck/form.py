@@ -56,9 +56,11 @@ with sync_playwright() as p:
             pg.wait_for_timeout(500); reds.append(pg.evaluate(RED_PIXELS))
         toasts = pg.evaluate("window.__toasts"); tips = pg.evaluate("window.__tips"); said = pg.evaluate("window.__said")
         check(len(toasts) == 3 and '塌腰' not in toasts[0] and '[good]' in toasts[0] and all(re.search(r'· 塌腰( · 相似 \d+%)? \[close\]', t) for t in toasts[1:]), tag + '伏地挺身每一下：' + str(toasts))
-        check(tips == ['腰塌下去了，收緊腹部'], tag + '紅字：' + str(tips))
+        # 10/19 起紅字下面多一行說出原因（「腰往下彎 19°，超過 16° 算塌腰」）：比開頭
+        check(len(tips) == 1 and tips[0].startswith('腰塌下去了，收緊腹部') and '超過 16° 算塌腰' in tips[0], tag + '紅字：' + str(tips))
         check(max(reds) > max(reds[:8]) + 800, f'{tag}做錯時骨架多了紅線（標準那一下最多 {max(reds[:8])}、做錯時最多 {max(reds)} 個紅色像素；關節本來就是紅點）')
-        check('收緊腹部' in said and '1 下' in said and said.count('收緊腹部') <= 2, tag + '語音：' + str(said))
+        # 10/20 起錯誤在一下做完時跟次數一起講（「3 下，收緊腹部」），同一種錯誤連續兩下才講
+        check(any('收緊腹部' in x for x in said) and '1 下' in said and sum('收緊腹部' in x for x in said) <= 2, tag + '語音：' + str(said))
         check(not pg.errs, tag + '沒有錯誤 ' + str(pg.errs[:2]))
         ctx.close()
     # 深蹲：第 2 下上身太前傾
@@ -66,14 +68,15 @@ with sync_playwright() as p:
     pg.click("#startBtn"); pg.wait_for_timeout(11000)
     toasts = pg.evaluate("window.__toasts"); tips = pg.evaluate("window.__tips"); said = pg.evaluate("window.__said")
     check(len(toasts) == 2 and '前傾' not in toasts[0] and '上身前傾' in toasts[1], '深蹲每一下：' + str(toasts))
-    check(tips == ['上身太前傾，胸口挺起來'] and '胸口挺起來' in said, f'深蹲紅字 {tips}、語音 {said}')
+    # 只有第 2 下前傾：同一種錯誤連續兩下才講（10/20），所以只唸次數
+    check(len(tips) == 1 and tips[0].startswith('上身太前傾，胸口挺起來') and said == ['1 下', '2 下'], f'深蹲紅字 {tips}、語音 {said}')
     ctx.close()
     # 弓箭步：第 1 下前膝超過腳尖
     ctx, pg = fake_page(b, 'lunge_err', '?workout=lunge')
     pg.click("#startBtn"); pg.wait_for_timeout(9500)
     toasts = pg.evaluate("window.__toasts"); tips = pg.evaluate("window.__tips")
     check(len(toasts) == 2 and '膝超過腳尖' in toasts[0] and '膝超過腳尖' not in toasts[1], '弓箭步每一下：' + str(toasts))
-    check(tips == ['前膝超過腳尖了，步伐跨大一點'], '弓箭步紅字：' + str(tips))
+    check(len(tips) == 1 and tips[0].startswith('前膝超過腳尖了，步伐跨大一點'), '弓箭步紅字：' + str(tips))
     ctx.close()
     # 音量關：不唸；自由模式：不判斷
     ctx, pg = fake_page(b, 'pushup_err', '?workout=pushup')
