@@ -9,11 +9,14 @@ import { ANGLES, angleAt, computeAngles, signedAngle } from '../analysis/angles.
 import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { WorldStabilizer } from '../skeleton/world.js';
+import { BalanceMeter, BALANCE } from '../analysis/balance.js';
 
 export const ANGLE_KEYS = ANGLES.map(([key]) => key);
 export const SIGNED_KEYS = ANGLE_KEYS.filter(k => /_(KNEE|HIP)$/.test(k));
 export const VIEW_CODES = [null, 'side', 'oblique', 'front'];
 const POINTS = LANDMARKS.length;
+// 重心（js/analysis/balance.js）每一格存的數字，順序和 balanceOf 的欄位一樣；算不出來是 NaN
+export const BALANCE_FIELDS = ['x', 'y', 'offset', 'heel', 'toe', 'heelX', 'toeX', 'floor', 'sway'];
 
 // 3D 檢查（單位：公分）：骨頭長度、3D 膝蓋角度
 // WORLD_BONES：[代號, 中文名, 起點, 終點]；WORLD_KNEES：[代號, 中文名, 髖, 膝, 踝]
@@ -123,6 +126,7 @@ export function needsFrameSize(meta) {
 //   沒有值（算不出來）的角度、比值、長度是 NaN；present：這一格有沒有人（經過擋鬼點）
 //   boneRaw / boneStable：WORLD_BONES 每根骨頭的 3D 長度（公尺），原始 / 處理過（js/skeleton/world.js，和錄製時存的 swx… 相同方法）
 //   knee3dRaw / knee3dStable：WORLD_KNEES 的 3D 膝蓋角度；兩端關節在畫面上看得到時才算（看不到的點，3D 座標是猜的）
+//   balance：每一格 BALANCE_FIELDS 的重心數字（沒選動作、自由模式、深蹲才算，和鏡頭畫面一樣）
 export async function analyzeRecording(parsed, width, height, { workout = null, lab = false, onProgress = null, pause = null } = {}) {
     if (!workout && lab) workout = 'squat';
     const frames = parsed.frames;
@@ -147,18 +151,22 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
         boneRaw: new Float32Array(n * WORLD_BONES.length).fill(NaN),
         boneStable: new Float32Array(n * WORLD_BONES.length).fill(NaN),
         knee3dRaw: new Float32Array(n * WORLD_KNEES.length).fill(NaN),
-        knee3dStable: new Float32Array(n * WORLD_KNEES.length).fill(NaN)
+        knee3dStable: new Float32Array(n * WORLD_KNEES.length).fill(NaN),
+        balance: new Float32Array(n * BALANCE_FIELDS.length).fill(NaN)
     };
     const pipeline = new PosePipeline();
     const stabilizer = new WorldStabilizer();
     const tracker = workout && workout !== 'free' ? new WorkoutTracker(workout) : null;
     // 錄製時已經校正好（meta.calibration）就沿用；沒有的話從錄影裡站直不動的那段自己校正
     if (tracker && parsed.meta) tracker.useBaseline(parsed.meta.calibration);
+    const balance = !workout || BALANCE.workouts.includes(workout) ? new BalanceMeter() : null;
     for (let i = 0; i < n; i++) {
         const f = frames[i];
         out.t[i] = f.t / 1000;
         const p = pipeline.process(f.raw, f.t, width, height);
         if (tracker) tracker.update(p, f.t);
+        const b = balance ? balance.update(p, f.t) : null;
+        if (b) BALANCE_FIELDS.forEach((k, j) => { if (b[k] !== null) out.balance[i * BALANCE_FIELDS.length + j] = b[k]; });
         if (f.raw) {
             out.rawPresent[i] = 1;
             const ra = computeAngles(f.raw, width, height);
@@ -225,6 +233,6 @@ function measureWorld(out, i, raw, world, stable) {
 // 可以「整塊交給」另一個執行緒的陣列（不用複製）
 export function transferables(result) {
     return ['t', 'present', 'angles', 'signed', 'rawAngles', 'view', 'ratio', 'facing', 'smooth', 'smoothVis', 'rawPresent', 'raw', 'rawVis',
-        'boneRaw', 'boneStable', 'knee3dRaw', 'knee3dStable']
+        'boneRaw', 'boneStable', 'knee3dRaw', 'knee3dStable', 'balance']
         .map(k => result[k].buffer);
 }

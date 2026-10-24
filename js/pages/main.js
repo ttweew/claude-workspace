@@ -4,7 +4,7 @@ import { SHOW_LABELS_AT_START, DEBUG, MODELS, PREDICT, FPS_CHOICES } from '../co
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
-import { drawSkeleton } from '../ui/draw.js';
+import { drawSkeleton, drawBalance } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
 import { SpeedMeter, AutoFps, ADVICE, advise, median, loadSkipped, skipAdvice } from '../ai/advisor.js';
@@ -20,6 +20,7 @@ import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
 import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
+import { BalanceMeter, balanceOf, BALANCE } from '../analysis/balance.js';
 import { errorShort, errorRule, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { setupCloudPanel } from '../ui/cloud-panel.js';
@@ -160,6 +161,8 @@ const worldStabilizer = new WorldStabilizer();  // 3D 座標：平滑＋骨頭�
 let workout = getWorkout();
 // 次數（棒式計時）＋動作錯誤（js/analysis/tracker.js）；重播分析也用同一套
 let tracker = new WorkoutTracker(workout.id);
+// 重心、前後晃動（js/analysis/balance.js，10/24）：自由模式、深蹲才算；重播分析也用同一套
+const balanceMeter = new BalanceMeter();
 let sessionStart = Date.now();            // 這次運動從什麼時候開始（開鏡頭、換動作）
 // 一直顯示角度的關節（例如深蹲是左右膝、髖，伏地挺身是左右肘、髖）
 let shownAngleKeys = [];
@@ -756,10 +759,14 @@ function showResult(result, now) {
         const tracked = tracker.update(processed, now);
         // 個人校正（js/analysis/calibrate.js）：站直不動約 2 秒後，依這個人調整，短暫說明
         if (tracked.calibrated) showAutoNote(calibrationText(tracked.calibrated));
+        // 重心：數字用沒預測的點；畫的記號用畫出來的點（往前預測過），才會和骨架對齊
+        const balance = BALANCE.workouts.includes(workout.id) ? balanceMeter.update(processed, now) : null;
+        const drawn = balance && shown !== landmarks ? balanceOf({ ...processed, landmarks: shown }) : balance;
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         drawSkeleton(ctx, shown, shownDerived, dpr, tracked.form.red);
+        if (drawn) drawBalance(ctx, drawn, dpr);
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
-        lastPose = { ...processed, raw, rawWorld, shown, shownDerived };
+        lastPose = { ...processed, raw, rawWorld, shown, shownDerived, balance };
         showPoseLabels();
         hud.update(landmarks, angles);
         // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
@@ -775,6 +782,7 @@ function showResult(result, now) {
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
         if (!lastPose || now - lastSeen > KEEP_POSE_MS) hidePose();
         showCount(tracker.update(null, now));
+        balanceMeter.update(null, now);
         showForm(null);
         const hint = framing.update(NO_PERSON, now);
         showHint(hint.text, hint.kind, now);
@@ -903,6 +911,7 @@ function resetSpeech() {
 
 function resetCounter() {
     tracker.reset();
+    balanceMeter.reset();
     formTip.hidden = true;
     formShown.clear();
     resetSpeech();
@@ -1066,6 +1075,7 @@ onWorkoutChange(next => {
     finishSession();
     workout = next;
     tracker = new WorkoutTracker(next.id);
+    balanceMeter.reset();
     showWorkout();
 });
 
@@ -1875,7 +1885,7 @@ function stopRecording(limitHit = false) {
 // 數據面板：數值表格（原始或平滑後），以及動作判斷用的資訊
 function updatePanel() {
     updateDataPanel(dataRows, lastPose && (panelSmooth ? lastPose.landmarks : lastPose.raw));
-    updateViewInfo(viewInfo, lastPose, video.classList.contains('mirrored'), video.videoWidth, video.videoHeight);
+    updateViewInfo(viewInfo, lastPose, video.classList.contains('mirrored'), video.videoWidth, video.videoHeight, BALANCE.workouts.includes(workout.id));
 }
 
 // 數據面板是近距離分析用的，打開時收起大字儀表板，兩者不會疊在一起

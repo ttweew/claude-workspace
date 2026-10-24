@@ -13,7 +13,9 @@ import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
 import { summarize, describe } from '../analysis/session.js';
 import { errorShort, errorRule } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
-    WORLD_BONES, WORLD_KNEES } from '../data/replay-core.js';
+    WORLD_BONES, WORLD_KNEES, BALANCE_FIELDS } from '../data/replay-core.js';
+import { balanceLine, BALANCE } from '../analysis/balance.js';
+import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
@@ -260,8 +262,15 @@ function buildRows(r) {
         const K = WORLD_KNEES.length;
         const knee3d = {};
         WORLD_KNEES.forEach(([k], j) => { knee3d[k] = val(r.knee3dStable[i * K + j]); });
+        // 重心（js/analysis/balance.js）：算不出來（沒有人、正面拍、這個動作不算）是 null
+        const B = BALANCE_FIELDS.length;
+        let balance = null;
+        if (present && !Number.isNaN(r.balance[i * B + 2])) {
+            balance = {};
+            BALANCE_FIELDS.forEach((k, j) => { balance[k] = val(r.balance[i * B + j]); });
+        }
         rows[i] = {
-            t: r.t[i], present, angles, signed, rawAngles, hasRaw: r.rawPresent[i] === 1, knee3d,
+            t: r.t[i], present, angles, signed, rawAngles, hasRaw: r.rawPresent[i] === 1, knee3d, balance,
             view: present ? { view: VIEW_CODES[r.view[i]], ratio: val(r.ratio[i]), facing: r.facing[i] } : null
         };
     }
@@ -300,7 +309,10 @@ function showSquats() {
     const s = summarize(id, reps, 0, 0);
     squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
     squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
-    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤'] : ['第幾下', '時間', '最小角度', '判斷', '相似度', '錯誤'];
+    // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面（錯誤一直是最後一欄）
+    const balanced = BALANCE.workouts.includes(id);
+    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']
+        : ['第幾下', '時間', '最小角度', '判斷', '相似度', ...(balanced ? ['重心（最低時）'] : []), '錯誤'];
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
     head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
@@ -313,7 +325,7 @@ function showSquats() {
         const cells = hold
             ? [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', formatSeconds(r.seconds), errors]
             : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),
-                r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', errors];
+                r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', ...(balanced ? [lowestBalance(r.bottom)] : []), errors];
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;
@@ -337,6 +349,19 @@ function showSquats() {
         tbody.appendChild(tr);
     }
     squatTable.replaceChildren(thead, tbody);
+}
+
+// 一下最低的時間點的重心：「腳踝前 3.2%」；那一格算不出來時，找前後 0.2 秒內最近的一格
+function lowestBalance(t) {
+    const { rows } = analysis;
+    let best = null;
+    for (const row of rows) {
+        if (!row.balance || Math.abs(row.t - t) > 0.2) continue;
+        if (!best || Math.abs(row.t - t) < Math.abs(best.t - t)) best = row;
+    }
+    if (!best) return '—';
+    const o = best.balance.offset;
+    return '腳踝' + (o >= 0 ? '前 ' : '後 ') + Math.abs(o).toFixed(1) + '%';
 }
 
 // ---------- 3D 檢查（3D 座標；驗證實驗 D、H） ----------
@@ -470,6 +495,21 @@ function showSummary() {
         ['模型 · 運算', (m.model || '—') + ' · ' + (m.computeMode || '—')],
         ['錄製時間', m.startedAt && !m.synthetic ? new Date(m.startedAt).toLocaleString('zh-TW') : '—']
     ];
+    // 重心（10/24）：站直時（兩膝都超過 160°，和 balance.js 一樣）重心比腳踝前多少（小腿長 100%）、晃多少，取中位數（偶爾跳一下的格子不影響）
+    // 卡片很窄，只寫數字；單位、算法寫在使用說明
+    // 前後晃動要站直不動 2.5 秒以上才有（例如合成示範資料每一下中間只站 1 秒，就沒有）
+    const standing = rows.filter(r => {
+        if (!r.balance) return false;
+        const knees = [r.angles.LEFT_KNEE, r.angles.RIGHT_KNEE].filter(a => a !== null);
+        return knees.length > 0 && knees.every(a => a > BALANCE.standKnee);
+    });
+    if (standing.length) {
+        const mid = list => quantile(list.sort((a, b) => a - b), 0.5);
+        const offset = mid(standing.map(r => r.balance.offset));
+        const sways = standing.map(r => r.balance.sway).filter(v => v !== null);
+        items.push(['重心（站直時）', '比腳踝' + (offset >= 0 ? '前 ' : '後 ') + Math.abs(offset).toFixed(1) + '%'],
+            ['前後晃動（站直時）', sways.length ? mid(sways).toFixed(1) + '%' : '—（沒有站直 3 秒）']);
+    }
     // 實測模式錄的（js/data/test-mode.js）：受測者代號、這組要做的
     const test = testInfo(m);
     if (test) items.unshift(['實測', '受測者 ' + test.subject + ' · ' + WORKOUTS[test.workout].name + ' · ' + test.name + ' ' + test.amount + ' ' + test.unit]);
@@ -707,10 +747,15 @@ function drawSkeleton() {
         ctx.arc(...at(r.smooth, j), 3.5, 0, Math.PI * 2);
         ctx.fill();
     }
+    // 重心（和鏡頭畫面一樣的記號）
+    if (row.balance) drawBalance(ctx, row.balance, 1, (x, y) => [(mirrored ? 1 - x : x) * w, y * h]);
 }
 
 function showReadout() {
     const row = analysis.rows[cursor];
+    // 重心算的動作（沒選動作、深蹲）多一行重心；讀數的高度固定三行，播到沒有人的格子時版面不會跳
+    const balanced = !analysis.workout || BALANCE.workouts.includes(analysis.workout);
+    readout.classList.toggle('three', balanced);
     const head = row.t.toFixed(2) + ' 秒（第 ' + cursor + ' 格）';
     if (!row.present) {
         readout.textContent = head + ' · 沒有人';
@@ -727,7 +772,8 @@ function showReadout() {
         const k = WORLD_KNEES.map(([key, name]) => name + ' ' + (row.knee3d[key] === null ? '—' : Math.round(row.knee3d[key]) + '°'));
         parts.push('3D（處理過）' + k.join(' '));
     }
-    readout.textContent = head + ' · ' + (v.view ? VIEW_NAMES[v.view] + '（比值 ' + v.ratio.toFixed(2) + '）' : '拍攝方向判斷中') + '\n' + parts.join(' · ');
+    readout.textContent = head + ' · ' + (v.view ? VIEW_NAMES[v.view] + '（比值 ' + v.ratio.toFixed(2) + '）' : '拍攝方向判斷中') + '\n' + parts.join(' · ')
+        + (balanced ? '\n' + balanceLine(row.balance) : '');
 }
 
 function selectTime(t) {
