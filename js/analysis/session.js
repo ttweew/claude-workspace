@@ -79,14 +79,17 @@ export function describe(s) {
         lines.push(w.name + ' ' + s.count + ' 次，最久 ' + formatSeconds(s.best) + '，總共 ' + formatSeconds(s.total));
     } else {
         lines.push(w.name + ' ' + s.count + ' 下：到位 ' + s.good + '、再低一點 ' + s.close + '、太淺 ' + s.shallow);
+        // 相似度是 0～100 的數字才寫（10/24 安全複查：存的紀錄被改過時，以前會寫出「相似 [object Object]%」）
+        const sim = s.similarity;
         lines.push('最低 ' + s.best + '°、平均 ' + s.average + '°，每下約 ' + s.tempo + ' 秒'
-            + (s.similarity !== null && s.similarity !== undefined ? '；和示範動作相似 ' + s.similarity + '%' : ''));
+            + (isNum(sim) && sim >= 0 && sim <= 100 ? '；和示範動作相似 ' + Math.round(sim) + '%' : ''));
     }
     // 計次準確率（10/20）：填了實際做幾下才有這一行
     if (countsReps(s) && isCount(s.actual) && s.actual <= ACTUAL_MAX) {
         lines.push('你數的 ' + s.actual + ' 下，網站算 ' + s.count + ' 下：計次準確率 ' + countAccuracy(s.count, s.actual) + '%');
     }
-    const errs = Object.entries(s.errors).sort((a, b) => b[1] - a[1]);
+    // 只寫認得的錯誤（舊版的代號、被改過的名字不寫；雲端上傳也一樣不收，見 js/cloud/sync.js）
+    const errs = Object.entries(s.errors).filter(([id]) => errorRule(s.workout, id)).sort((a, b) => b[1] - a[1]);
     lines.push(errs.length
         ? '要注意：' + errs.map(([id, n]) => errorName(id) + ' ' + n + ' ' + (w.kind === 'hold' ? '次' : '下')).join('、')
         : '每一' + (w.kind === 'hold' ? '次' : '下') + '都沒有偵測到錯誤');

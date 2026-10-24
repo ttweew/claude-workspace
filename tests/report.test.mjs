@@ -68,6 +68,11 @@ test('報表 CSV：Excel 打得開（BOM）；檔名開頭是 = 時不會被當�
     const line = csv.split('\r\n')[1];
     assert.ok(line.startsWith('A,深蹲,故意上身前傾,5,下,5,對,1,,'), line);
     assert.ok(line.includes(`"'=HYPERLINK(""x""),a.json"`), line);
+    // 開頭是 Tab、換行的檔名（10/24 安全複查）
+    for (const name of ['\t=1+1.json', '\r=1+1.json']) {
+        const row = reportCsv([setResult(info('squat', 'lean'), reps('lean'), 'reps', 0, name)]).split('\r\n').slice(1).join('\r\n');
+        assert.ok(row.includes("'" + name), JSON.stringify(row));
+    }
 });
 
 test('讀 zip：錄製檔清單壓的 zip（壓縮、不壓縮）、中文檔名、只拿 JSON；壞掉、大小不對的那個跳過，其他照樣讀；不是 zip 會說明', async () => {
@@ -96,6 +101,9 @@ test('讀 zip：錄製檔清單壓的 zip（壓縮、不壓縮）、中文檔名
     dir.setUint32(dir.getUint32(p + 16, true) + 24, 100, true);
     const small = await readZip(new Blob([packed]), name => name.endsWith('.json'));
     assert.deepEqual([small.files.map(f => f.name), small.skipped], [['中文.json'], 1]);
+    // 解出來加起來超過上限（10/24 安全複查：以前只限一個檔案）：放不下的跳過（第一個約 5 KB），放得下的照樣讀
+    const capped = await readZip(await makeZip(files, { compress: true }), name => name.endsWith('.json'), 3000);
+    assert.deepEqual([capped.files.map(f => f.name), capped.skipped], [['中文.json'], 1]);
     await assert.rejects(readZip(new Blob(['not a zip at all'])), /不是 zip/);
     await assert.rejects(readZip(new Blob([buf.subarray(0, buf.length - 30)])), /zip/);
 });

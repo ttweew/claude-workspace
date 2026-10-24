@@ -107,10 +107,11 @@ export function verdictText(r) {
 }
 
 // 下載用的 CSV（Excel 打得開：開頭加 BOM）；文字開頭是 = + - @ 時前面加 '（Excel 不會當成公式執行）；有逗號、引號、換行的加引號
+// 開頭是 Tab、換行也加 '（10/24 安全複查：檔名是使用者給的，zip 裡的檔名可以用這些字開頭，有些試算表會跳過再當成公式）
 export function reportCsv(rows) {
     const cell = v => {
         if (v === null || v === undefined) return '';
-        let s = typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : String(v);
+        let s = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : String(v);
         if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
         return s;
     };

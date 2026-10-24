@@ -200,9 +200,16 @@ export class FormChecker {
     }
 
     reset() {
+        this.clear();
+        this.tilt = 0;   // 個人校正的手機傾斜角度（tracker.js 校正好之後設定）
+    }
+
+    // 看不到人時：每條規則重新開始、腳跟的基準重新量；個人校正的手機傾斜不清掉
+    // （10/24 安全複查找到：以前連手機傾斜一起清成 0，校正好之後 AI 漏掉一格，這次運動剩下的時間前傾都沒扣掉手機歪的角度；
+    //  校正只做一次，不會再補回來）
+    clear() {
         this.states = new Map(this.rules.map(r => [r.id, { badSince: null, goodSince: null, shown: false }]));
         this.last = null;
-        this.tilt = 0;   // 個人校正的手機傾斜角度（tracker.js 校正好之後設定）
         // 有腳跟離地這條規則的動作（深蹲）才記站直時腳跟的位置
         this.heel = this.rules.some(r => r.id === 'heel') ? new HeelBase() : null;
     }
@@ -213,7 +220,7 @@ export class FormChecker {
     update(pose, timeMs) {
         const out = { errors: [], started: [], red: [], m: null, values: {} };
         if (!pose || !this.rules.length) {
-            if (!pose) this.reset();
+            if (!pose) this.clear();
             return out;
         }
         const m = measure(pose, this.tilt);

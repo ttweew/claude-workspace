@@ -7,6 +7,9 @@ import { crc32 } from './zip.js';
 
 const MAX_FILES = 2000;                       // 一次最多看這麼多個（實測 4 個人 × 13 組約 50 個）
 const MAX_SIZE = 400 * 1024 * 1024;           // 一個檔案最大 400 MB（和重播分析一樣：再大手機的瀏覽器會當掉）
+// 解出來的檔案加起來最多 1 GB：實測 4 個人 × 13 組約 50 個、每個 2～7 MB，約 250 MB
+// 10/24 安全複查：以前只限一個檔案，被改過的 zip 放很多個「寫 400 MB、壓得很小」的檔案，加起來會把記憶體用完；超過的跳過
+const MAX_TOTAL = 1024 * 1024 * 1024;
 
 // 找「目錄結尾」：在檔案最後 22 個位元組到 22＋65535（後面可能有註解）之間，從後往前找記號 50 4B 05 06
 function findEnd(view) {
@@ -36,9 +39,9 @@ async function inflate(bytes, size) {
     return out.subarray(0, n);
 }
 
-// blob：zip 檔；keep(name)：要不要這個檔案（例如只要 .json）
+// blob：zip 檔；keep(name)：要不要這個檔案（例如只要 .json）；maxTotal：解出來加起來最多幾個位元組（測試用小一點的）
 // 回傳 { files: [{ name, blob }], skipped: 跳過幾個（壞掉、不支援、太大） }
-export async function readZip(blob, keep = () => true) {
+export async function readZip(blob, keep = () => true, maxTotal = MAX_TOTAL) {
     const buf = new Uint8Array(await blob.arrayBuffer());
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     const end = findEnd(view);
@@ -48,7 +51,7 @@ export async function readZip(blob, keep = () => true) {
     let p = view.getUint32(end + 16, true);
     if (p + dirSize > end) throw new Error('zip 檔不完整');
     const files = [];
-    let skipped = 0;
+    let skipped = 0, total = 0;
     for (let i = 0; i < Math.min(count, MAX_FILES); i++) {
         if (p + 46 > end || view.getUint32(p, true) !== 0x02014B50) throw new Error('zip 檔的目錄壞掉了');
         const flags = view.getUint16(p + 8, true), method = view.getUint16(p + 10, true);
@@ -62,7 +65,7 @@ export async function readZip(blob, keep = () => true) {
         if (name.endsWith('/') || !keep(name)) continue;
         try {
             if (flags & 1) throw new Error('加密');
-            if (size > MAX_SIZE || packed === 0xFFFFFFFF || size === 0xFFFFFFFF) throw new Error('太大');
+            if (size > MAX_SIZE || packed === 0xFFFFFFFF || size === 0xFFFFFFFF || total + size > maxTotal) throw new Error('太大');
             if (local + 30 > buf.length || view.getUint32(local, true) !== 0x04034B50) throw new Error('檔頭');
             const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
             if (start + packed > buf.length) throw new Error('不完整');
@@ -70,6 +73,7 @@ export async function readZip(blob, keep = () => true) {
             const out = method === 0 ? data : method === 8 ? await inflate(data, size) : null;
             if (!out || out.length !== size || crc32(out) !== crc) throw new Error('內容不對');
             files.push({ name: name.split('/').pop(), blob: new Blob([out], { type: 'application/json' }) });
+            total += size;
         } catch (err) {
             skipped++;
         }

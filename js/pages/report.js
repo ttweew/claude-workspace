@@ -124,7 +124,7 @@ const fromFiles = files => start(async () => {
                 setStatus('解開 ' + f.name + '…');
                 const z = await readZip(f, isJson);
                 sources.push(...z.files);
-                if (z.skipped) bad.push({ name: f.name, why: '裡面有 ' + z.skipped + ' 個檔案壞掉或不支援，跳過' });
+                if (z.skipped) bad.push({ name: f.name, why: '裡面有 ' + z.skipped + ' 個檔案壞掉、不支援或太大（加起來最多 1 GB），跳過' });
             } catch (err) {
                 bad.push({ name: f.name, why: err.message });
             }
