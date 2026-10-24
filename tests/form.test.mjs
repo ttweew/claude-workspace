@@ -53,11 +53,49 @@ test('深蹲：上身前傾 60° 抓得到、標紅軀幹；站直時不看；�
     assert.ok(r.red.has(P.LEFT_SHOULDER + '-' + P.LEFT_HIP), '軀幹標紅');
 });
 
-test('深蹲：腳跟離地（墊腳尖）抓得到；正常深蹲時 AI 量到的腳跟偏高不算（10/20 門檻 25% → 55%）', () => {
-    // 腳跟往上 0.12：腳跟比腳尖高約 58%，明顯墊腳
-    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, -0.12 * d)).seen, ['heel']);
-    // 往上 0.09：約 42%。4 位網路教練和使用者自己的 51 下正常深蹲，AI 量到最高 46%，不能算錯
-    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, -0.09 * d)).seen, []);
+test('深蹲：腳跟比站直時往上移超過 14%（小腿長）算腳跟離地；腳跟沒動、移一點點、腳尖動都不算（10/24 改量法）', () => {
+    // 示範動畫的小腿長（站直時，像素）：往上移多少用小腿長的幾分之幾表示
+    const lm0 = demoLandmarks('squat', 0);
+    const shank = Math.hypot((lm0[P.LEFT_KNEE].x - lm0[P.LEFT_ANKLE].x) * W, (lm0[P.LEFT_KNEE].y - lm0[P.LEFT_ANKLE].y) * H);
+    const up = frac => -frac * shank / H;   // 往上移小腿長的 frac 倍（畫面座標往上是負的）
+    assert.deepEqual(run('squat').seen, [], '腳跟一直貼地');
+    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, up(0.25) * d)).seen, ['heel'], '往上移 25%');
+    assert.deepEqual(run('squat', (lm, d) => move(lm, both('HEEL'), 0, up(0.10) * d)).seen, [], '往上移 10%：不算');
+    // 以前的量法（腳跟比腳尖高）：腳尖往下移，看起來就像腳跟比較高；現在不看腳尖
+    assert.deepEqual(run('squat', (lm, d) => move(lm, both('FOOT_INDEX'), 0, -up(0.4) * d)).seen, [], '腳尖往下移不算');
+});
+
+test('腳跟的基準：每一下用開始前站直的那 1 秒；人換了位置（整個人往上、往下）下一下重新量；一開始就蹲著不判斷', () => {
+    const lm0 = demoLandmarks('squat', 0);
+    const shank = Math.hypot((lm0[P.LEFT_KNEE].x - lm0[P.LEFT_ANKLE].x) * W, (lm0[P.LEFT_KNEE].y - lm0[P.LEFT_ANKLE].y) * H);
+    const all = lm0.map((_, i) => i);
+    const pipeline = new PosePipeline(), checker = new FormChecker('squat');
+    let t = 0;
+    const seen = new Set();
+    const step = (d, dy = 0) => {
+        const out = checker.update(pipeline.process(move(demoLandmarks('squat', d), all, 0, dy), t += 33, W, H), t);
+        out.errors.forEach(e => seen.add(e.id));
+        return out;
+    };
+    let at = 0;
+    // 站直時慢慢移到 dy（1 秒，一下子跳太多會被當成鬼骨架），再站 1 秒以上，蹲一下
+    const rep = dy => {
+        for (let i = 1; i <= 30; i++) step(0, at + (dy - at) * i / 30);
+        at = dy;
+        for (let i = 0; i < 40; i++) step(0, dy);
+        for (let i = 0; i <= 30; i++) step(i / 30, dy);
+        for (let i = 0; i < 20; i++) step(1, dy);
+        for (let i = 30; i >= 0; i--) step(i / 30, dy);
+    };
+    rep(0);
+    // 整個人往上移小腿長的 40%（手機被碰到、人往後站）：站直 1 秒以上再蹲，基準跟著換，不算腳跟離地
+    rep(-0.4 * shank / H);
+    rep(0.3 * shank / H);
+    assert.deepEqual([...seen], [], '換位置不算');
+    // 一開始就蹲著（前面沒有站直）：沒有基準，不判斷
+    const fresh = new FormChecker('squat');
+    const out = fresh.update(new PosePipeline().process(demoLandmarks('squat', 1), 33, W, H), 33);
+    assert.equal(out.m.heel, null);
 });
 
 test('伏地挺身、棒式：腰塌下去、屁股太高都抓得到；站著時不看', () => {
