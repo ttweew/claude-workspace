@@ -100,6 +100,11 @@ test('手機放歪 12°：校正前蹲下時誤判「上身太前傾」，校正
     assert.ok(after.baseline && Math.abs(Math.abs(after.baseline.tilt) - 12) <= 3, '量到手機歪約 12°：' + JSON.stringify(after.baseline));
     assert.ok(before.items.some(r => r.errors.includes('lean')), '校正前誤判前傾：' + JSON.stringify(before.items.map(r => r.errors)));
     assert.ok(after.items.length === 2 && after.items.every(r => !r.errors.includes('lean')), '校正後不誤判：' + JSON.stringify(after.items.map(r => r.errors)));
+    // 校正好之後 AI 漏掉幾格（看不到人）：手機歪的角度還要記得（10/24 安全複查：以前清成 0，之後一直誤判前傾）
+    const missed = new WorkoutTracker('squat');
+    feed(missed, [...repeat(frame(0), 60), null, null, ...repeat(frame(0), 20), ...reps]);
+    assert.ok(missed.baseline && Math.abs(missed.form.tilt - missed.baseline.tilt) < 1e-9, '還記得手機歪幾度：' + missed.form.tilt);
+    assert.ok(missed.items.length === 2 && missed.items.every(r => !r.errors.includes('lean')), '漏掉幾格之後也不誤判：' + JSON.stringify(missed.items.map(r => r.errors)));
 });
 
 test('站姿本來就前傾的人：手機沒歪時不扣上身的角度，前傾一樣判斷得出來', () => {

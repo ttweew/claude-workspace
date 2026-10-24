@@ -15,6 +15,7 @@ const handles = [...stage.querySelectorAll('.handle')];
 const mineOut = $('mine'), aiOut = $('ai'), diffOut = $('diff'), saveBtn = $('saveBtn'), resetBtn = $('resetBtn'), saveStatus = $('saveStatus');
 
 const MAX_BYTES = 30 * 1024 * 1024;   // 手機照片一張約 2～8 MB；再大多半不是照片，整張讀進來手機會很慢
+const MAX_PIXELS = 60e6;              // 6000 萬像素：手機照片 1200～5000 萬像素；檔案很小、寫很大的圖整張解開會把手機的記憶體用完（10/24 安全複查）
 const MAX_SIDE = 1280;                // 照片縮到長邊 1280 像素：手機照片 4000 像素，AI 本來就會縮小再看，大的只是慢；縮放不影響角度
 const DETECT_TIMES = 3;               // 同一張照片給 AI 看 3 次：AI 是看影片的模式，第一次先找到人，後面幾次關節的位置比較準
 const NAMES = { HIP: '髖', KNEE: '膝', ANKLE: '踝', SHOULDER: '肩', ELBOW: '肘', WRIST: '腕' };
@@ -54,11 +55,15 @@ async function loadPhoto(file) {
     try {
         if (!/^image\//.test(file.type) && !/\.(jpe?g|png|webp|gif|bmp)$/i.test(file.name)) throw new Error('這不是照片：請選 JPG 或 PNG');
         if (file.size > MAX_BYTES) throw new Error('照片太大（超過 30 MB），請換一張');
+        // 先看照片有多大（只讀檔頭，還沒整張解開）
+        const size = await photoSize(file);
+        if (!size) throw new Error(UNREADABLE);
+        if (size.width * size.height > MAX_PIXELS) throw new Error('照片太大（超過 6000 萬像素），請用一般的照片或截圖');
         let bitmap;
         try {
             bitmap = await createImageBitmap(file);
         } catch (err) {
-            throw new Error('讀不了這張照片（格式不支援或檔案壞了）；iPhone 的 HEIC 照片請改用截圖，或在相簿分享時選 JPG');
+            throw new Error(UNREADABLE);
         }
         const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
         const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
@@ -98,6 +103,20 @@ async function loadPhoto(file) {
         busy = false;
         photoInput.disabled = false;
     }
+}
+
+const UNREADABLE = '讀不了這張照片（格式不支援或檔案壞了）；iPhone 的 HEIC 照片請改用截圖，或在相簿分享時選 JPG';
+
+// 照片的寬高：瀏覽器讀到檔頭就知道，這時候還沒整張解開；讀不了回傳 null
+function photoSize(file) {
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        const done = v => { URL.revokeObjectURL(url); resolve(v); };
+        img.onload = () => done(img.naturalWidth && img.naturalHeight ? { width: img.naturalWidth, height: img.naturalHeight } : null);
+        img.onerror = () => done(null);
+        img.src = url;
+    });
 }
 
 photoInput.addEventListener('change', () => {

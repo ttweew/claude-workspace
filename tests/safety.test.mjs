@@ -78,6 +78,18 @@ test('運動紀錄：欄位不對的那一筆不用，其他照常', () => {
     }
 });
 
+test('運動紀錄的總結：相似度不是 0～100 的數字不寫、不認得的錯誤代號不寫（10/24 安全複查）', () => {
+    const good = summarize('squat', [{ min: 88, depth: 'good', errors: ['lean'], start: 0, end: 2, similarity: 90 }], 0, 1);
+    for (const sim of ['x', [], {}, -5, 1e9, true, '<b>']) {
+        const line = describe({ ...good, similarity: sim })[1];
+        assert.ok(!line.includes('相似'), JSON.stringify(sim) + ' → ' + line);
+    }
+    assert.match(describe({ ...good, similarity: 95.6 })[1], /相似 96%$/);
+    const lines = describe({ ...good, errors: { lean: 1, constructor: 1, toString: 1 } });
+    assert.ok(lines.includes('要注意：上身前傾 1 下'), lines.join(' | '));
+    assert.ok(!lines.some(l => /constructor|toString/.test(l)), lines.join(' | '));
+});
+
 test('記下的角度：被改過的筆數整理掉；量角器打錯字（0～180 以外）不算進統計', () => {
     store.set('angleSnapshots', JSON.stringify([
         null, { angles: {} }, { joint: 'constructor', angles: {} }, { joint: 'LEFT_KNEE', angles: 'x' },
