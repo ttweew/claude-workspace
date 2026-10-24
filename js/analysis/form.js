@@ -42,12 +42,44 @@ export function hipSag(pose, side) {
     return ((h.x - s.x) * nx + (h.y - s.y) * ny) / len;
 }
 
-// 腳跟離地：腳跟比腳尖高多少，以小腿長度為 1（平踩約 0，墊腳尖時明顯變大）
-export function heelLift(pose, side) {
-    if (!seen(pose, side + '_HEEL', side + '_FOOT_INDEX', side + '_KNEE', side + '_ANKLE')) return null;
-    const shank = dist(pt(pose, side + '_KNEE'), pt(pose, side + '_ANKLE'));
-    if (shank < 1) return null;
-    return (pt(pose, side + '_FOOT_INDEX').y - pt(pose, side + '_HEEL').y) / shank;
+// 腳跟離地（10/24 改）：腳跟的點比「這一下開始前站直時」往上移多少，以站直時的小腿長為 1
+// 以前看「腳跟比腳尖高多少」：換一個人就不準（10/20 實測受測者 A 正常深蹲就有 22～44%，比 B 故意墊腳的 23～26% 還大）；
+// 腳尖的點蹲低時常被擋住、位置亂跳。手機不動時，深蹲的腳跟應該一直貼地，往上移就是離地
+// 每一下用開始前站直的那 1 秒（膝蓋 > 160°）的中位數當基準：人換了位置、手機被碰過，下一下就重新量
+export const HEEL_BASE = { standKnee: 160, ms: 1000, minFrames: 5 };
+const median = list => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)];
+export class HeelBase {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.standing = [];   // 最近 1 秒站直的格子 { t, side, y（腳跟）, shank（小腿長） }
+        this.base = null;     // 這一下的基準 { side, y, shank }
+    }
+
+    // side：看得比較清楚的那一側；回傳腳跟往上移多少（站直時的小腿長為 1，往下是負數）
+    // 站直、還沒有基準（一開始就蹲著、站直的時間不到 5 格）、看不到那幾個點、正面拍、換了一側時回傳 null（不判斷）
+    update(pose, side, timeMs) {
+        const knee = pose.angles[side + '_KNEE'];
+        if ((pose.view && pose.view.view === 'front') || knee === null || knee === undefined
+            || !seen(pose, side + '_HEEL', side + '_ANKLE', side + '_KNEE')) return null;
+        const heel = pt(pose, side + '_HEEL');
+        if (knee > HEEL_BASE.standKnee) {
+            // 站直：記下來（只留最近 1 秒）；下一次蹲下去時重新取基準
+            this.standing.push({ t: timeMs, side, y: heel.y, shank: dist(pt(pose, side + '_KNEE'), pt(pose, side + '_ANKLE')) });
+            while (timeMs - this.standing[0].t > HEEL_BASE.ms) this.standing.shift();
+            this.base = null;
+            return null;
+        }
+        if (!this.base) {
+            const recent = this.standing.filter(s => s.side === side && timeMs - s.t <= HEEL_BASE.ms);
+            if (recent.length < HEEL_BASE.minFrames) return null;
+            this.base = { side, y: median(recent.map(s => s.y)), shank: median(recent.map(s => s.shank)) };
+        }
+        if (this.base.side !== side || !(this.base.shank >= 1)) return null;
+        return (this.base.y - heel.y) / this.base.shank;
+    }
 }
 
 // 弓箭步的前腳：面向的方向上，腳踝比較前面的那一腳；facing：1 面向畫面右邊、-1 左邊、0 看不出來
@@ -66,6 +98,7 @@ export function kneePastToe(pose, side, facing) {
 }
 
 // 每一格先算好要用的數字，規則只要比門檻；phoneTilt：個人校正的手機傾斜角度
+// heel（腳跟往上移多少）要看前面的格子，由 FormChecker 的 HeelBase 填上；這裡先是 null
 export function measure(pose, phoneTilt = 0) {
     const side = clearerSide(pose.landmarks);
     const facing = pose.view ? pose.view.facing : 0;
@@ -76,7 +109,7 @@ export function measure(pose, phoneTilt = 0) {
         side,
         lean: torsoLean(pose, side, phoneTilt),
         sag: hipSag(pose, side),
-        heel: heelLift(pose, side),
+        heel: null,
         kneePast: front ? kneePastToe(pose, front, facing) : null,
         front,
         knee: knees.length ? Math.min(...knees) : null,
@@ -96,11 +129,12 @@ const has = v => v !== null && v !== undefined && Number.isFinite(v);
 // 0.07 → 16°、0.09 → 20°（和 hipSag 上面的說明一樣）
 export const bendDegrees = sag => 2 * Math.atan(2 * sag) * 180 / Math.PI;
 const SAG = 0.07, PIKE = 0.09;
-// 腳跟離地：腳跟比腳尖高多少（以小腿長為 1），暫定 0.55，等實測再定（受測者故意墊腳 5 下）
-// 原本 0.25 是用示範動畫訂的（腳平踩時是 0）。10/19 用 4 位網路教練的影片和使用者自己 10/5、10/6 的錄影量：
-// 51 下正常深蹲（膝蓋 < 100°）有 29 下持續 0.4 秒超過 0.25，最大 0.46；腳尖的點幾乎不動，
-// 是腳踝彎很多時 AI 把腳跟的點估得偏高，越蹲越深越高，不是腳跟真的離地。0.55 比最大值多留約 0.1，只抓很明顯的墊腳
-const HEEL = 0.55;
+// 腳跟離地：腳跟比站直時往上移多少（以小腿長為 1，見 HeelBase），暫定 0.14（10/24），等看過受測者 A 的影片再定
+// 10/20 實測，每一下持續 0.4 秒的最大值：受測者 B 正常深蹲 −0.04～0.04、故意墊腳 0.15～0.24（完全分得開）；
+// 受測者 A 正常 0.05～0.20、故意 0.11～0.26（有重疊，A 離鏡頭比較遠、小腿在畫面上只有約 80 像素，也可能正常蹲時腳跟真的有抬一點）；
+// 教練影片 4（鏡頭不動）0～0.06。取比 B 故意墊腳最小的 0.15 低一點的 0.14，正常蹲（B）還有約 0.1 的餘裕
+// 以前（腳跟比腳尖高、0.55）兩個人故意墊腳都 0／10
+const HEEL = 0.14;
 const PLANK_RULES = [
     { id: 'sag', short: '塌腰', text: '腰塌下去了，收緊腹部', speech: '收緊腹部', parts: ['torso', 'thigh'], active: m => m.lying, bad: m => gt(m.sag, SAG),
       why: { label: '腰往下彎', unit: '°', value: m => has(m.sag) ? bendDegrees(m.sag) : null, limit: bendDegrees(SAG) } },
@@ -113,7 +147,7 @@ export const FORM_RULES = {
         { id: 'lean', short: '上身前傾', text: '上身太前傾，胸口挺起來', speech: '胸口挺起來', parts: ['torso'], active: m => lt(m.knee, 130), bad: m => gt(m.lean, 50),
           why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 50 } },
         { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, HEEL),
-          why: { label: '腳跟比腳尖高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: HEEL * 100 } }
+          why: { label: '腳跟比站直時高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: HEEL * 100 } }
     ],
     pushup: PLANK_RULES,
     plank: PLANK_RULES,
@@ -169,6 +203,8 @@ export class FormChecker {
         this.states = new Map(this.rules.map(r => [r.id, { badSince: null, goodSince: null, shown: false }]));
         this.last = null;
         this.tilt = 0;   // 個人校正的手機傾斜角度（tracker.js 校正好之後設定）
+        // 有腳跟離地這條規則的動作（深蹲）才記站直時腳跟的位置
+        this.heel = this.rules.some(r => r.id === 'heel') ? new HeelBase() : null;
     }
 
     // pose：pipeline.process 的結果（沒有人時為 null）
@@ -181,6 +217,7 @@ export class FormChecker {
             return out;
         }
         const m = measure(pose, this.tilt);
+        if (this.heel) m.heel = this.heel.update(pose, m.side, timeMs);
         out.m = m;
         for (const rule of this.rules) {
             const st = this.states.get(rule.id);
