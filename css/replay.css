@@ -277,6 +277,10 @@
     margin: 10px 0 0;
     font-variant-numeric: tabular-nums;
 }
+/* 多一行重心（10/24）：沒選動作、深蹲 */
+.readout.three {
+    min-height: 4.5em;
+}
 
 .table-wrap {
     overflow-x: auto;

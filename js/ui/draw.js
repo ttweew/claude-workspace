@@ -69,3 +69,53 @@ export function drawSkeleton(ctx, landmarks, derived, scale = 1, red = []) {
     if (red.length) lines(ctx, landmarks, red, visible, WRONG, 7 * scale);
     ctx.restore();
 }
+
+// 重心（js/analysis/balance.js，10/24）：重心的記號（黃黑相間的圓，工程圖上重心的畫法）、往下到腳底的虛線、腳底從腳跟到腳尖那一段
+// 一眼看出重心在腳的哪裡；顏色避開骨架的綠、紅、藍和做錯的粗紅線
+// b：balanceOf 的結果；at(x, y)：比例座標 → 畫布上的位置（重播分析要鏡像、畫布大小不同，所以由呼叫的地方決定）
+const GOLD = '#FFC83D', DARK = '#1A1A1A';
+export function drawBalance(ctx, b, scale = 1, at = (x, y) => [x * ctx.canvas.width, y * ctx.canvas.height]) {
+    const [x, y] = at(b.x, b.y), [, floor] = at(b.x, b.floor);
+    ctx.save();
+    ctx.lineCap = 'round';
+    if (b.heelX !== null && b.toeX !== null) {
+        ctx.beginPath();
+        ctx.moveTo(at(b.heelX, b.floor)[0], floor + 4 * scale);
+        ctx.lineTo(at(b.toeX, b.floor)[0], floor + 4 * scale);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 4 * scale;
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, floor + 4 * scale);
+    ctx.setLineDash([6 * scale, 5 * scale]);
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 虛線碰到腳底的地方
+    ctx.beginPath();
+    ctx.arc(x, floor + 4 * scale, 3.5 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = GOLD;
+    ctx.fill();
+    const r = 7 * scale;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = GOLD;
+    ctx.fill();
+    ctx.fillStyle = DARK;
+    for (const start of [0, Math.PI]) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, r, start, start + Math.PI / 2);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = DARK;
+    ctx.lineWidth = 1.5 * scale;
+    ctx.stroke();
+    ctx.restore();
+}

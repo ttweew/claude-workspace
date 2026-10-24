@@ -4,6 +4,7 @@
 import { LANDMARKS, isMainJoint, isVisible, getDerivedPoints } from '../skeleton/landmarks.js';
 import { ANGLES, signedAngle, shortSegments } from '../analysis/angles.js';
 import { VIEW_NAMES } from '../analysis/view.js';
+import { balanceLine } from '../analysis/balance.js';
 
 const ROWS = LANDMARKS.map(([, name], id) => ({ id, name })).filter(r => isMainJoint(r.id))
     .concat([{ id: 'SHOULDER_CENTER', name: '肩膀中心' }, { id: 'HIP_CENTER', name: '髖部中心' }]);
@@ -49,7 +50,8 @@ const SEGMENT_NAMES = { thigh: '大腿', shank: '小腿', upperArm: '上臂', fo
 
 // el：顯示的元素；pose：main.js 的 lastPose（平滑後的點、角度、拍攝方向），沒有人時為 null
 // mirrored：畫面是否鏡像（前鏡頭）。面向是用鏡頭原始畫面判斷的，鏡像時左右要對調，才和使用者看到的一樣
-export function updateViewInfo(el, pose, mirrored, width, height) {
+// balanced：這個動作算不算重心（js/analysis/balance.js 的 BALANCE.workouts）；算的話 pose.balance 是這一格的重心
+export function updateViewInfo(el, pose, mirrored, width, height, balanced = false) {
     const lines = [];
     const view = pose && pose.view;
     if (!view || !view.view) {
@@ -71,6 +73,7 @@ export function updateViewInfo(el, pose, mirrored, width, height) {
             .map(name => (name.startsWith('LEFT') ? '左' : '右') + SEGMENT_NAMES[name.split('_')[1]]);
         if (short.length) lines.push('朝著鏡頭、太短不算角度：' + short.join('、'));
     }
+    if (balanced) lines.push(balanceLine(pose && pose.balance));
     const text = lines.join('\n');
     if (el.textContent !== text) el.textContent = text;
 }
