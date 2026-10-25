@@ -9,18 +9,20 @@
 //   5. 在一下做完的空檔講：計次的動作，錯誤和次數都等這一下做完才講（做到一半不插話）
 //   6. 運動中只講短句：畫面上的長句換成短的（spokenHint），一下做完只講「3 下」加一個提醒
 // 使用者可以選三種模式（首頁「語音提示」）：完整、只講錯誤、不講話；不用講的就照舊嗶聲
+// 自訂目標（10/25，js/analysis/goal.js）：倒數「5、4、3、2、1」、「時間到」、「完成目標」是 goal 這一類，
+//   比動作錯誤重要（最後 5 秒不要被「收緊腹部」打斷），只講錯誤時也講；棒式每 10 秒報時是 count（完整才講）
 
 export const VOICE_MODES = ['full', 'errors', 'off'];
 export const VOICE_MODE_NAMES = { full: '完整', errors: '只講錯誤', off: '不講話' };
 
 // 數字越大越重要
-export const KINDS = { setup: 3, form: 2, count: 1 };
+export const KINDS = { setup: 3, goal: 2.5, form: 2, count: 1 };
 // 排隊多久還沒講就不講了（毫秒）
-const LIFE = { setup: 3000, form: 3000, count: 1500 };
+const LIFE = { setup: 3000, goal: 3000, form: 3000, count: 1500 };
 
-// 這個模式講不講這一類：只講錯誤時，站位和倒數改用嗶聲、次數不講；不講話時全部用嗶聲
+// 這個模式講不講這一類：只講錯誤時，站位和錄製倒數改用嗶聲、次數不講，目標的提醒照講；不講話時全部用嗶聲
 export function speaks(mode, kind) {
-    return mode === 'full' || (mode === 'errors' && kind === 'form');
+    return mode === 'full' || (mode === 'errors' && (kind === 'form' || kind === 'goal'));
 }
 
 export class SpeechPlan {

@@ -68,11 +68,12 @@ test('說話規則：過時的不講（次數 1.5 秒、倒數自己給的時間
     assert.equal(plan2.offer('__proto__', '亂來', 4000), false);
 });
 
-test('說話規則：先講重要的（站位 ＞ 錯誤 ＞ 次數）；三種模式講哪些', () => {
-    assert.ok(KINDS.setup > KINDS.form && KINDS.form > KINDS.count);
+test('說話規則：先講重要的（站位 ＞ 目標的倒數、時間到 ＞ 錯誤 ＞ 次數）；三種模式講哪些', () => {
+    assert.ok(KINDS.setup > KINDS.goal && KINDS.goal > KINDS.form && KINDS.form > KINDS.count);
     assert.deepEqual(VOICE_MODES, ['full', 'errors', 'off']);
     for (const kind of Object.keys(KINDS)) assert.equal(speaks('full', kind), true);
-    assert.deepEqual(Object.keys(KINDS).filter(k => speaks('errors', k)), ['form']);
+    // 只講錯誤：錯誤和目標的提醒（10/25：倒數、時間到、完成目標是使用者最需要知道的）
+    assert.deepEqual(Object.keys(KINDS).filter(k => speaks('errors', k)), ['goal', 'form']);
     assert.deepEqual(Object.keys(KINDS).filter(k => speaks('off', k)), []);
     assert.equal(speaks('奇怪的模式', 'form'), false);
 });

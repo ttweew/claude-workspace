@@ -3,6 +3,7 @@
 
 import { WORKOUTS, isWorkout, formatSeconds } from './workouts.js';
 import { errorShort, errorRule, whyText } from './form.js';
+import { goalLine } from './goal.js';
 
 const KEY = 'workoutHistory';
 const MAX = 50;
@@ -88,6 +89,9 @@ export function describe(s) {
     if (countsReps(s) && isCount(s.actual) && s.actual <= ACTUAL_MAX) {
         lines.push('你數的 ' + s.actual + ' 下，網站算 ' + s.count + ' 下：計次準確率 ' + countAccuracy(s.count, s.actual) + '%');
     }
+    // 自訂目標（10/25，js/analysis/goal.js）：設了目標才有這一行；存的值不對（被改過）就不寫
+    const goal = goalLine(s);
+    if (goal) lines.push(goal);
     // 只寫認得的錯誤（舊版的代號、被改過的名字不寫；雲端上傳也一樣不收，見 js/cloud/sync.js）
     const errs = Object.entries(s.errors).filter(([id]) => errorRule(s.workout, id)).sort((a, b) => b[1] - a[1]);
     lines.push(errs.length

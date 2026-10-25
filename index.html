@@ -128,6 +128,12 @@
                 <!-- 設定（10/21 整理）：每一項一張卡片，排法一樣：左邊標題＋說明，右邊開關（語音的三個選項在下面）
                      常用的語音、雲端同步放前面（10/19 組員回饋：收在進階設定裡沒人知道）；實測模式、進階設定在後面 -->
                 <div class="quick-settings">
+                    <!-- 目標（10/25 組員回饋，js/ui/goal-pick.js、js/analysis/goal.js）：每個動作選常用的目標或自己填，存在這台裝置上；
+                         做到時提醒，之後繼續計次、計時；棒式另外每 10 秒報一次時間，最後 5 秒倒數。四列由 goal-pick.js 填入 -->
+                    <fieldset id="goalPick" class="goal-pick set-card">
+                        <legend>目標<small>做到時提醒，之後繼續算；棒式每 10 秒報一次時間，最後 5 秒倒數</small></legend>
+                        <div id="goalRows" class="goal-rows"></div>
+                    </fieldset>
                     <!-- 語音提示（10/20，js/ui/speech-plan.js）：完整＝站位、倒數、動作錯誤、次數都用講的；只講錯誤；不講話＝全部用嗶聲
                          音量跟著鏡頭畫面的「音量」按鈕；網站會記住選擇 -->
                     <fieldset id="voicePick" class="voice-pick set-card">
