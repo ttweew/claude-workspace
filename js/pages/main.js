@@ -13,7 +13,7 @@ import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
 import { getDerivedPoints } from '../skeleton/landmarks.js';
 import { framingAdvice, FramingHint, NO_PERSON, LEGS_BLOCKED } from '../analysis/framing.js';
-import { PoseRecorder, buildFile, downloadBlob, recordingName, MAX_SECONDS, LIMIT_MINUTES, JSON_MB_PER_MINUTE } from '../data/recorder.js';
+import { PoseRecorder, buildFile, downloadBlob, recordingName } from '../data/recorder.js';
 import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
@@ -41,8 +41,9 @@ import { setupTestCard } from '../ui/test-card.js';
 import { setupGoalPick } from '../ui/goal-pick.js';
 import { loadGoals, HoldCaller, repGoalText, goalLabel } from '../analysis/goal.js';
 import { TestBar } from '../ui/test-bar.js';
-import { libraryAvailable, saveRecording, markDownloaded, sizeText } from '../data/library.js';
-import { LibraryList, refreshAll as refreshLibraries } from '../ui/library-list.js';
+import { setupLibraryPanel } from '../ui/library-panel.js';
+import { RecCountdown } from '../ui/rec-countdown.js';
+import { setupRecLimit } from '../ui/rec-limit.js';
 import { RecBar } from '../ui/rec-bar.js';
 
 // ---------- 畫面元素 ----------
@@ -640,7 +641,7 @@ async function applyAutoRate(rate, why) {
     autoFps.clear();
     measureFrom = performance.now();
     showAutoNote('自動調整：' + why);
-    showLimitNote();
+    recLimit.show();
     updatePerfInfo();
     try {
         await changeFrameRate(stream, rate);
@@ -1195,7 +1196,7 @@ async function startCamera(deviceId) {
     // 這顆鏡頭最多每秒幾格：做不到的選項變灰；檔案大小跟著鏡頭的每秒格數估算
     cameraMaxFps = maxFrameRate(stream);
     showFpsChoice();
-    showLimitNote();
+    recLimit.show();
     // 鏡頭中途斷線（外接鏡頭被拔掉、被其他程式搶走）：回到首頁並說明原因
     stream.getVideoTracks()[0].addEventListener('ended', () => {
         if (stream !== currentStream) return;
@@ -1275,7 +1276,7 @@ function closeCamera() {
     stopStream();
     finishSession();
     hideAutoNote();
-    galleryPanel.hidden = true;
+    library.hide();
     allowScreenOff();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     showStage(false);
@@ -1344,12 +1345,24 @@ function hideRecNotice() {
     recNoticeEl.hidden = true;
 }
 
-// ---------- 錄製前倒數 ----------
-// 一個人錄的時候，按下錄製還要走到 2～3 公尺外、轉成側面；倒數讓開頭不會都是走路的畫面
-// 每一秒唸一個數字、最後唸「開始」（語音提示選完整時）；不講話時每秒嗶一聲，最後一聲比較長、比較高，代表開始錄
-
-let countdown = null;   // 倒數中：{ timer, end }
-const COUNT_LIFE = 900; // 倒數唸的數字：0.9 秒內沒講出來（上一句還沒講完）就不講了，下一秒會唸新的數字
+// ---------- 錄製前倒數（js/ui/rec-countdown.js，10/25 搬出去） ----------
+// 倒數完了開始錄；倒數中錄製按鈕寫「✕ 取消倒數（3）」；停了（取消或倒數完）按鈕、選單恢復
+const recCountdown = new RecCountdown(countdownEl, {
+    cue: cueRecording,
+    onLeft: left => { recordBtn.textContent = '✕ 取消倒數（' + left + '）'; },
+    onStop: starting => {
+        recordBtn.classList.remove('counting');
+        countdownSelect.disabled = false;
+        recordBtn.textContent = nextRecordLabel();
+        // 實測的一組在倒數中被取消：回到選組，不打勾
+        if (testSet && !starting) {
+            testSet = null;
+            testBar.cancel('已取消。選這組要做的，選了就倒數、開始錄');
+        }
+        if (!starting) showRecState();
+    },
+    onGo: () => startRecording()
+});
 
 try {
     const saved = localStorage.getItem('recordCountdown');
@@ -1368,7 +1381,7 @@ const testBar = new TestBar(document.getElementById('testBar'), {
     // 倒數中按「取消」、錄製中按「這組做完」：和數據面板的錄製按鈕一樣
     onAction: () => {
         if (recorder.recording) stopRecording();
-        else if (countdown && !countdown.go) cancelCountdown();
+        else if (recCountdown.counting) cancelCountdown();
     },
     onPause: () => togglePause()
 });
@@ -1381,7 +1394,7 @@ function showTestBar() {
 }
 
 function startTestSet(condition) {
-    if (recorder.recording || (countdown && !countdown.go)) {
+    if (recorder.recording || (recCountdown.counting)) {
         // 用數據面板自己在錄（不是實測的一組）：先停掉那一段
         testBar.idle('正在錄製（不是實測的一組）：先按「錄影」的結束鈕或「數據」→「停止錄製」');
         return;
@@ -1408,29 +1421,28 @@ const recBarEl = document.getElementById('recBar');
 const pauseBtn = document.getElementById('pauseBtn');
 const recordSaved = document.getElementById('recordSaved');
 const recTimer = document.getElementById('recTimer');
-const galleryPanel = document.getElementById('galleryPanel');
 const galleryOpen = document.getElementById('galleryOpen');
-const libraryBox = document.getElementById('libraryBox');
-const librarySummary = document.getElementById('librarySummary');
 const REC_KEY = 'recBarOpen';
-let libraryOk = false;      // 這個瀏覽器能不能存錄製檔（打得開 IndexedDB）
-let libraryCount = 0;
-let galleryOpener = null;   // 打開清單的按鈕（錄影控制列的「錄製檔」或數據面板的「看錄製檔」）：關掉清單時回到這裡
 
 const recBar = new RecBar(recBarEl, {
     // 大圓鈕：還沒錄就開始（照倒數設定），倒數中取消，錄製中結束
     onMain: () => {
         if (recorder.recording) stopRecording();
-        else if (countdown && !countdown.go) cancelCountdown();
+        else if (recCountdown.counting) cancelCountdown();
         else if (!testSet) startCountdown();
     },
     onPause: () => togglePause(),
-    onGallery: () => openGallery(true, document.getElementById('galleryBtn'))
+    onGallery: () => library.open(true, document.getElementById('galleryBtn'))
+});
+// 錄製檔（js/ui/library-panel.js，10/25 搬出去）：首頁那一列、鏡頭畫面的清單、每一段停止後存進錄製檔
+const library = setupLibraryPanel({
+    recBar, testBar, recordSaved, clock,
+    onAvailable: () => { if (!recorder.recording) recordBtn.textContent = nextRecordLabel(); }
 });
 
 // 錄製的狀態（還沒錄、倒數中、錄製中、暫停中）改變時：數據面板、錄影控制列、實測控制列一起更新
 function showRecState() {
-    const state = recorder.recording ? (recorder.paused ? 'paused' : 'recording') : countdown && !countdown.go ? 'counting' : 'idle';
+    const state = recorder.recording ? (recorder.paused ? 'paused' : 'recording') : recCountdown.counting ? 'counting' : 'idle';
     pauseBtn.hidden = !recorder.recording;
     pauseBtn.textContent = recorder.paused ? '▶ 繼續' : '❚❚ 暫停';
     recBar.show(state, recorder.recording ? clock(recorder.seconds) : '');
@@ -1458,50 +1470,7 @@ pauseBtn.addEventListener('click', togglePause);
 
 // 停止後錄製按鈕的字：存得進錄製檔就是「錄下一段」（上一段留著）；存不了才是「重新錄製」（會蓋掉，要先下載）
 function nextRecordLabel() {
-    return recorder.frameCount ? (libraryOk ? '● 錄下一段' : '● 重新錄製') : '● 開始錄製';
-}
-
-// 停止錄製後（stopRecording）：這一段存進錄製檔；實測的一組照設定也馬上下載（存不了就直接下載，不會不見）
-// 一定要在 stopRecording 裡馬上呼叫：jsonChunks 一開始就記住這一段的資料，之後開始錄下一段也不會混在一起
-async function keepRecording(set, count) {
-    const meta = recorder.meta, frames = recorder.frameCount, seconds = recorder.seconds;
-    const name = testFileName(meta) || recordingName(meta);
-    if (!frames) {
-        if (set) testBar.cancel('沒有錄到畫面，這組再錄一次');
-        return;
-    }
-    recordSaved.textContent = '存進錄製檔中…';
-    let blob;
-    try {
-        blob = await buildFile(recorder.jsonChunks(), 'application/json');
-    } catch (err) {
-        console.error(err);
-        recordSaved.textContent = '存不下來（可能是手機記憶體不夠）';
-        if (set) testBar.failed(set.condition);
-        return;
-    }
-    let id = null;
-    if (libraryOk) {
-        try {
-            id = await saveRecording({ name, meta, seconds, frames, blob });
-        } catch (err) {
-            console.warn('存不進錄製檔：', err);
-        }
-    }
-    const download = set && (!id || testMode.autoDownload);
-    if (download) {
-        downloadBlob(name + '.json', blob);
-        if (id) await markDownloaded([id]).catch(() => {});
-    }
-    await refreshLibraries();
-    if (id) {
-        recordSaved.textContent = '已存進錄製檔（共 ' + libraryCount + ' 段，按「看錄製檔」下載）';
-        recBar.say('已存好第 ' + libraryCount + ' 段（' + clock(seconds) + '）');
-    } else {
-        recordSaved.textContent = download ? '這個瀏覽器不能存錄製檔：已直接下載' : '這個瀏覽器不能存錄製檔：請按「下載 JSON」';
-        recBar.say(recordSaved.textContent);
-    }
-    if (set) testBar.saved(set.condition, name + '.json', count, id ? (download ? '已存好、已下載' : '已存好') : '已下載');
+    return recorder.frameCount ? (library.ok ? '● 錄下一段' : '● 重新錄製') : '● 開始錄製';
 }
 
 // 工具列「錄影」：打開、收起錄影控制列（會記住）；實測模式時用實測控制列，這顆藏起來
@@ -1533,83 +1502,12 @@ recTimer.addEventListener('change', () => {
 });
 countdownSelect.addEventListener('change', () => { recTimer.value = countdownSelect.value; });
 
-// 錄製檔清單：首頁一份、鏡頭畫面一份（js/ui/library-list.js），內容一樣
-function libraryChanged(items) {
-    libraryCount = items.length;
-    recBar.setCount(items.length);
-    galleryOpen.hidden = !items.length;
-    galleryOpen.textContent = '看錄製檔（' + items.length + '）';
-    libraryBox.hidden = !items.length;
-    const bytes = items.reduce((sum, i) => sum + i.size, 0);
-    const fresh = items.filter(i => !i.downloaded).length;
-    libraryBox.classList.toggle('attn', fresh > 0);   // 有還沒下載的：整列變黃（清除瀏覽器資料就會不見）
-    // 標題「錄製檔」一行、下面一行小字寫幾段、多大、幾段還沒下載（10/21：以前擠在一行，手機上斷在奇怪的地方）
-    const name = document.createElement('span');
-    const info = document.createElement('small');
-    info.textContent = items.length + ' 段 · ' + sizeText(bytes) + (fresh ? ' · ' + fresh + ' 段還沒下載' : ' · 都下載過了');
-    name.append('錄製檔', info);
-    librarySummary.replaceChildren(name);
-}
-new LibraryList(document.getElementById('homeLibrary'), libraryChanged);
-new LibraryList(document.getElementById('galleryList'), libraryChanged);
-
-// opener：從哪個按鈕打開（Safari 按按鈕不會把焦點移過去，所以直接傳進來）
-function openGallery(on, opener = null) {
-    galleryPanel.hidden = !on;
-    if (on) {
-        galleryOpener = opener;
-        refreshLibraries();
-        document.getElementById('galleryClose').focus();
-    } else if (galleryOpener && galleryOpener.isConnected && galleryOpener.offsetParent) {
-        galleryOpener.focus();
-    }
-}
-document.getElementById('galleryClose').addEventListener('click', () => openGallery(false));
-// 數據面板裡也能打開錄製檔清單（10/20 使用者問「要按哪裡看到所有的檔案」：數據面板開著時錄影控制列是藏起來的）
-galleryOpen.addEventListener('click', () => openGallery(true, galleryOpen));
-
-libraryAvailable().then(ok => {
-    libraryOk = ok;
-    if (!recorder.recording) recordBtn.textContent = nextRecordLabel();
-    if (ok) refreshLibraries();
+// ---------- 錄製上限（js/ui/rec-limit.js，10/25 搬出去） ----------
+// 鏡頭實際設定的每秒格數（選 60 但鏡頭只給 30，就照 30 算）；還沒開鏡頭時用選的格數
+const recLimit = setupRecLimit(limitSelect, limitNote, {
+    recording: () => recorder.recording,
+    frameRate: () => (currentStream && cameraFrameRate(currentStream)) || getFrameRate()
 });
-
-// ---------- 錄製上限 ----------
-// 以前固定 5 分鐘；老師 10/12 回饋改成可以選 5、10、15、20 分鐘（會記住選擇）
-// 旁邊顯示檔案大約多大；手機選 15、20 分鐘時提醒：錄製中的資料都放在記憶體裡（20 分鐘約 165 MB），
-// 手機的瀏覽器記憶體不夠時會直接重新整理網頁，整段就不見了。只提醒、不禁止（有些手機記憶體夠）
-const PHONE = ['iOS', 'iPadOS', 'Android'].includes(describeDevice().os);
-const PHONE_WARN_MINUTES = 15;
-
-try {
-    const saved = localStorage.getItem('recordLimit');
-    if (saved !== null && LIMIT_MINUTES.includes(Number(saved))) limitSelect.value = saved;
-} catch (err) { /* 不能存就用預設 */ }
-limitSelect.addEventListener('change', () => {
-    try { localStorage.setItem('recordLimit', limitSelect.value); } catch (err) { /* 不能存就不記 */ }
-    showLimitNote();
-});
-
-function limitMinutes() {
-    return Number(limitSelect.value) || MAX_SECONDS / 60;
-}
-
-function showLimitNote() {
-    const minutes = limitMinutes();
-    // 鏡頭每秒格數比 30 多（使用者選了 60 格以上），檔案和記憶體跟著變大，提醒的門檻跟著提早
-    // 用鏡頭實際設定的格數估算（選 60 但鏡頭只給 30，就照 30 算）；還沒開鏡頭時用選的格數
-    const rate = (currentStream && cameraFrameRate(currentStream)) || getFrameRate();
-    const load = minutes * Math.max(1, rate / 30);
-    // 四捨五入到 5 MB：只是大概，實際大小看每秒幾格、有沒有偵測到人
-    const mb = Math.round(load * JSON_MB_PER_MINUTE / 5) * 5;
-    const warn = PHONE && load >= PHONE_WARN_MINUTES;
-    limitNote.textContent = '檔案約 ' + mb + ' MB'
-        + (warn ? '。手機錄太久，瀏覽器可能記憶體不夠而重新整理，錄的資料會不見；建議用電腦，或分成幾段錄' : '');
-    limitNote.classList.toggle('warn', warn);
-    // 錄製中不顯示（數據面板那一列留給「錄製中 0:12／10:00」）
-    limitNote.hidden = recorder.recording;
-}
-showLimitNote();
 
 // ---------- 每秒格數 ----------
 // 老師 10/12：每秒 30 格感覺很低。讓使用者依自己手機的能力選 30、60、90、120（js/platform/camera.js 會記住）
@@ -1660,7 +1558,7 @@ function chooseFps(select) {
 function applyFps(rate) {
     setFrameRate(rate);
     showFpsChoice();
-    showLimitNote();
+    recLimit.show();
     updatePerfInfo();
     // 開著鏡頭：用新的每秒格數重開同一顆鏡頭（錄製中選單會鎖住，不會走到這裡）
     if (currentStream) startCamera(activeDeviceId(currentStream));
@@ -1796,63 +1694,15 @@ function startCountdown() {
         startRecording();
         return;
     }
-    countdown = { end: performance.now() + seconds * 1000, timer: 0, shown: 0 };
     recordBtn.classList.add('counting');
     countdownSelect.disabled = true;
-    tickCountdown();
+    recCountdown.start(seconds);
     showRecState();
 }
 
-// 用「結束時間」算剩幾秒，不是每秒減 1：手機忙的時候計時器會晚到，累積起來會越倒越慢
-function tickCountdown() {
-    const left = Math.ceil((countdown.end - performance.now()) / 1000);
-    if (left <= 0) {
-        cancelCountdown(true);
-        cueRecording('開始', true, COUNT_LIFE);
-        startRecording();
-        // 「開始」短暫顯示一下，站遠的人知道已經在錄了
-        countdownEl.textContent = '開始';
-        countdownEl.classList.add('go');
-        countdownEl.hidden = false;
-        countdown = { timer: setTimeout(hideCountdown, 800), go: true };
-        return;
-    }
-    if (left !== countdown.shown) {
-        countdown.shown = left;
-        countdownEl.textContent = String(left);
-        countdownEl.classList.remove('go');
-        countdownEl.hidden = false;
-        recordBtn.textContent = '✕ 取消倒數（' + left + '）';
-        cueRecording(String(left), false, COUNT_LIFE);
-    }
-    countdown.timer = setTimeout(tickCountdown, 100);
-}
-
-function hideCountdown() {
-    countdownEl.hidden = true;
-    countdownEl.classList.remove('go');
-    if (countdown && countdown.go) countdown = null;
-}
-
 // 取消倒數（按取消、關鏡頭、換鏡頭）；已經開始錄的「開始」字樣也一起收掉
-// starting：倒數完了、接著開始錄（只收掉倒數，不算取消）
-function cancelCountdown(starting = false) {
-    if (!countdown) return;
-    clearTimeout(countdown.timer);
-    const counting = !countdown.go;
-    countdown = null;
-    hideCountdown();
-    if (counting) {
-        recordBtn.classList.remove('counting');
-        countdownSelect.disabled = false;
-        recordBtn.textContent = nextRecordLabel();
-        // 實測的一組在倒數中被取消：回到選組，不打勾
-        if (testSet && !starting) {
-            testSet = null;
-            testBar.cancel('已取消。選這組要做的，選了就倒數、開始錄');
-        }
-        if (!starting) showRecState();
-    }
+function cancelCountdown() {
+    recCountdown.cancel();
 }
 
 function startRecording() {
@@ -1882,12 +1732,12 @@ function startRecording() {
         userAgent: navigator.userAgent,
         // 實測模式的一組（js/data/test-mode.js）：受測者代號、這組要做的、要做幾下（棒式是撐幾秒）；一般錄製沒有這一項
         ...(testSet ? { test: testMeta(testMode.subject, testSet.condition.id, workout.id) } : {})
-    }, limitMinutes() * 60);
+    }, recLimit.minutes() * 60);
     // 錄製中不能改上限（改了也不知道算新的還是舊的）、不能換每秒格數（要重開鏡頭，錄製會中斷）、不能換動作
     limitSelect.disabled = true;
     setWorkoutLocked(true);
     fpsLive.disabled = modelLive.disabled = true;
-    showLimitNote();
+    recLimit.show();
     // 錄製中不跳建議；還沒量完的，停止錄製後重新量
     if (!adviceDone) speedMeter.reset();
     hideAdvice();
@@ -1917,7 +1767,7 @@ function stopRecording(limitHit = false) {
     limitSelect.disabled = false;
     fpsLive.disabled = false;
     modelLive.disabled = switchingModel;
-    showLimitNote();
+    recLimit.show();
     recordBtn.textContent = nextRecordLabel();
     recordBtn.classList.remove('recording');
     updateDataBtn();
@@ -1928,7 +1778,7 @@ function stopRecording(limitHit = false) {
     const set = testSet;
     testSet = null;
     const count = set && workout.kind === 'reps' ? Math.max(0, tracker.items.length - set.startReps - set.skipReps) : null;
-    keepRecording(set, count);
+    library.keep(recorder, set, count, testMode.autoDownload);
     showRecState();
 }
 
@@ -2076,7 +1926,7 @@ try {
 }
 recordBtn.addEventListener('click', () => {
     if (recorder.recording) stopRecording();
-    else if (countdown && !countdown.go) cancelCountdown();
+    else if (recCountdown.counting) cancelCountdown();
     else startCountdown();
 });
 // 匯出：一段一段產生，不會讓畫面停住；產生中按鈕顯示「產生中…」，重複按不會再產生一份
