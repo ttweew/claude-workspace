@@ -13,7 +13,7 @@ import { WorldStabilizer } from '../skeleton/world.js';
 import { predictPose } from '../skeleton/predict.js';
 import { getDerivedPoints } from '../skeleton/landmarks.js';
 import { framingAdvice, FramingHint, NO_PERSON, LEGS_BLOCKED } from '../analysis/framing.js';
-import { PoseRecorder, buildFile, downloadBlob, recordingName } from '../data/recorder.js';
+import { PoseRecorder, buildFile, downloadBlob, downloadText, recordingName } from '../data/recorder.js';
 import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
@@ -27,6 +27,7 @@ import { setupCloudPanel } from '../ui/cloud-panel.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
+import { historyCsv, historyFileName } from '../data/history-csv.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -1045,7 +1046,14 @@ function showHistory() {
         li.textContent = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ' · ' + describe(s)[0];
         return li;
     }));
+    // 清單只列最近 10 次，CSV 是全部（最多 50 次）：按鈕上寫幾次
+    historyCsvBtn.textContent = '下載 CSV（全部 ' + list.length + ' 次）';
 }
+// 運動紀錄匯出 CSV（10/25，js/data/history-csv.js）：自己用 Excel 畫圖、寫報告
+const historyCsvBtn = document.getElementById('historyCsv');
+historyCsvBtn.addEventListener('click', () => {
+    downloadText(historyFileName(), historyCsv(loadHistory()), 'text/csv');
+});
 document.getElementById('clearHistory').addEventListener('click', () => {
     clearHistory();
     summaryBox.hidden = true;
