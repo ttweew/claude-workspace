@@ -38,6 +38,8 @@ import { copyText } from '../ui/copy.js';
 import { keepBelowInfobar } from '../ui/infobar-space.js';
 import { loadTestMode, conditionsFor, testMeta, testFileName } from '../data/test-mode.js';
 import { setupTestCard } from '../ui/test-card.js';
+import { setupGoalPick } from '../ui/goal-pick.js';
+import { loadGoals, HoldCaller, repGoalText, goalLabel } from '../analysis/goal.js';
 import { TestBar } from '../ui/test-bar.js';
 import { libraryAvailable, saveRecording, markDownloaded, sizeText } from '../data/library.js';
 import { LibraryList, refreshAll as refreshLibraries } from '../ui/library-list.js';
@@ -180,6 +182,14 @@ const framing = new FramingHint();    // 入鏡提示（請往後退、請站到
 const recorder = new PoseRecorder();  // 錄製關鍵點資料，匯出 CSV / JSON
 let testMode = loadTestMode();        // 實測模式（js/data/test-mode.js）：{ on, subject（受測者代號） }
 let testSet = null;                   // 實測正在倒數或錄製的這一組：{ condition（conditionsFor 的一項）, startReps }
+// 自訂目標（js/analysis/goal.js，10/25 組員回饋）：首頁「目標」卡片設定，每個動作各一個；棒式另外每 10 秒報時、最後 5 秒倒數
+let goals = loadGoals();
+let holdCaller = new HoldCaller(null);
+// 這次運動的目標；實測的一組進行中不用（每一組有自己要做的下數、秒數，主持人照受測者卡指揮）
+function currentGoal() {
+    if (testSet || !Object.prototype.hasOwnProperty.call(goals, workout.id)) return null;
+    return goals[workout.id];
+}
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
 let videoSize = '';                   // 鏡頭畫面大小（例如 640x480）；手機轉向時會改變
 
@@ -830,11 +840,17 @@ function showCount(tracked) {
         // 姿勢對、正在計時：數字變綠；姿勢跑掉暫停時恢復白色
         if (hudRepsBox.classList.contains('holding') !== result.holding) hudRepsBox.classList.toggle('holding', result.holding);
         if (result.hold) finishRep(result.hold, 'good');
+        // 報時（設了目標才有）：目標換了（首頁改了、實測的一組開始或結束）就重新來
+        const goal = currentGoal();
+        if (holdCaller.goal !== goal) holdCaller = new HoldCaller(goal);
+        const call = holdCaller.update(result.seconds);
+        if (call) sayGoal(call);
     } else {
         text = String(result.reps);
         if (result.rep) finishRep(result.rep, result.rep.depth);
     }
     if (hudReps.textContent !== text) hudReps.textContent = text;
+    showGoal(result);
     return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
 }
 
@@ -858,9 +874,34 @@ function sayRep(rep, depth) {
         line = voiceMode === 'full' ? { kind: 'count', text: sec ? '撐了 ' + sec + ' 秒' : '這次身體沒有一直線，沒有計時' } : null;
     } else {
         const words = errorStreak.update(rep.errors || []).map(id => (errorRule(workout.id, id) || {}).speech).filter(Boolean);
+        // 做到目標的那一下：「10 下，完成目標」（這一下的提醒下一下再講；錯誤一直沒改會再提醒）
+        const done = repGoalText(rep.n, currentGoal());
+        if (done) {
+            sayGoal({ kind: 'done', text: done });
+            return;
+        }
         line = repLine(voiceMode, rep.n, depth, words);
     }
     if (line && canSpeak(line.kind)) speech.offer(line.kind, line.text, performance.now());
+}
+
+// 目標的提醒（js/analysis/goal.js）：倒數、時間到、完成目標在「只講錯誤」時也講；每 10 秒報時只有完整語音才講
+// 不能講話（選了不講話、瀏覽器不能講）時：倒數每秒短嗶、到了長嗶，和錄製倒數一樣；報時不嗶（每 10 秒嗶一聲聽不出是什麼）
+// 倒數每秒一個數字，0.9 秒內沒講出來就過時了，不講（和錄製倒數一樣）
+function sayGoal(call) {
+    const kind = call.kind === 'tick' ? 'count' : 'goal';
+    if (canSpeak(kind)) speech.offer(kind, call.text, performance.now(), call.kind === 'countdown' ? 900 : undefined);
+    else if (call.kind !== 'tick') sound.play(call.kind === 'countdown' ? 'count' : 'long');
+}
+
+// 次數框上面的小字：設了目標時寫「目標 10」「目標 1:00」（沒設寫動作名稱，和以前一樣），做到了變綠
+// result：這一格的次數或秒數（tracker.update 的 count），沒有時只換字
+function showGoal(result) {
+    const goal = currentGoal();
+    const label = goal === null ? workout.name : goalLabel(workout.id, goal);
+    if (hudRepsName.textContent !== label) hudRepsName.textContent = label;
+    const done = goal !== null && !!result && (workout.kind === 'hold' ? holdCaller.done : result.reps >= goal);
+    if (hudRepsBox.classList.contains('goal-done') !== done) hudRepsBox.classList.toggle('goal-done', done);
 }
 
 // 動作錯誤：畫面上方紅字（只顯示第一個）
@@ -912,6 +953,7 @@ function resetSpeech() {
 function resetCounter() {
     tracker.reset();
     balanceMeter.reset();
+    holdCaller = new HoldCaller(workout.kind === 'hold' ? currentGoal() : null);
     formTip.hidden = true;
     formShown.clear();
     resetSpeech();
@@ -938,6 +980,9 @@ function finishSession() {
     // 棒式撐到一半就結束：撐到現在的算一次
     if (workout.kind === 'hold' && tracker.counter.current) tracker.interrupt();
     const s = summarize(workout.id, tracker.items, sessionStart, Date.now());
+    // 這次的目標記進總結（「目標 10 下：達成」）；只存在這台裝置，不上傳雲端（js/cloud/sync.js 的白名單沒有）
+    const goal = currentGoal();
+    if (s && goal !== null) s.goal = goal;
     sessionStart = Date.now();
     resetCounter();
     if (!s) return;
@@ -1063,7 +1108,7 @@ function showWorkout() {
     shownAngleKeys = workout.labels.flatMap(joint => ['LEFT_' + joint, 'RIGHT_' + joint]);
     hudRepsBox.hidden = !tracker.counter;
     hudRepsBox.classList.toggle('time', workout.kind === 'hold');
-    hudRepsName.textContent = workout.name;
+    showGoal(null);
     hudRoot.classList.toggle('lab', !!tracker.counter);
     resetCounter();
     showPoseLabels();
@@ -1641,6 +1686,11 @@ function showAdvancedTitle() {
 setupVoicePick(voiceMode, voice.supported, mode => {
     voiceMode = mode;
     if (mode === 'off') resetSpeech();
+});
+// 每個動作的目標（10/25）：改了馬上用（鏡頭關著時改；次數框的字下次開鏡頭就換）
+setupGoalPick(next => {
+    goals = next;
+    showGoal(null);
 });
 const cloudPanel = setupCloudPanel();
 

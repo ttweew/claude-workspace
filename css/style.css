@@ -365,11 +365,11 @@ button:focus-visible, select:focus-visible {
 }
 /* 語音提示三選一（10/20）：完整、只講錯誤、不講話。圓點藏起來（還是可以用鍵盤的方向鍵選），選到的那個填滿顏色 */
 /* 外框、留白用 .set-card 的（10/21：以前是沒有外框的 fieldset） */
-.voice-pick {
+.voice-pick, .goal-pick {
     min-width: 0;
 }
 /* legend 預設會壓在外框線上；float 讓它變成卡片裡的一般內容（和其他卡片的標題一樣） */
-.voice-pick legend {
+.voice-pick legend, .goal-pick legend {
     float: left;
     width: 100%;
     padding: 0;
@@ -379,7 +379,7 @@ button:focus-visible, select:focus-visible {
     font-weight: 700;
     line-height: 1.4;
 }
-.voice-pick legend small {
+.voice-pick legend small, .goal-pick legend small {
     display: block;
     margin-top: 2px;
     color: var(--muted-2);
@@ -573,6 +573,72 @@ button:focus-visible, select:focus-visible {
     line-height: 1.5;
 }
 .fps-hint[hidden] {
+    display: none;
+}
+/* 目標（10/25，js/ui/goal-pick.js）：每個動作一列：名稱、選單（不設目標、常用的數字、自己填）、自己填的框
+   框和選單的字 16px：iPhone 點選時才不會自動放大畫面；360 寬以下放不下時，自己填的框換到選單下面 */
+.goal-rows {
+    clear: both;
+    display: grid;
+    gap: 8px;
+}
+.goal-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    color: var(--text);
+    font-size: 15px;
+}
+.goal-row label {
+    flex: 0 0 4.4em;
+    font-weight: 700;
+}
+.goal-row select {
+    flex: 1 1 7.5em;
+    width: 0;
+    min-width: 7.5em;   /* 「自己填…」看得到；小手機放不下時，自己填的框換到下一行 */
+    max-width: 180px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 16px;
+}
+.goal-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+.goal-custom[hidden] {
+    display: none;
+}
+.goal-custom input {
+    width: 4.2em;
+    min-height: 40px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #1A2436;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 16px;
+    text-align: center;
+}
+.goal-custom input[aria-invalid] {
+    border-color: var(--danger);
+}
+.goal-note {
+    flex-basis: 100%;
+    margin: 0;
+    color: #FFC857;
+    font-size: 13px;
+}
+.goal-note:empty {
     display: none;
 }
 /* 實測模式（js/data/test-mode.js）：開關；打開後才出現受測者代號、下載的選項（#testMore），卡片變黃 */
@@ -2500,6 +2566,10 @@ code {
 }
 /* 棒式：姿勢對、正在計時時秒數變綠 */
 #hudRepsBox.holding .metric-value {
+    color: var(--accent);
+}
+/* 做到目標（10/25）：上面的「目標 10」變綠 */
+#hudRepsBox.goal-done .metric-label {
     color: var(--accent);
 }
 #repToast.good { color: var(--accent); }
