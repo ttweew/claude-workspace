@@ -80,5 +80,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `prop22/check.py`：加上檔案很小、寫很大的圖 `huge.png`（8000×8000，7.8 KB）要說「照片太大」。
   - `prCcheck/form.py`：跟上 10/19（紅字多一行說出原因）、10/20（講「3 下，收緊腹部」）、10/24（腳跟離地的新量法）。
   - `bal24/`：平衡與重心。`node make_fake.mjs <網站資料夾>` 做出站直 → 往前倒 15° → 正面的假 AI，也算出網站應該算的重心（`expected.json`）和重播用的 `stand.json`；`python3 check.py <網站資料夾>`：數據面板、畫面上的記號、重播分析（36 項）。`real.mjs 檔案 …`（`ROOT=<程式資料夾>`）：實測檔每一下最低時、站直時的重心和前後晃動；`com.mjs`、`com_ankle.mjs`、`ratio.mjs`：比較「腳跟 0%～腳尖 100%」和「以腳踝、小腿長為準」兩種寫法。
+- 10/25：
+  - `goal25/`：四個動作自訂目標。`node make_fake.mjs <網站資料夾>` 做出棒式一直線撐 22 秒、深蹲 4 下的假 AI；`python3 check.py <網站資料夾> [old]`：首頁「目標」卡片（自己填、填錯、重新整理還在、320 寬、axe-core）、棒式報時和倒數（完整語音、只講錯誤、不講話的嗶聲、沒設目標不報）、深蹲「3 下，完成目標」、總結（35 項；加 `old` 在舊程式上跑，預期失敗，「沒設目標和以前一樣」那項舊程式也要通過）。`hud_shot.py <網站資料夾>`：直拿 320～390 寬、橫拿時次數框上面的「目標」字樣不會和左右兩組重疊（拍照看）。
+  - `r10/reclimit.py`：改成等錄到第一格再往後跳時間（錄製的開始時間是第一格畫面進來時才記，以前偶爾第一格還沒進來就跳，「剩 30 秒」不會出現）。`r10/race_proof.py`：刻意讓按錄製和跳時間同時發生，重現這個失敗。
+  - `csv25/check.py <網站資料夾> <port> [old]`：運動紀錄下載 CSV（首頁放 13 次紀錄＋1 筆壞掉的：按鈕寫全部幾次、檔名、BOM、表頭、13 列、深蹲和棒式那一列、axe-core、320／390 寬；加 `old` 確認舊程式沒有這個按鈕）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

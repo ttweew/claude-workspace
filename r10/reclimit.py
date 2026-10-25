@@ -51,6 +51,9 @@ with sync_playwright() as p:
         check('錄滿' not in info and pg.is_hidden("#recNotice"), name + ' 自己按停止不會寫錄滿：' + info)
         # 剩 30 秒提醒中關鏡頭：提醒收掉
         pg.click("#recordBtn"); pg.wait_for_function("document.getElementById('recordBtn').textContent.includes('停止錄製')", timeout=10000)
+        # 10/25：等錄到第一格再跳時間。錄製的開始時間是第一格進來時才記（js/data/recorder.js），
+        # 以前按了錄製馬上跳，第一格還沒進來時開始時間落在跳完之後，已錄一直是 0:01、不會提醒（機器忙的時候偶爾發生）
+        pg.wait_for_function("/錄製中 .* · [1-9][0-9]* 格/.test(document.getElementById('recordInfo').textContent)", timeout=10000)
         pg.evaluate("window.__tOff += 275000"); pg.wait_for_timeout(1200)
         shown = pg.is_visible("#recNotice")
         pg.click("#stopBtn"); pg.wait_for_timeout(300)
