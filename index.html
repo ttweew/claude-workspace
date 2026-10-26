@@ -83,9 +83,15 @@
                     <button id="startBtn" type="button" class="free-start">只看骨架（自由模式，不計次）</button>
                     <button id="freeBtn" type="button" class="free-start" hidden>只看骨架（自由模式，不計次）</button>
                 </p>
+                <!-- 示範模式（10/26，js/platform/video-source.js）：選一段影片當鏡頭，用目前選的動作；瀏覽器不支援（iPhone、iPad 的 Safari）時藏起來
+                     id 用 clip…：#demoBtn 已經是鏡頭畫面右上角的「選擇動作」（js/pages/exercise-demos.js） -->
+                <p id="clipLine" class="free-line" hidden>
+                    <button id="clipBtn" type="button" class="free-start">用一段影片代替鏡頭（示範模式）</button>
+                    <input id="clipFile" type="file" accept="video/*" hidden>
+                </p>
                 <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄存在這台裝置上 -->
                 <div id="summary" class="summary" aria-live="polite" hidden>
-                    <h2>這次運動</h2>
+                    <h2 id="summaryTitle">這次運動</h2>
                     <ul id="summaryLines"></ul>
                     <!-- 計次準確率（10/20）：填自己數的次數，和網站算的比；只存在這台裝置（實測時用） -->
                     <form id="actualForm" class="actual-form" hidden>
@@ -337,6 +343,8 @@
             <select id="modelLive" aria-label="AI 模型" hidden></select>
             <!-- 每秒格數選「自動」時：換了格數短暫說明（例如「自動調整：AI 還有餘裕，改成每秒 60 格」） -->
             <span id="autoNote" role="status" hidden></span>
+            <!-- 示範模式：寫出正在播的影片，看的人知道不是現場的鏡頭 -->
+            <span id="clipTag" hidden></span>
             <!-- 光線太暗時提醒（js/analysis/light.js）：骨架容易不準，鏡頭每秒格數也會變少 -->
             <span id="lightNote" role="status" hidden>光線太暗：骨架可能不準、畫面變卡，請開燈或面向光源</span>
             <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
