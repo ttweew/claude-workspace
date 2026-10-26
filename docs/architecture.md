@@ -219,3 +219,21 @@ npm test
 ## 七、發布
 
 推送到 `main` 分支後，`.github/workflows/deploy.yml` 會自動發布到 GitHub Pages（約 1 分鐘）。發布時會在每個 JS、CSS 檔名後面加上版本號（例如 `main.js?v=1a2b3c4d`），手機才不會用到「新舊混在一起」的檔案。
+
+## 八、外部套件和安全更新
+
+網站本身不用安裝套件；用到的外部程式都固定版本（官方更新不會讓網站突然壞掉），所以要自己定期檢查有沒有安全更新。10/26 檢查的結果：
+
+| 套件 | 用在哪 | 固定的版本 | 10/26 最新 | 安全問題 | 決定 |
+|---|---|---|---|---|---|
+| MediaPipe（`@mediapipe/tasks-vision`） | 網站：找骨架（`js/config.js`） | 1.0.1 | 1.1.1 | npm 的安全資料庫沒有紀錄 | 先不換：新版的 AI 輸出會變，計次、錯誤的門檻和回歸測試的基準都要重做；11/9 報告後再評估 |
+| Firebase JS SDK | 網站：雲端同步（`js/cloud/config.js`） | 12.19.0（12 版的最新） | 13.1.0 | `npm audit` 報 4 個「高」，都來自 Firestore 的 Node.js 版用的 `@grpc/grpc-js`（伺服器端的問題），13.1.0 也一樣。網站載入的是瀏覽器版：npm 上同一版的瀏覽器檔案只用 WebChannel，沒有 grpc | 不用換 |
+| firebase-tools | 只在測試：GitHub Actions 的 `rules`、本機的模擬器 | 15.34.1（10/26 從 15.32.1 換） | 15.34.1 | 15.32.1 有 5 個「高」（例如 `basic-ftp` 的 CPU 耗盡）、4 個「中」；15.34.1 剩 5 個「中」，還沒有修好的版本 | 換成 15.34.1，不影響網站 |
+
+下次怎麼檢查：
+
+1. `npm view @mediapipe/tasks-vision version`、`npm view firebase version`、`npm view firebase-tools version` 看最新版。
+2. 在暫存資料夾寫一個只有這幾個套件、版本和專案一樣的 `package.json`，`npm install --package-lock-only --ignore-scripts` 之後 `npm audit`（只算出套件清單，不會下載、執行套件）。
+3. 報出來的問題要看是在瀏覽器版還是 Node.js 版：網站只用瀏覽器版。
+
+換 MediaPipe 版本見上面第六節；換 Firebase 版本改 `js/cloud/config.js` 的 `FIREBASE_VERSION`，再跑 `npm run test:rules` 和 `npm run test:live`；換 firebase-tools 改 `.github/workflows/test.yml`（兩個地方）和 `CLAUDE.md`。
