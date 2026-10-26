@@ -2946,6 +2946,23 @@ code {
 .help .table-wrap {
     overflow-x: auto;
 }
+/* 驗證實驗的結果（10/26）：結果的字比較長，換行不捲動；左邊的項目名稱不換行 */
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    line-height: 1.6;
+}
+.result-table th, .result-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+}
+.result-table tbody th {
+    white-space: nowrap;
+    color: var(--accent);
+}
 .exp {
     display: grid;
     grid-template-columns: 200px minmax(0, 1fr);
