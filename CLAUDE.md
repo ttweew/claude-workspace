@@ -54,7 +54,7 @@
   - 39 個 PASS
   - 擋鬼點評估那一段的 md5 是 `f2f5250e138b2bf6ea05b7e5d62db9da`
 - 重的測試不要同時跑：會互相拖慢，影響跟時間有關的檢查。
-- Firebase 模擬器：`npx firebase-tools@15.32.1 emulators:start --only auth,firestore --project demo-sport`。
+- Firebase 模擬器：`npx firebase-tools@15.34.1 emulators:start --only auth,firestore --project demo-sport`。
   - 模擬器開著時不要改 `firestore.rules` 檔：模擬器會重新載入，在這個環境會當掉。
   - 要換規則，用模擬器的 REST 介面。
 
