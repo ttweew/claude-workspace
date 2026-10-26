@@ -84,5 +84,10 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `goal25/`：四個動作自訂目標。`node make_fake.mjs <網站資料夾>` 做出棒式一直線撐 22 秒、深蹲 4 下的假 AI；`python3 check.py <網站資料夾> [old]`：首頁「目標」卡片（自己填、填錯、重新整理還在、320 寬、axe-core）、棒式報時和倒數（完整語音、只講錯誤、不講話的嗶聲、沒設目標不報）、深蹲「3 下，完成目標」、總結（35 項；加 `old` 在舊程式上跑，預期失敗，「沒設目標和以前一樣」那項舊程式也要通過）。`hud_shot.py <網站資料夾>`：直拿 320～390 寬、橫拿時次數框上面的「目標」字樣不會和左右兩組重疊（拍照看）。
   - `r10/reclimit.py`：改成等錄到第一格再往後跳時間（錄製的開始時間是第一格畫面進來時才記，以前偶爾第一格還沒進來就跳，「剩 30 秒」不會出現）。`r10/race_proof.py`：刻意讓按錄製和跳時間同時發生，重現這個失敗。
   - `csv25/check.py <網站資料夾> <port> [old]`：運動紀錄下載 CSV（首頁放 13 次紀錄＋1 筆壞掉的：按鈕寫全部幾次、檔名、BOM、表頭、13 列、深蹲和棒式那一列、axe-core、320／390 寬；加 `old` 確認舊程式沒有這個按鈕）。
+- 10/26：
+  - `main26/check.py <網站資料夾> <port> <實測檔資料夾>`：實測報表頁（真的瀏覽器）讀 10/20 的實測檔，整體的數字和寫進使用說明的一樣；使用說明「第一次實測的結果」320～1280 寬、axe-core（實測檔是組員的錄影，不放進這個分支）。
+  - `prop26/`：示範模式（用一段影片代替鏡頭）。先 `bash prep.sh <網站資料夾>`（用 goal25 做假的 AI、改成一直重複，再用 `make_videos.py` 在 Chromium 裡錄 WebM 測試影片：容器沒有 ffmpeg、Chromium 也不能播 mp4），再 `python3 check.py <網站資料夾> <port> [old]`（25 項：計次、講話、播完的總結不存、「選擇動作」照常、壞檔案、實測模式、真的 AI、版面、axe-core；加 `old` 確認舊程式沒有這個按鈕）。
+  - `reg2.sh`：「手機轉向」（`r3/rotate.py`）的完整輸出另外存在 `r3/rotate_last.txt`（10/21 失敗過一次、當時只看得到「1 FAILED」）；畫面上的輸出不變，比對方法不變。
+  - 套件檢查（不用工具）：在暫存資料夾寫只有那幾個套件的 `package.json`，`npm install --package-lock-only --ignore-scripts` 再 `npm audit`；方法寫在專案的 `docs/architecture.md` 第八節。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
