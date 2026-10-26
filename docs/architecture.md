@@ -105,6 +105,7 @@ claude-workspace/
 | | `datapanel.js` | 數據面板的數值表格 |
 | | `chart.js` | 重播頁的角度曲線圖 |
 | `platform/` | `camera.js` | 開關鏡頭、列出鏡頭、判斷前後鏡頭 |
+| `platform/` | `video-source.js` | 示範模式（10/26）：選一段影片，在看不到的 `<video>` 播、用 `captureStream()` 變成和鏡頭一樣的串流，交給 main.js 原本的鏡頭流程 |
 | | `screen.js` | 運動時讓螢幕保持亮著（Wake Lock） |
 | | `offline.js` | 註冊離線功能（`sw.js`），`?sw=0` 可移除 |
 | | `gpu.js` | 查詢 GPU 名稱 |

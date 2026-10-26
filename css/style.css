@@ -2009,6 +2009,14 @@ code {
 #autoNote {
     border-color: rgba(46, 230, 166, 0.6);
 }
+/* 示範模式（10/26）：藍框寫出影片的檔名；檔名很長時只顯示前面，不撐開標籤列 */
+#clipTag {
+    max-width: 100%;
+    overflow: hidden;
+    border-color: rgba(76, 195, 255, 0.7);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 /* 速度建議：自己一行（排在狀態、運算標籤下面），圓角卡片 */
 #infobar > #advice {
     flex: 0 0 100%;

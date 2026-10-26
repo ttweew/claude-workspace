@@ -2,6 +2,7 @@
 
 import { SHOW_LABELS_AT_START, DEBUG, MODELS, PREDICT, FPS_CHOICES } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
+import { videoFileSupported, looksLikeVideo, openVideoFile } from '../platform/video-source.js';
 import { loadPoseModel } from '../ai/pose.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
 import { drawSkeleton, drawBalance } from '../ui/draw.js';
@@ -112,6 +113,9 @@ const hud = new Hud(hudRoot);
 
 // ---------- 狀態 ----------
 let currentStream = null;
+// 示範模式（10/26，js/platform/video-source.js）：選一段影片當鏡頭。{ file, source }：source 是正在播的影片（停止時清掉）
+// 不是自己運動：總結照樣顯示，但不存進運動紀錄、不上傳；實測的一組不能用
+let demo = null;
 let cameraRequest = 0;      // 每次開啟或關閉鏡頭就加 1，用來丟棄已經過時的開啟請求
 let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
 let lastVideoTime = -1;
@@ -559,6 +563,11 @@ setInterval(() => {
 
 // 重開同一顆鏡頭；剛重開過（30 秒內）還是不行，就不再一直重開，請使用者自己關掉重開
 function fixCamera(why) {
+    if (demo) {
+        frozenTold = true;
+        setPoseStatus('示範影片停住了，請按「結束」再選一次影片', 'error');
+        return;
+    }
     if (performance.now() - frozenRestartAt < FROZEN.retryMs) {
         frozenTold = true;
         setPoseStatus('鏡頭畫面停住了，請關閉鏡頭再重新開啟', 'error');
@@ -637,7 +646,7 @@ function measureSecond() {
 // 自動調每秒格數：直接換鏡頭的格數（不用重開鏡頭），瀏覽器不支援才重開；換完重新暖機、重新累積秒數
 async function applyAutoRate(rate, why) {
     const stream = currentStream;
-    if (!stream || rate === getFrameRate()) return;
+    if (!stream || demo || rate === getFrameRate()) return;
     setAutoRate(rate);
     autoFps.clear();
     measureFrom = performance.now();
@@ -988,6 +997,11 @@ function finishSession() {
     sessionStart = Date.now();
     resetCounter();
     if (!s) return;
+    // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
+    if (demo) {
+        showSummary(s, null, true);
+        return;
+    }
     const previous = saveSession(s);
     showSummary(s, previous);
     // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
@@ -996,11 +1010,15 @@ function finishSession() {
 
 // 首頁正在顯示的總結（填實際次數後重新寫一次總結用）
 let shownSummary = null;
-function showSummary(s, previous) {
+const summaryTitle = document.getElementById('summaryTitle');
+function showSummary(s, previous, fromDemo = false) {
     shownSummary = { s, previous };
     writeSummary();
+    summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
+    // 填「實際做了幾下」會改到存起來的最後一筆，示範影片沒有存，不能填；雲端同步的詢問也收起來
+    if (fromDemo) document.getElementById('cloudAsk').hidden = true;
     // 計次準確率：計次的動作才有（棒式是計時）
-    actualForm.hidden = !countsReps(s);
+    actualForm.hidden = fromDemo || !countsReps(s);
     actualInput.value = Number.isInteger(s.actual) ? String(s.actual) : '';
     actualNote.textContent = '';
     summaryBox.hidden = false;
@@ -1167,26 +1185,35 @@ async function startCamera(deviceId) {
     const request = ++cameraRequest;
     stopStream();
     // 第一次使用時瀏覽器會先問要不要允許相機，這段時間首頁要有回應，不要還寫著「尚未開啟鏡頭」
-    if (stage.hidden) statusText.textContent = '正在開啟鏡頭…（第一次使用請按「允許」使用相機）';
+    if (stage.hidden) statusText.textContent = demo ? '正在開啟示範影片…' : '正在開啟鏡頭…（第一次使用請按「允許」使用相機）';
     let stream;
+    let source = null;   // 示範模式：正在播的影片
     try {
-        stream = await openCamera(deviceId);
+        if (demo) {
+            source = await openVideoFile(demo.file, { onEnded: () => demoEnded(source) });
+            stream = source.stream;
+        } else {
+            stream = await openCamera(deviceId);
+        }
     } catch (err) {
         if (request !== cameraRequest) return;
         // 之前選的鏡頭已經不在了（例如外接鏡頭被拔掉）：改用裝置預設鏡頭
-        if (deviceId && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
+        if (!demo && deviceId && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
             cameraSelect.innerHTML = '';
             return startCamera();
         }
+        const message = err.demo ? err.message : cameraErrorMessage(err);
         closeCamera();
-        statusText.textContent = cameraErrorMessage(err);
+        statusText.textContent = message;
         return;
     }
     // 等待鏡頭的期間，使用者已經又切換或關閉鏡頭：這個舊的鏡頭直接關掉
     if (request !== cameraRequest) {
         stopCamera(stream);
+        if (source) source.stop();
         return;
     }
+    if (source) demo.source = source;
     currentStream = stream;
     video.srcObject = stream;
     if (!tracker.items.length) sessionStart = Date.now();
@@ -1194,10 +1221,12 @@ async function startCamera(deviceId) {
     resetFrozenWatch();
     // 保險起見主動播放（iPhone 省電模式可能擋掉自動播放，畫面會停在第一格）
     video.play().catch(() => {});
-    statusText.textContent = '鏡頭已開啟';
+    statusText.textContent = demo ? '示範影片播放中' : '鏡頭已開啟';
     showStage(true);
+    showClipTag();
     hudRoot.hidden = !dataPanel.hidden;
-    const mirror = shouldMirror(stream);
+    // 影片不用鏡像（影片裡的左邊本來就在畫面左邊）
+    const mirror = !demo && shouldMirror(stream);
     video.classList.toggle('mirrored', mirror);
     overlay.classList.toggle('mirrored', mirror);
     hud.setMirrored(mirror);
@@ -1208,8 +1237,9 @@ async function startCamera(deviceId) {
     // 鏡頭中途斷線（外接鏡頭被拔掉、被其他程式搶走）：回到首頁並說明原因
     stream.getVideoTracks()[0].addEventListener('ended', () => {
         if (stream !== currentStream) return;
+        const wasDemo = !!demo;
         closeCamera();
-        statusText.textContent = '鏡頭連線中斷（可能被拔除或被其他程式使用），請重新開啟鏡頭';
+        statusText.textContent = wasDemo ? '示範影片停止了' : '鏡頭連線中斷（可能被拔除或被其他程式使用），請重新開啟鏡頭';
     });
     // 上次 AI 壞掉沒救回來：重新開啟鏡頭時再試一次
     if (poseBroken) {
@@ -1221,6 +1251,11 @@ async function startCamera(deviceId) {
     updatePerfInfo();
     // 運動時手機不會因為沒碰螢幕而變暗、鎖定
     keepScreenOn(updatePerfInfo);
+    // 示範影片沒有鏡頭可以選
+    if (demo) {
+        cameraSelect.hidden = true;
+        return;
+    }
     try {
         await fillCameraSelect();
     } catch (err) {
@@ -1237,6 +1272,10 @@ function stopStream() {
     if (currentStream) {
         stopCamera(currentStream);
         currentStream = null;
+    }
+    if (demo && demo.source) {
+        demo.source.stop();
+        demo.source = null;
     }
     video.srcObject = null;
     cancelDetect();
@@ -1283,6 +1322,11 @@ function closeCamera() {
     cameraRequest++;
     stopStream();
     finishSession();
+    if (demo) {
+        demo = null;
+        showClipTag();
+        showTestBar();
+    }
     hideAutoNote();
     library.hide();
     allowScreenOff();
@@ -1397,7 +1441,8 @@ const testBar = new TestBar(document.getElementById('testBar'), {
 // 開關實測模式、換代號、換動作時重畫（自由模式沒有可以選的組，整列藏起來）
 function showTestBar() {
     if (testSet) return;   // 倒數、錄製中不重畫（錄製中不能換動作；換動作前會先取消倒數）
-    testBar.setPlan(testMode.on ? testMode.subject : null, workout, conditionsFor(workout.id));
+    // 示範影片不是受測者本人，不能錄實測的一組
+    testBar.setPlan(testMode.on && !demo ? testMode.subject : null, workout, conditionsFor(workout.id));
     showRecBar();
 }
 
@@ -1568,8 +1613,8 @@ function applyFps(rate) {
     showFpsChoice();
     recLimit.show();
     updatePerfInfo();
-    // 開著鏡頭：用新的每秒格數重開同一顆鏡頭（錄製中選單會鎖住，不會走到這裡）
-    if (currentStream) startCamera(activeDeviceId(currentStream));
+    // 開著鏡頭：用新的每秒格數重開同一顆鏡頭（錄製中選單會鎖住，不會走到這裡）；示範影片的格數是固定的，不重開（會從頭播）
+    if (currentStream && !demo) startCamera(activeDeviceId(currentStream));
 }
 fpsSelect.addEventListener('change', () => chooseFps(fpsSelect));
 fpsLive.addEventListener('change', () => chooseFps(fpsLive));
@@ -1986,6 +2031,43 @@ const setStartDisabled = setupStartPick({
 if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
     setStartDisabled(true);
+}
+
+// ---------- 示範模式（10/26 提案，js/platform/video-source.js）：選一段影片當鏡頭 ----------
+// 報告時不用現場運動；網路教練影片下載下來也能直接看網站的判斷。用目前選的動作（鏡頭畫面右上角也能換）
+const clipLine = document.getElementById('clipLine');
+const clipBtn = document.getElementById('clipBtn');
+const clipFile = document.getElementById('clipFile');
+const clipTag = document.getElementById('clipTag');
+clipLine.hidden = !videoFileSupported();
+clipBtn.addEventListener('click', () => {
+    // 按按鈕的當下喚醒聲音和語音（選完檔案時已經不算「使用者剛按過」，瀏覽器可能不讓講話）
+    sound.unlock();
+    voice.unlock();
+    clipFile.value = '';
+    clipFile.click();
+});
+clipFile.addEventListener('change', () => {
+    const file = clipFile.files && clipFile.files[0];
+    if (!file) return;
+    if (!looksLikeVideo(file)) {
+        statusText.textContent = '請選影片檔（mp4、webm）';
+        return;
+    }
+    demo = { file, source: null };
+    showTestBar();
+    startCamera();
+});
+// 播完：回到首頁看總結
+function demoEnded(source) {
+    if (!demo || demo.source !== source) return;
+    closeCamera();
+    statusText.textContent = '示範影片播完了';
+}
+// 鏡頭畫面左上角的「示範影片：檔名」：看的人知道這不是現場的鏡頭
+function showClipTag() {
+    clipTag.hidden = !demo;
+    clipTag.textContent = demo ? '示範影片：' + demo.file.name : '';
 }
 
 showWorkout();
