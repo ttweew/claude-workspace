@@ -89,5 +89,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `prop26/`：示範模式（用一段影片代替鏡頭）。先 `bash prep.sh <網站資料夾>`（用 goal25 做假的 AI、改成一直重複，再用 `make_videos.py` 在 Chromium 裡錄 WebM 測試影片：容器沒有 ffmpeg、Chromium 也不能播 mp4），再 `python3 check.py <網站資料夾> <port> [old]`（25 項：計次、講話、播完的總結不存、「選擇動作」照常、壞檔案、實測模式、真的 AI、版面、axe-core；加 `old` 確認舊程式沒有這個按鈕）。
   - `reg2.sh`：「手機轉向」（`r3/rotate.py`）的完整輸出另外存在 `r3/rotate_last.txt`（10/21 失敗過一次、當時只看得到「1 FAILED」）；畫面上的輸出不變，比對方法不變。
   - 套件檢查（不用工具）：在暫存資料夾寫只有那幾個套件的 `package.json`，`npm install --package-lock-only --ignore-scripts` 再 `npm audit`；方法寫在專案的 `docs/architecture.md` 第八節。
+- 10/27：
+  - `main27/check.py <網站資料夾> <port> [old]`：運動總結的「每一下」圖表（19 項，假的 AI 用 `../goal25` 的 `fake_*.mjs`，先跑那裡的 `make_fake.mjs`）：深蹲 4 下關鏡頭後兩張圖（深度、秒數）、顏色、說明、最深的數字和總結的「最低」一樣、平均線和「每下約幾秒」一樣、數字畫在圖裡、表格；棒式目標 18 秒的目標線；320、390 寬不超出、表格在自己的框裡；axe-core；加 `old` 確認舊程式沒有圖。
+  - `main27/mixed.py <網站資料夾> <port>`：只拍照（不判斷）：三種深度顏色混在一起、30 下（橫軸編號隔開）、壞掉的那一下（編號空一格）。
+  - `maint27/check.py <網站資料夾> <port> [old]`：重播分析用同一套圖（20 項）：首頁鏡頭畫面錄 4 下假的深蹲（不倒數）→ 下載 JSON（存成 `maint27/rec_squat.json`，是假的 AI，不是真人）→ 重播分析讀同一個檔，每一下的角度、深度、秒數、平均線和首頁一樣；和重播頁原本的表格對得起來；換動作收起來、換回來又出現；合成示範資料選了深蹲才有圖；320、390 寬；axe-core；加 `old` 確認舊程式的重播頁沒有圖。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
