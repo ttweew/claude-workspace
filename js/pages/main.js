@@ -29,6 +29,8 @@ import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
+import { repSeries } from '../analysis/rep-series.js';
+import { renderRepChart } from '../ui/rep-chart.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -991,6 +993,8 @@ function finishSession() {
     // 棒式撐到一半就結束：撐到現在的算一次
     if (workout.kind === 'hold' && tracker.counter.current) tracker.interrupt();
     const s = summarize(workout.id, tracker.items, sessionStart, Date.now());
+    // 每一下的圖表（10/27）：紀錄裡只存總結的數字，所以只畫剛做完的這一次；要在下面清掉計次之前算
+    const series = s ? repSeries(workout.id, tracker.items) : null;
     // 這次的目標記進總結（「目標 10 下：達成」）；只存在這台裝置，不上傳雲端（js/cloud/sync.js 的白名單沒有）
     const goal = currentGoal();
     if (s && goal !== null) s.goal = goal;
@@ -999,11 +1003,11 @@ function finishSession() {
     if (!s) return;
     // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
     if (demo) {
-        showSummary(s, null, true);
+        showSummary(s, null, true, series, goal);
         return;
     }
     const previous = saveSession(s);
-    showSummary(s, previous);
+    showSummary(s, previous, false, series, goal);
     // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
     cloudPanel.afterSession();
 }
@@ -1011,7 +1015,9 @@ function finishSession() {
 // 首頁正在顯示的總結（填實際次數後重新寫一次總結用）
 let shownSummary = null;
 const summaryTitle = document.getElementById('summaryTitle');
-function showSummary(s, previous, fromDemo = false) {
+const repChart = document.getElementById('repChart');
+// series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
+function showSummary(s, previous, fromDemo = false, series = null, goal = null) {
     shownSummary = { s, previous };
     writeSummary();
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
@@ -1022,6 +1028,8 @@ function showSummary(s, previous, fromDemo = false) {
     actualInput.value = Number.isInteger(s.actual) ? String(s.actual) : '';
     actualNote.textContent = '';
     summaryBox.hidden = false;
+    // 框出現之後才畫：要量框的寬度，字才是實際的大小
+    renderRepChart(repChart, series, { goal: s.workout === 'plank' ? goal : null });
     showHistory();
 }
 

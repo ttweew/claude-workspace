@@ -897,6 +897,88 @@ h2 {
     font-size: 14px;
     line-height: 1.6;
 }
+/* 每一下的圖表（10/27，js/ui/rep-chart.js）：首頁總結、重播分析共用
+   長條用狀態色（和鏡頭畫面每一下的提示同色：到位綠、再低一點黃、太淺紅；秒數用資訊藍），字一律用文字色；
+   參考線是細線、不搶長條 */
+.rep-chart {
+    margin: 10px 0 0;
+}
+.rep-fig {
+    margin: 0 0 10px;
+}
+.rep-fig figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    margin: 0 0 4px;
+    font-size: 14px;
+}
+.rep-title {
+    color: var(--text);
+    font-weight: 600;
+}
+.rep-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    color: var(--muted-2);
+    font-size: 13px;
+}
+.rep-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.rep-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+.rep-swatch.good, .rep-mark.good { background: var(--accent); fill: var(--accent); }
+.rep-swatch.close, .rep-mark.close { background: var(--attn); fill: var(--attn); }
+.rep-swatch.shallow, .rep-mark.shallow { background: var(--danger); fill: var(--danger); }
+.rep-mark.time { fill: var(--info); }
+/* 圖例裡的參考線：短短一條，和圖上的線一樣 */
+.rep-swatch.line { width: 14px; height: 2px; border-radius: 0; background: rgba(255, 255, 255, 0.6); }
+.rep-svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
+}
+.rep-axis { stroke: rgba(255, 255, 255, 0.28); stroke-width: 1; }
+.rep-ref { stroke: rgba(255, 255, 255, 0.6); stroke-width: 1; }
+.rep-tick { fill: var(--muted-2); font-size: 12px; }
+.rep-peak { fill: var(--text); font-size: 12px; font-weight: 600; }
+/* 摸得到的範圍是整個欄位（看不到）；滑鼠移上去，那一條加白框 */
+.rep-hit { fill: transparent; }
+.rep-bar:hover .rep-mark { stroke: var(--text); stroke-width: 1.5; }
+.rep-table summary {
+    cursor: pointer;
+    color: var(--muted-2);
+    font-size: 14px;
+}
+/* 表格比框寬時在自己的框裡左右捲動：寬度 1px＋最小 100%，表格的寬才不會把整個首頁撐寬（320 寬的手機打開表格時撐寬 10px） */
+.rep-table .table-wrap {
+    width: 1px;
+    min-width: 100%;
+    overflow-x: auto;
+}
+.rep-table table {
+    width: 100%;
+    margin: 6px 0 0;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+.rep-table th, .rep-table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+}
+.rep-table th { color: var(--muted-2); font-weight: 600; }
 /* 總結下面：填實際做了幾下，算計次準確率（10/20） */
 .actual-form {
     display: flex;
