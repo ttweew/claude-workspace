@@ -11,6 +11,8 @@ import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
 import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
 import { summarize, describe } from '../analysis/session.js';
+import { repSeries } from '../analysis/rep-series.js';
+import { renderRepChart } from '../ui/rep-chart.js';
 import { errorShort, errorRule } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES, BALANCE_FIELDS } from '../data/replay-core.js';
@@ -27,6 +29,7 @@ const result = $('result'), summary = $('summary'), synthNote = $('synthNote');
 const toggles = $('toggles'), chart = $('chart'), skeleton = $('skeleton'), readout = $('readout');
 const playBtn = $('playBtn'), mirrorBtn = $('mirrorBtn'), stats = $('stats'), csvOut = $('csvOut');
 const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable'), workoutPick = $('workoutPick'), squatNote = $('squatNote');
+const repChart = $('repChart');   // 每一下的圖表（10/27，和首頁的運動總結同一套：js/ui/rep-chart.js）
 const worldCard = $('worldCard'), boneTable = $('boneTable'), kneeTable = $('kneeTable'), kneeNote = $('kneeNote');
 const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 
@@ -304,11 +307,14 @@ function showSquats() {
         squatSummary.textContent = '這個檔案錄製時沒有選動作（或選了「自由」）：在上面選一個動作，就能算次數、深度和錯誤';
         squatTable.replaceChildren();
         squatNote.textContent = '';
+        renderRepChart(repChart, null);
         return;
     }
     const s = summarize(id, reps, 0, 0);
     squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
     squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
+    // 每一下的圖表：和首頁的運動總結同一套數字和畫法；下面的表格比較詳細，圖表就不再附表格
+    renderRepChart(repChart, s ? repSeries(id, reps) : null, { table: false });
     // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面（錯誤一直是最後一欄）
     const balanced = BALANCE.workouts.includes(id);
     const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']

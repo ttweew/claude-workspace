@@ -107,7 +107,8 @@ function table(parent, head, rows) {
 }
 
 // box：放圖表的框（div）；series：repSeries() 的結果（null 就收起來）；goal：棒式的目標秒數（沒有是 null）
-export function renderRepChart(box, series, { goal = null } = {}) {
+// table：要不要畫下面的「每一下的數字」表格（重播分析本來就有更詳細的表格，不用再畫一次）
+export function renderRepChart(box, series, { goal = null, table: withTable = true } = {}) {
     box.replaceChildren();
     box.hidden = !series;
     if (!series) return;
@@ -127,7 +128,7 @@ export function renderRepChart(box, series, { goal = null } = {}) {
             peak: { n: best.n, value: best.seconds }, peakText: best.seconds + ' 秒',
             axisLabels: [{ value: 0, text: '0' }, { value: max, text: max + ' 秒' }]
         });
-        table(box, ['第幾次', '秒數', '錯誤'], holds.map(h => [String(h.n), String(h.seconds), h.errors.join('、') || '—']));
+        if (withTable) table(box, ['第幾次', '秒數', '錯誤'], holds.map(h => [String(h.n), String(h.seconds), h.errors.join('、') || '—']));
         return;
     }
     const reps = series.reps;
@@ -161,6 +162,6 @@ export function renderRepChart(box, series, { goal = null } = {}) {
             axisLabels: [{ value: 0, text: '0' }, { value: max, text: max + ' 秒' }]
         });
     }
-    table(box, ['第幾下', '最低角度', '深度', '秒數', '錯誤'],
+    if (withTable) table(box, ['第幾下', '最低角度', '深度', '秒數', '錯誤'],
         reps.map(r => [String(r.n), r.angle + '°', DEPTH_TEXT[r.depth], r.seconds === null ? '—' : String(r.seconds), r.errors.join('、') || '—']));
 }
