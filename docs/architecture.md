@@ -20,6 +20,7 @@ claude-workspace/
 ├── report.html         實測報表（重播分析底下：一次讀很多個實測檔，比對每一組）
 ├── protractor.html     照片量角器（使用說明「驗證實驗 A」的另一種量法：在照片上拖三個點量角度，和 AI 比）
 ├── help.html           使用說明
+├── results.html        研究成果（使用說明底下：目前量到的數字整理成一頁，報告時打開；10/28）
 ├── sw.js               離線功能（Service Worker；瀏覽器規定要放在網站最外層）
 ├── firestore.rules     雲端資料庫的安全規則（貼到 Firebase 主控台；docs/firebase-setup.md）
 ├── firebase.json       Firebase 本機模擬器的設定（開發、測試用）
