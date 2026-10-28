@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="AI 智慧運動分析系統的研究成果：次數、錯誤抓得到幾下、角度準不準、速度、各裝置的實測數字">
+    <meta name="theme-color" content="#0B1220">
+    <title>研究成果 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/results.css">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./" aria-label="AI 運動分析（首頁）">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+
+    <!-- 研究成果（10/28 提案）：第三次報告直接打開這一頁。只有文字和數字，沒有程式（數字是整理好的，不是即時算的）
+         每個數字都寫怎麼量的、出處（使用說明「驗證實驗」、docs/data-format.md、docs/roadmap.md、開發日誌）；還沒有數字的也寫出來
+         使用說明底下的一頁，導覽列標在「使用說明」 -->
+    <div class="page help results">
+        <header class="help-head">
+            <h1>研究成果</h1>
+            <p class="intro">網站目前量到的數字（整理到 10/28）：次數算得對不對、做錯抓不抓得到、角度準不準、跑得快不快、各種手機能不能用。每個數字都寫了怎麼量的；還沒有數字的，最後一節也寫出來。</p>
+            <ul class="toc" aria-label="這一頁的內容">
+                <li><a href="#headline">一眼看完</a></li>
+                <li><a href="#count">次數和錯誤</a></li>
+                <li><a href="#angle">角度準不準</a></li>
+                <li><a href="#speed">速度</a></li>
+                <li><a href="#devices">各種裝置</a></li>
+                <li><a href="#more">其他量到的</a></li>
+                <li><a href="#todo">還沒有的數字</a></li>
+            </ul>
+        </header>
+
+        <main>
+            <section id="headline" aria-labelledby="headlineTitle">
+                <h2 id="headlineTitle">一眼看完：第一次實測（10/20）</h2>
+                <p class="prose">受測者 A、B 各用自己的筆電，四個動作每一組都錄：做對 10 下（棒式撐 30 秒），每種錯誤故意做 5 下（棒式撐 10 秒），共 23 個檔案。用目前的網站重算（和鏡頭畫面同一套算法）。</p>
+                <div class="stat-grid">
+                    <div class="stat"><span class="stat-value">15／15</span><span class="stat-label">知道正確次數的組，次數全對</span></div>
+                    <div class="stat"><span class="stat-value">49／50</span><span class="stat-label">故意做錯的下數，抓到 49 下</span></div>
+                    <div class="stat"><span class="stat-value">4／4</span><span class="stat-label">棒式故意腰塌、屁股太高的組，都抓到</span></div>
+                    <div class="stat"><span class="stat-value">7／50</span><span class="stat-label">做對的下數，被報錯 7 下（都是 A，要看影片）</span></div>
+                </div>
+            </section>
+
+            <section id="count" aria-labelledby="countTitle">
+                <h2 id="countTitle">次數和錯誤（驗證實驗 B）</h2>
+                <div class="table-wrap">
+                    <table class="result-table">
+                        <thead><tr><th scope="col">動作</th><th scope="col">故意做錯，抓到幾下</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">深蹲</th><td>上身前傾 10／10、腳跟離地 10／10（當天 0／10，10/24 改成「和站直時比」）</td></tr>
+                            <tr><th scope="row">伏地挺身</th><td>腰塌 5／5、屁股太高 5／5</td></tr>
+                            <tr><th scope="row">弓箭步</th><td>上身前傾 9／10、前膝超過腳尖 10／10</td></tr>
+                            <tr><th scope="row">棒式</th><td>腰塌 2／2 組、屁股太高 2／2 組</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="prose-list">
+                    <li><strong>次數：</strong>知道正確次數的 15 組全對（當天 11 組；多算的都是換姿勢，例如倒數完轉身、做完起身，10/21 修好）。A 深蹲有兩組還不知道實際做了幾下。</li>
+                    <li><strong>做對被報錯：</strong>50 下有 7 下，都是 A：弓箭步 5 下「前膝超過腳尖」（A 是斜側面拍）、深蹲 2 下「腳跟離地」。A 是不是真的做了，要看 A 的影片。棒式做對的 2 組都沒有被報錯。</li>
+                    <li><strong>疲勞分析（10/28）：</strong>正常做的 7 組（每組 10～13 下），前段和後段自然的差別最多是每下秒數 1.30 倍、最低角度 9.6°、相似度 8 分；網站的門檻取這個的 1.5 倍，重算後正常做的 6 組都是「差不多」，A 弓箭步做對那組是「錯誤變多」（就是上面那 5 下）。</li>
+                </ul>
+                <p class="note"><strong>怎麼試：</strong>實測模式錄的檔案丟進<a href="report.html">實測報表</a>，一次算出上面這些；方法在<a href="help.html#experiments">使用說明的驗證實驗</a>。</p>
+            </section>
+
+            <section id="angle" aria-labelledby="angleTitle">
+                <h2 id="angleTitle">角度準不準：為什麼要側面拍</h2>
+                <p class="prose">用電腦做出知道正確角度的 3D 骨架，從不同方向「拍」成 2D，再用網站算膝蓋角度，比算出來的和正確的差幾度（2,223 種組合：拍攝方向 × 蹲多深 × 前傾 × 小腿角度）。</p>
+                <div class="table-wrap">
+                    <table class="result-table">
+                        <thead><tr><th scope="col">網站判斷的拍攝方向</th><th scope="col">膝蓋角度的誤差</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">側面</th><td>最大 4.1°</td></tr>
+                            <tr><th scope="row">斜側面</th><td>最大 12.3°（重播分析會寫「僅供參考」）</td></tr>
+                            <tr><th scope="row">正面</th><td>中位數 24°、最大 116°（不計算，提示側身）</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="prose">所以網站只在側面、斜側面拍時算次數和深度。真人的角度和量角器比（驗證實驗 A），工具做好了（數據面板「記下角度」、<a href="protractor.html">照片量角器</a>），還沒有數字。</p>
+            </section>
+
+            <section id="speed" aria-labelledby="speedTitle">
+                <h2 id="speedTitle">速度</h2>
+                <div class="table-wrap">
+                    <table class="result-table">
+                        <thead><tr><th scope="col">項目</th><th scope="col">結果</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">每秒幾格</th><td>四種裝置都是 GPU、每秒 30 格（大部分手機鏡頭送畫面的上限）</td></tr>
+                            <tr><th scope="row">AI 在背景算</th><td>主畫面忙碌 88～97% → 16～17%，按鈕的反應 27～32 → 4 毫秒（PR #42）</td></tr>
+                            <tr><th scope="row">骨架跟手</th><td>動作中骨架落後身體 6.8 → 3.0 像素（往前預測；每秒 30 格、延遲 40 毫秒的模擬）</td></tr>
+                            <tr><th scope="row">第二次打開</th><td>AI 檔案（約 18 MB）存在手機裡，約 0.5 秒就能用，沒有網路也能用（PR #43）</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="devices" aria-labelledby="devicesTitle">
+                <h2 id="devicesTitle">各種裝置（同一個人，10/5、10/6）</h2>
+                <p class="prose">同一個人用四種裝置錄影，網站用 3D 座標估計大腿、小腿多長（取中間值）。換裝置只差 2 公分以內，代表穩定；還沒有用捲尺量真的長度，所以還不能說「準」。</p>
+                <div class="table-wrap">
+                    <table class="result-table device-table">
+                        <thead><tr><th scope="col">裝置</th><th scope="col">運算、速度</th><th scope="col">大腿、小腿（公分）</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Android 手機</th><td>GPU、每秒 30 格</td><td>36.7、39.5</td></tr>
+                            <tr><th scope="row">Windows 筆電（Chrome）</th><td>GPU、每秒 30 格</td><td>37.5、37.6</td></tr>
+                            <tr><th scope="row">iPhone（Chrome）</th><td>GPU、每秒 30 格</td><td>38.4、39.8</td></tr>
+                            <tr><th scope="row">iPad（Safari）</th><td>GPU、每秒 30 格，5 分鐘一格都沒漏</td><td>37.4、39.4</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="prose">10/20 的實測，受測者 A、B 都用自己的 Windows 筆電。</p>
+            </section>
+
+            <section id="more" aria-labelledby="moreTitle">
+                <h2 id="moreTitle">其他量到的：平衡與重心（10/24）</h2>
+                <p class="prose">重心比腳踝往前多少（小腿長當 100%），10/20 實測：站直時在腳踝前 1～10%（腳掌偏後，和運動生物力學的說法一致）；受測者 B 故意墊腳時往前到 21～26%，和正常、前傾分得開。站直時前後晃動：B 0.5～1.9%、A 2.8～7.2%（A 站得比較遠）。目前只顯示、不判斷對錯。</p>
+            </section>
+
+            <section id="todo" aria-labelledby="todoTitle">
+                <h2 id="todoTitle">還沒有的數字</h2>
+                <ul class="prose-list">
+                    <li>只有 2 個受測者、都用筆電：門檻是照這兩個人和網路教練影片訂的，人越多、身材越不一樣，門檻越可靠。</li>
+                    <li>角度和量角器差幾度（驗證實驗 A）、3D 長度和捲尺差幾公分（實驗 D）。</li>
+                    <li>真的做到累的一組：疲勞分析的門檻目前只用「不累的組」訂。</li>
+                    <li>iPhone 的 Safari、手機錄 10 分鐘以上、每秒 60 格以上。</li>
+                    <li>A 的影片：確認被報錯的 7 下是不是真的做錯。</li>
+                </ul>
+                <p class="note"><strong>出處：</strong>使用說明的<a href="help.html#results1020">第一次實測的結果</a>；專案裡的資料格式文件（拍攝方向、骨架跟手）、路線圖（真人錄影、各裝置、平衡與重心）和開發日誌。</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品</p>
+        </footer>
+    </div>
+</body>
+</html>

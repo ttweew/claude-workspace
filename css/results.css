@@ -1,0 +1,47 @@
+/* 研究成果（results.html，10/28）：其他樣式和使用說明共用（.help、.prose、.result-table、.note） */
+/* 一眼看完：四個大數字。數字用一般文字的顏色、說明用次要文字的顏色；手機上兩個一排 */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0 0;
+}
+.stat {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.stat-value {
+    color: var(--text);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+.stat-label {
+    color: var(--muted-2);
+    font-size: 14px;
+    line-height: 1.5;
+}
+@media (max-width: 640px) {
+    .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat-value { font-size: 24px; }
+}
+/* 條列的說明（次數、做對被報錯、疲勞分析；還沒有的數字） */
+.prose-list {
+    margin: 10px 0 0;
+    padding-left: 1.2em;
+    display: grid;
+    gap: 6px;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.7;
+}
+.results .result-table + .prose, .results .table-wrap + .prose { margin-top: 10px; }
+/* 列標題（裝置名稱「Windows 筆電（Chrome）」）可以換行：320 寬的手機上三欄的表格才放得下，不用左右捲動
+   （只有這張表：其他兩欄的表格列標題很短，不換行比較好讀） */
+.results .device-table tbody th { white-space: normal; }
