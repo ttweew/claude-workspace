@@ -11,6 +11,7 @@
 // 使用者可以選三種模式（首頁「語音提示」）：完整、只講錯誤、不講話；不用講的就照舊嗶聲
 // 自訂目標（10/25，js/analysis/goal.js）：倒數「5、4、3、2、1」、「時間到」、「完成目標」是 goal 這一類，
 //   比動作錯誤重要（最後 5 秒不要被「收緊腹部」打斷），只講錯誤時也講；棒式每 10 秒報時是 count（完整才講）
+// 疲勞提醒（10/28，js/analysis/fatigue.js）：越來越淺時講一次「越來越淺了」，和動作錯誤一樣（form），這一下沒有錯誤才講
 
 export const VOICE_MODES = ['full', 'errors', 'off'];
 export const VOICE_MODE_NAMES = { full: '完整', errors: '只講錯誤', off: '不講話' };
