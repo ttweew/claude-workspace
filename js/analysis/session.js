@@ -7,6 +7,9 @@ import { goalLine } from './goal.js';
 
 const KEY = 'workoutHistory';
 const MAX = 50;
+// 一下超過 10 秒算中途停住（蹲著不動、去拿東西）：不算進「每下約幾秒」（10/28 保養），不然停 40 秒的一下會讓 9 下的平均變成 6 秒
+// 10/20 實測最慢的一下 5.3 秒（B 故意腳跟離地的第一下）；每一下的圖表的平均線、疲勞分析也用這個（rep-series.js、fatigue.js）
+export const PAUSE_REP = 10;
 
 export const errorName = errorShort;
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -42,8 +45,12 @@ export function summarize(workoutId, items, startMs, endMs) {
         const mins = items.map(r => r.min);
         s.best = Math.round(Math.min(...mins));
         s.average = Math.round(mins.reduce((a, b) => a + b, 0) / mins.length);
-        // 每一下花幾秒（從彎下去到站起來）
-        s.tempo = Math.round(items.reduce((a, r) => a + (r.end - r.start), 0) / items.length * 10) / 10;
+        // 每一下花幾秒（從彎下去到站起來）；中途停住的不算，每一下都停住的話只好全部算
+        // 比的是四捨五入到 0.1 秒的數字（和每一下的表格一樣：表格寫 10 秒的那一下不算停住）
+        const durs = items.map(r => r.end - r.start);
+        const normal = durs.filter(d => Math.round(d * 10) / 10 <= PAUSE_REP);
+        const use = normal.length ? normal : durs;
+        s.tempo = Math.round(use.reduce((a, d) => a + d, 0) / use.length * 10) / 10;
         // 和示範動作的相似度（similarity.js）平均幾分
         const sims = items.map(r => r.similarity).filter(v => v !== null && v !== undefined);
         s.similarity = sims.length ? Math.round(sims.reduce((a, b) => a + b, 0) / sims.length) : null;
