@@ -31,6 +31,8 @@ import { summarize, compare, describe, saveSession, loadHistory, clearHistory, s
 import { historyCsv, historyFileName } from '../data/history-csv.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
+import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
+import { renderFatigue } from '../ui/fatigue-view.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -182,6 +184,7 @@ const voice = new Voice(() => sound.level);  // 講話（站位、倒數、動�
 const speech = new SpeechPlan(voice);
 voice.onIdle = () => speech.tick(performance.now());
 const errorStreak = new ErrorStreak();    // 計次的動作：同一種錯誤連續兩下才講
+const fatigueWatch = new FatigueWatch();  // 疲勞提醒（10/28）：每組最多一次
 const lastingError = new LastingError();  // 棒式：錯誤持續 2 秒才講
 let voiceMode = loadVoiceMode();          // 首頁「語音提示」：完整、只講錯誤、不講話
 const advancedNote = document.getElementById('advancedNote');
@@ -873,13 +876,16 @@ function finishRep(rep, depth) {
     const shorts = (rep.errors || []).map(errorShort);
     const kind = shorts.length && depth === 'good' ? 'close' : depth;
     const similar = rep.similarity === null || rep.similarity === undefined ? '' : ' · 相似 ' + rep.similarity + '%';
-    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + similar, kind);
-    sayRep(rep, depth);
+    // 疲勞提醒（10/28，js/analysis/fatigue.js）：做到第 6 下以後越來越淺就提醒一次（畫面和講話）；
+    // 這一下有錯誤時先講錯誤（比較要緊），等沒有錯誤的那一下再提醒
+    const tired = workout.kind === 'reps' && !shorts.length ? fatigueWatch.check(workout.id, tracker.items) : null;
+    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + similar, kind);
+    sayRep(rep, depth, tired);
 }
 
 // 一下做完的空檔才講話（js/ui/speech-plan.js）：「3 下」＋最多一個提醒；同一種錯誤連續兩下才講
 // 棒式撐完一次：「撐了 30 秒」（棒式的錯誤在撐的時候講，見 showForm）
-function sayRep(rep, depth) {
+function sayRep(rep, depth, tired = null) {
     let line;
     if (workout.kind === 'hold') {
         // 整次都沒一直線（0 秒）：說沒有計時，不說「撐了 0 秒」
@@ -887,6 +893,8 @@ function sayRep(rep, depth) {
         line = voiceMode === 'full' ? { kind: 'count', text: sec ? '撐了 ' + sec + ' 秒' : '這次身體沒有一直線，沒有計時' } : null;
     } else {
         const words = errorStreak.update(rep.errors || []).map(id => (errorRule(workout.id, id) || {}).speech).filter(Boolean);
+        // 疲勞提醒和錯誤一樣講（「8 下，越來越淺了」；只講錯誤時也講）：這一下沒有錯誤才會有
+        if (tired) words.push(TIRED_WORDS[tired]);
         // 做到目標的那一下：「10 下，完成目標」（這一下的提醒下一下再講；錯誤一直沒改會再提醒）
         const done = repGoalText(rep.n, currentGoal());
         if (done) {
@@ -965,6 +973,7 @@ function resetSpeech() {
 
 function resetCounter() {
     tracker.reset();
+    fatigueWatch.reset();
     balanceMeter.reset();
     holdCaller = new HoldCaller(workout.kind === 'hold' ? currentGoal() : null);
     formTip.hidden = true;
@@ -1016,6 +1025,7 @@ function finishSession() {
 let shownSummary = null;
 const summaryTitle = document.getElementById('summaryTitle');
 const repChart = document.getElementById('repChart');
+const fatigueBox = document.getElementById('fatigueBox');
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 function showSummary(s, previous, fromDemo = false, series = null, goal = null) {
     shownSummary = { s, previous };
@@ -1030,6 +1040,8 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null) 
     summaryBox.hidden = false;
     // 框出現之後才畫：要量框的寬度，字才是實際的大小
     renderRepChart(repChart, series, { goal: s.workout === 'plank' ? goal : null });
+    // 疲勞分析（10/28）：前段和後段比（棒式沒有，收起來）
+    renderFatigue(fatigueBox, fatigueOf(series));
     showHistory();
 }
 

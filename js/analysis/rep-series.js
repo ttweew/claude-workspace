@@ -23,7 +23,8 @@ function errorNames(workoutId, list) {
 
 // workoutId：動作代號；items：計次的動作是每一下 { min, depth, start, end, errors }（秒），棒式是每一次 { seconds, errors }
 // 回傳 null（不是計次或棒式、沒有可以畫的）或
-//   計次：{ kind: 'reps', joint, good, close, reps: [{ n, angle, depth, seconds, errors }], tempo }
+//   計次：{ kind: 'reps', joint, good, close, reps: [{ n, angle, depth, seconds, errors, similarity }], tempo }
+//   similarity：和示範動作相似幾分（0～100 的整數；沒有算、或被改壞的是 null），疲勞分析（fatigue.js）用
 //   棒式：{ kind: 'hold', holds: [{ n, seconds, errors }] }
 // n 是第幾下（照原本的順序；數字壞掉的那一下不畫，但後面的編號不變，和重播分析的表格對得起來）
 // tempo：平均每下幾秒，和總結的「每下約 2.3 秒」同一個算法（先平均再四捨五入）
@@ -46,7 +47,8 @@ export function repSeries(workoutId, items) {
         const depth = DEPTHS.includes(r.depth) ? r.depth : angle <= lines.good ? 'good' : angle <= lines.close ? 'close' : 'shallow';
         const ok = isNum(r.start) && isNum(r.end) && r.end >= r.start;
         if (ok) raw.push(r.end - r.start);
-        reps.push({ n: i + 1, angle, depth, seconds: ok ? Math.round((r.end - r.start) * 10) / 10 : null, errors: errorNames(workoutId, r.errors) });
+        const similarity = isNum(r.similarity) && r.similarity >= 0 && r.similarity <= 100 ? Math.round(r.similarity) : null;
+        reps.push({ n: i + 1, angle, depth, seconds: ok ? Math.round((r.end - r.start) * 10) / 10 : null, errors: errorNames(workoutId, r.errors), similarity });
     });
     if (!reps.length) return null;
     const tempo = raw.length ? Math.round(raw.reduce((a, b) => a + b, 0) / raw.length * 10) / 10 : null;

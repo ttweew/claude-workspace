@@ -979,6 +979,43 @@ h2 {
     white-space: nowrap;
 }
 .rep-table th { color: var(--muted-2); font-weight: 600; }
+/* 疲勞分析（10/28，js/ui/fatigue-view.js）：一句話＋每一項「前段 → 後段（差多少）」；超過門檻的那一項寫「可能累了」 */
+.fatigue {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+.fatigue-line {
+    margin: 0;
+    color: var(--text);
+}
+.fatigue-line.tired { font-weight: 600; }
+.fatigue-range {
+    margin: 2px 0 0;
+    color: var(--muted-2);
+    font-size: 13px;
+}
+.summary .fatigue-list {
+    margin: 2px 0 0;
+    font-variant-numeric: tabular-nums;
+}
+.fatigue-name {
+    margin-right: 6px;
+    color: var(--muted-2);
+}
+.fatigue-list li.tired { font-weight: 600; }
+/* 「可能累了」：提醒的黃色只在小標籤的框上，字用一般文字的顏色 */
+.tired-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid var(--attn);
+    border-radius: 999px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+}
 /* 總結下面：填實際做了幾下，算計次準確率（10/20） */
 .actual-form {
     display: flex;
