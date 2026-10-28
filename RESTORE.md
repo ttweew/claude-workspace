@@ -93,5 +93,10 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main27/check.py <網站資料夾> <port> [old]`：運動總結的「每一下」圖表（19 項，假的 AI 用 `../goal25` 的 `fake_*.mjs`，先跑那裡的 `make_fake.mjs`）：深蹲 4 下關鏡頭後兩張圖（深度、秒數）、顏色、說明、最深的數字和總結的「最低」一樣、平均線和「每下約幾秒」一樣、數字畫在圖裡、表格；棒式目標 18 秒的目標線；320、390 寬不超出、表格在自己的框裡；axe-core；加 `old` 確認舊程式沒有圖。
   - `main27/mixed.py <網站資料夾> <port>`：只拍照（不判斷）：三種深度顏色混在一起、30 下（橫軸編號隔開）、壞掉的那一下（編號空一格）。
   - `maint27/check.py <網站資料夾> <port> [old]`：重播分析用同一套圖（20 項）：首頁鏡頭畫面錄 4 下假的深蹲（不倒數）→ 下載 JSON（存成 `maint27/rec_squat.json`，是假的 AI，不是真人）→ 重播分析讀同一個檔，每一下的角度、深度、秒數、平均線和首頁一樣；和重播頁原本的表格對得起來；換動作收起來、換回來又出現；合成示範資料選了深蹲才有圖；320、390 寬；axe-core；加 `old` 確認舊程式的重播頁沒有圖。
+- 10/28：
+  - `fat28/real.mjs`、`real2.mjs`：`ROOT=<網站資料夾> node real.mjs <實測檔資料夾>`。10/20 的實測檔每一組前三分之一和後三分之一差多少（訂疲勞分析的門檻用），`real2.mjs` 用網站的疲勞分析跑每一組、運動中會不會提醒（實測檔是組員的錄影，不放進這個分支）。
+  - `main28/`：疲勞分析。先 `node make_fake.mjs <網站資料夾>`（tired：6 下正常＋6 下又淺又慢；steady：8 下一樣），再 `python3 check.py <網站資料夾> <port> [old]`（18 項：總結、數字和每一下的表格對得起來、第 8 下提醒一次、只講錯誤、差不多、4 下、棒式、320／390、axe-core；4 下深蹲、棒式用 `../goal25` 的假 AI）。
+  - `maint28/`：極端情況。先 `node make_fake.mjs <網站資料夾>`（9 下、站著休息 35 秒、再 9 下），再 `python3 check.py <網站資料夾> <port> [old]`（25 項：假資料直接畫 100 下、停住 40 秒、1 下、中途休息；假的 AI 休息後再提醒；`old` 是 4 項：320 寬會疊、縱軸到 40 秒）。
+  - `prop28/check.py <網站資料夾> <port>`：研究成果頁（21 項：三種寬度、大數字、表格不捲動、axe-core、錨點和連結、數字和使用說明一樣）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
