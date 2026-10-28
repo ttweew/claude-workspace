@@ -1,13 +1,15 @@
 // 疲勞分析（js/analysis/fatigue.js，10/28）：前段和後段比，門檻剛好、差一點；不夠 6 下、棒式；運動中的提醒只講一次
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fatigueOf, fatigueLine, FatigueWatch, FATIGUE } from '../js/analysis/fatigue.js';
+import { fatigueOf, fatigueLine, fatigueNotes, FatigueWatch, FATIGUE } from '../js/analysis/fatigue.js';
 import { repSeries } from '../js/analysis/rep-series.js';
+import { summarize } from '../js/analysis/session.js';
 
-// 一組深蹲：每一下 [最低角度, 秒數, 錯誤, 相似度]，兩下之間隔 1 秒
+// 一組深蹲：每一下 [最低角度, 秒數, 錯誤, 相似度, 這一下之前停了幾秒]，兩下之間平常隔 1 秒
 function set(list) {
     let t = 0;
-    return list.map(([min, sec, errors = [], similarity = 90]) => {
+    return list.map(([min, sec, errors = [], similarity = 90, wait = 0]) => {
+        t += wait;
         const r = { min, depth: min <= 90 ? 'good' : min <= 110 ? 'close' : 'shallow', start: t, end: t + sec, errors, similarity };
         t += sec + 1;
         return r;
@@ -65,7 +67,7 @@ test('同時有好幾種跡象：照變慢、變淺、錯誤、相似度的順�
 
 test('不夠 6 下：寫要做幾下；棒式、自由模式、沒有資料：不比', () => {
     const f = of(set(steady(5)));
-    assert.deepEqual(f, { enough: false, count: 5, need: FATIGUE.MIN_REPS });
+    assert.deepEqual(f, { enough: false, count: 5, need: FATIGUE.MIN_REPS, rests: null });
     assert.equal(fatigueLine(f), '疲勞分析：做 6 下以上才比前段和後段（這次 5 下）');
     assert.equal(fatigueOf(repSeries('plank', [{ seconds: 30, errors: [] }])), null);
     assert.equal(fatigueOf(repSeries('free', set(steady(10)))), null);
@@ -96,4 +98,81 @@ test('運動中的提醒：越來越淺時講一次，之後不再講；新的�
     // 只有變慢、錯誤變多：不在運動中提醒（節奏本來就會忽快忽慢；錯誤每一下本來就會講）
     assert.equal(new FatigueWatch().check('squat', set([...steady(6), [85, 3], [85, 3], [85, 3]])), null);
     assert.equal(new FatigueWatch().check('squat', set([...steady(6), [85, 2, ['lean']], [85, 2, ['lean']], [85, 2, ['lean']]])), null);
+});
+
+// ---------- 10/28 保養：極端情況（只做 1 下、做 100 下、中途停很久） ----------
+
+test('只做 1 下：寫要做 6 下以上；沒有補充', () => {
+    const f = of(set(steady(1)));
+    assert.deepEqual(f, { enough: false, count: 1, need: 6, rests: null });
+    assert.equal(fatigueLine(f), '疲勞分析：做 6 下以上才比前段和後段（這次 1 下）');
+    assert.deepEqual(fatigueNotes(f), []);
+});
+
+test('做 100 下：前段第 1～33 下、後段第 68～100 下；做 1000 下時運動中的檢查也很快', () => {
+    const f = of(set([...steady(50), ...Array.from({ length: 50 }, () => [105, 3.2])]));
+    assert.deepEqual([f.front.from, f.front.to, f.back.from, f.back.to], [1, 33, 68, 100]);
+    assert.deepEqual(f.signs.map(s => s.key), ['slower', 'shallower']);
+    // 每一下做完都檢查一次（從頭算一遍）：做到第 1000 下時檢查一次的時間
+    const items = set(steady(1000));
+    const watch = new FatigueWatch();
+    const t0 = performance.now();
+    assert.equal(watch.check('squat', items), null);
+    assert.ok(performance.now() - t0 < 50, '1000 下檢查一次 ' + (performance.now() - t0).toFixed(1) + ' 毫秒');
+});
+
+test('中途休息 30 秒以上：分開算，只比最長的一段；29 秒不算休息', () => {
+    // 前 6 下、休息 40 秒（兩下之間本來就隔 1 秒＋多停 39 秒）、後 8 下（休息後的第 1 下是第 7 下）
+    const rest = wait => set([...steady(6), [85, 2, [], 90, wait], ...steady(7)]);
+    const f = of(rest(39));
+    assert.deepEqual(f.rests, { count: 1, longest: 40, from: 7, to: 14 });
+    assert.deepEqual([f.front.from, f.front.to, f.back.from, f.back.to], [7, 8, 13, 14]);
+    assert.deepEqual(fatigueNotes(f), ['中途休息了 40 秒：休息前後分開算，只比連續做的第 7～14 下']);
+    // 29 秒：一樣是同一組；30 秒算休息
+    assert.equal(of(rest(28)).rests, null);
+    assert.equal(of(rest(29)).rests.longest, 30);
+    // 休息兩次：寫幾次、最久幾秒；一樣長的兩段取後面的
+    const two = of(set([...steady(6), [85, 2, [], 90, 45], ...steady(5), [85, 2, [], 90, 59.7], ...steady(5)]));
+    assert.deepEqual(two.rests, { count: 2, longest: 60, from: 13, to: 18 });
+    assert.equal(fatigueNotes(two)[0], '中途休息了 2 次（最久 60 秒）：休息前後分開算，只比連續做的第 13～18 下');
+});
+
+test('中途休息、每一段都不到 6 下：寫最長的一段只有幾下（一樣長取後面的）', () => {
+    const f = of(set([...steady(4), [85, 2, [], 90, 59], ...steady(3)]));
+    assert.deepEqual(f, { enough: false, count: 4, need: 6, rests: { count: 1, longest: 60, from: 5, to: 8 } });
+    assert.equal(fatigueLine(f), '疲勞分析：中途休息過，最長的一段只有 4 下（第 5～8 下），要連續做 6 下以上才比前段和後段');
+    assert.deepEqual(fatigueNotes(f), []);
+});
+
+test('一下裡面停超過 10 秒（中途停住）：不算進每下幾秒，寫出來；不會變成「慢 900%」', () => {
+    const f = of(set([...steady(8), [85, 40]]));
+    assert.deepEqual(f.signs, []);
+    assert.equal(f.back.seconds, 2);
+    assert.deepEqual(f.back.paused, [{ n: 9, seconds: 40 }]);
+    assert.deepEqual(fatigueNotes(f), ['第 9 下中途停住（40 秒），不算進每下幾秒']);
+    // 10 秒還算一般的一下
+    assert.deepEqual(of(set([...steady(8), [85, 10]])).back.paused, []);
+    // 總結的「每下約幾秒」、圖的平均線也不算停住的那一下（同一個數字），每一下都停住時才全部算
+    const items = set([...steady(8), [85, 40]]);
+    assert.equal(summarize('squat', items, 0, 1).tempo, 2);
+    assert.equal(repSeries('squat', items).tempo, 2);
+    assert.equal(summarize('squat', set([[85, 20], [85, 30]]), 0, 1).tempo, 25);
+    assert.equal(repSeries('squat', set([[85, 20], [85, 30]])).tempo, 25);
+});
+
+test('秒數被改壞的那一下：不知道停多久，不切開', () => {
+    const items = set([...steady(6), [85, 2, [], 90, 59], ...steady(7)]);
+    assert.equal(of(items).rests.longest, 60);
+    items[6].start = 'x';
+    assert.equal(of(items).rests, null);
+});
+
+test('運動中的提醒：休息過後重新算，休息後又越來越淺會再提醒一次', () => {
+    const tiredSet = (wait = 0) => [[85, 2, [], 90, wait], ...steady(5), [100, 2], [100, 2], [100, 2]];
+    const items = set([...tiredSet(), ...tiredSet(44)]);
+    const watch = new FatigueWatch();
+    const said = [];
+    for (let n = 1; n <= items.length; n++) if (watch.check('squat', items.slice(0, n))) said.push(n);
+    // 第 8 下（第一段）、第 17 下（休息後的第 8 下）
+    assert.deepEqual(said, [8, 17]);
 });

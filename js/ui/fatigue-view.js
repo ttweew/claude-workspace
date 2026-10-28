@@ -1,6 +1,6 @@
 // 疲勞分析的顯示（10/28）：首頁「這次運動」寫一句＋前段和後段的數字（數字由 js/analysis/fatigue.js 算）
 // 每一項：前段 → 後段（差多少）；超過門檻的那一項寫「可能累了」（不只靠顏色）
-import { fatigueLine } from '../analysis/fatigue.js';
+import { fatigueLine, fatigueNotes } from '../analysis/fatigue.js';
 
 function el(tag, cls, text, parent) {
     const node = document.createElement(tag);
@@ -22,6 +22,8 @@ export function renderFatigue(box, f) {
     box.hidden = !f;
     if (!f) return;
     el('p', 'fatigue-line' + (f.enough && f.signs.length ? ' tired' : ''), fatigueLine(f), box);
+    // 中途休息、中途停住的那一下（10/28 保養）：寫出來，才知道為什麼只比其中一段、哪一下沒算秒數
+    for (const note of fatigueNotes(f)) el('p', 'fatigue-note', note, box);
     if (!f.enough) return;
     const { front, back } = f;
     const flagged = new Set(f.signs.map(s => s.key));

@@ -990,7 +990,7 @@ h2 {
     color: var(--text);
 }
 .fatigue-line.tired { font-weight: 600; }
-.fatigue-range {
+.fatigue-range, .fatigue-note {
     margin: 2px 0 0;
     color: var(--muted-2);
     font-size: 13px;

@@ -3,7 +3,7 @@
 // 和總結（session.js 的 summarize）一致：角度四捨五入到整數、每下秒數到小數第 1 位、棒式的秒數無條件捨去
 import { PUSHUP_CONFIG, LUNGE_CONFIG } from './workouts.js';
 import { SQUAT } from './squat.js';
-import { errorName } from './session.js';
+import { errorName, PAUSE_REP } from './session.js';
 import { errorRule } from './form.js';
 
 // 每個計次動作「到位」「再低一點」的門檻：和計次時判斷深度用的一樣（js/analysis/reps.js 的 depthOf）
@@ -25,9 +25,10 @@ function errorNames(workoutId, list) {
 // 回傳 null（不是計次或棒式、沒有可以畫的）或
 //   計次：{ kind: 'reps', joint, good, close, reps: [{ n, angle, depth, seconds, errors, similarity }], tempo }
 //   similarity：和示範動作相似幾分（0～100 的整數；沒有算、或被改壞的是 null），疲勞分析（fatigue.js）用
+//   start、end：這一下開始、結束是第幾秒（壞掉的是 null），疲勞分析找中途休息用
 //   棒式：{ kind: 'hold', holds: [{ n, seconds, errors }] }
 // n 是第幾下（照原本的順序；數字壞掉的那一下不畫，但後面的編號不變，和重播分析的表格對得起來）
-// tempo：平均每下幾秒，和總結的「每下約 2.3 秒」同一個算法（先平均再四捨五入）
+// tempo：平均每下幾秒，和總結的「每下約 2.3 秒」同一個算法（先平均再四捨五入；中途停住超過 10 秒的不算，見 session.js 的 PAUSE_REP）
 export function repSeries(workoutId, items) {
     if (!Array.isArray(items) || !items.length) return null;
     if (workoutId === 'plank') {
@@ -48,9 +49,12 @@ export function repSeries(workoutId, items) {
         const ok = isNum(r.start) && isNum(r.end) && r.end >= r.start;
         if (ok) raw.push(r.end - r.start);
         const similarity = isNum(r.similarity) && r.similarity >= 0 && r.similarity <= 100 ? Math.round(r.similarity) : null;
-        reps.push({ n: i + 1, angle, depth, seconds: ok ? Math.round((r.end - r.start) * 10) / 10 : null, errors: errorNames(workoutId, r.errors), similarity });
+        reps.push({ n: i + 1, angle, depth, seconds: ok ? Math.round((r.end - r.start) * 10) / 10 : null, errors: errorNames(workoutId, r.errors), similarity,
+            start: ok ? r.start : null, end: ok ? r.end : null });
     });
     if (!reps.length) return null;
-    const tempo = raw.length ? Math.round(raw.reduce((a, b) => a + b, 0) / raw.length * 10) / 10 : null;
+    const normal = raw.filter(d => Math.round(d * 10) / 10 <= PAUSE_REP);
+    const use = normal.length ? normal : raw;
+    const tempo = use.length ? Math.round(use.reduce((a, b) => a + b, 0) / use.length * 10) / 10 : null;
     return { kind: 'reps', joint: lines.joint, good: lines.good, close: lines.close, reps, tempo };
 }

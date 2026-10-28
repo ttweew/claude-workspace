@@ -6,6 +6,8 @@
 // 長條上的 <title> 是滑鼠移上去的說明，手機摸不到，所以下面另外有「每一下的數字」表格，看得到全部
 // 字的大小照實際的像素：畫的時候量框的寬度當 viewBox 的寬，字不會跟著放大縮小
 
+import { PAUSE_REP } from '../analysis/session.js';
+
 const SVG = 'http://www.w3.org/2000/svg';
 const DEPTH_TEXT = { good: '到位', close: '再低一點', shallow: '太淺' };
 const H = 132;                                   // 每張圖的高度（像素）
@@ -54,7 +56,9 @@ function columns(box, width, { label, items, count, scale, lines, peak, peakText
     const base = PAD.top + plotH;
     const y = v => base - scale(v) * plotH;
     const band = plotW / count;
-    const barW = Math.max(2, Math.min(BAR_MAX, band - GAP));
+    // 下數很多（10/28 保養：100 下在 320 寬的手機上每下不到 2 像素）：留不了空隙時長條佔滿整個欄位、緊貼在一起，
+    // 不會互相疊到（以前最窄 2 像素，比欄位寬，一條蓋到下一條）
+    const barW = band - GAP >= 2 ? Math.min(BAR_MAX, band - GAP) : band;
     // 底線、參考線（細線，不搶長條）；左邊寫刻度
     el('line', { class: 'rep-axis', x1: PAD.left, x2: width - PAD.right, y1: base + 0.5, y2: base + 0.5 }, svg);
     for (const a of axisLabels) el('text', { class: 'rep-tick', x: PAD.left - 6, y: y(a.value) + 4, 'text-anchor': 'end' }, svg, a.text);
@@ -150,12 +154,17 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
     // 速度：每一下從彎下去到站起來幾秒；縱軸從 0 開始，至少到 3 秒
     const timed = reps.filter(r => r.seconds !== null);
     if (timed.length) {
-        const max = Math.max(3, Math.ceil(Math.max(...timed.map(r => r.seconds))));
+        // 中途停住的那一下（超過 10 秒，session.js 的 PAUSE_REP）不拿來定縱軸：不然一下停 40 秒，其他的都變得扁扁的看不出差別
+        // 那一條畫到最上面（超出的部分不畫），說明和表格寫真的秒數
+        const normal = timed.filter(r => r.seconds <= PAUSE_REP);
+        const max = Math.max(3, Math.ceil(Math.max(...(normal.length ? normal : timed).map(r => r.seconds))));
         const slowest = timed.reduce((a, b) => (b.seconds > a.seconds ? b : a));
-        const fig2 = figure(box, '每一下花幾秒', series.tempo !== null ? [['line', '平均 ' + series.tempo + ' 秒']] : null);
+        // 平均不算中途停住的那一下（和總結的「每下約幾秒」一樣），圖例寫出來
+        const avgText = '平均 ' + series.tempo + ' 秒' + (normal.length && normal.length < timed.length ? '（不算停住的）' : '');
+        const fig2 = figure(box, '每一下花幾秒', series.tempo !== null ? [['line', avgText]] : null);
         columns(fig2, width, {
             label: '平均每下 ' + series.tempo + ' 秒，最慢 ' + slowest.seconds + ' 秒（第 ' + slowest.n + ' 下）',
-            items: timed.map(r => ({ n: r.n, value: r.seconds, cls: 'time', title: '第 ' + r.n + ' 下：' + r.seconds + ' 秒' })),
+            items: timed.map(r => ({ n: r.n, value: r.seconds, cls: 'time', title: '第 ' + r.n + ' 下：' + r.seconds + ' 秒' + (r.seconds > max ? '（中途停住，超出圖的範圍）' : '') })),
             count, scale: v => Math.min(1, v / max),
             lines: series.tempo !== null ? [series.tempo] : [],
             peak: { n: slowest.n, value: slowest.seconds }, peakText: slowest.seconds + ' 秒',
