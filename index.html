@@ -6,6 +6,13 @@
     <meta name="description" content="AI 智慧運動分析系統：透過鏡頭即時分析運動姿勢">
     <!-- 手機瀏覽器網址列的顏色，和網頁背景一致 -->
     <meta name="theme-color" content="#0B1220">
+    <!-- 加到手機主畫面（10/29）：manifest.webmanifest 寫名稱、圖示、從主畫面打開時沒有網址列；iPhone 的 Safari 看 apple- 開頭的設定 -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AI 運動分析">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>AI 智慧運動分析系統</title>
     <!-- 網站圖示：一個簡單的人形，直接寫在網頁裡，不用另外的圖檔 -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
@@ -255,6 +262,8 @@
 
         <footer>
             <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品 · <a href="help.html">使用說明</a> · <a href="replay.html">重播分析</a> · <a href="results.html">研究成果</a></p>
+            <!-- 加到主畫面（10/29，js/platform/install.js）：瀏覽器說可以安裝時才出現（Chrome、Edge）；iPhone 看使用說明 -->
+            <button id="installBtn" class="install-btn" type="button" hidden>加到主畫面（像 App 一樣打開）</button>
         </footer>
     </div>
 

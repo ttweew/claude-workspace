@@ -22,6 +22,8 @@ claude-workspace/
 ├── help.html           使用說明
 ├── results.html        研究成果（使用說明底下：目前量到的數字整理成一頁，報告時打開；10/28）
 ├── sw.js               離線功能（Service Worker；瀏覽器規定要放在網站最外層）
+├── manifest.webmanifest  加到手機主畫面（10/29）：名稱、圖示、從主畫面打開沒有網址列、長按圖示的四個動作捷徑
+├── icons/              主畫面圖示（192、512、Android 裁切用的 maskable 512、iPhone 的 180）
 ├── firestore.rules     雲端資料庫的安全規則（貼到 Firebase 主控台；docs/firebase-setup.md）
 ├── firebase.json       Firebase 本機模擬器的設定（開發、測試用）
 ├── css/
@@ -114,6 +116,7 @@ claude-workspace/
 | `platform/` | `video-source.js` | 示範模式（10/26）：選一段影片，在看不到的 `<video>` 播、用 `captureStream()` 變成和鏡頭一樣的串流，交給 main.js 原本的鏡頭流程 |
 | | `screen.js` | 運動時讓螢幕保持亮著（Wake Lock） |
 | | `offline.js` | 註冊離線功能（`sw.js`），`?sw=0` 可移除 |
+| | `install.js` | 加到手機主畫面（10/29）：瀏覽器發 `beforeinstallprompt` 時首頁頁尾才出現「加到主畫面」，按了跳出安裝視窗；已經從主畫面打開（standalone）不出現；iPhone 看使用說明 |
 | | `gpu.js` | 查詢 GPU 名稱 |
 | | `support.js` | 這支手機能不能用（WebGL2、相機、系統版本） |
 | `cloud/` | `config.js` | Firebase 專案的設定（還沒貼時雲端同步不出現）、Firebase 程式的版本、本機模擬器 |

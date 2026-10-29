@@ -39,6 +39,7 @@ import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } fr
 import { setupVoicePick } from '../ui/voice-pick.js';
 import { LightMeter, averageLuma } from '../analysis/light.js';
 import { setupOffline, forgetAiFiles } from '../platform/offline.js';
+import { setupInstall } from '../platform/install.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 import { phoneReport } from '../ui/phone-info.js';
 import { copyText } from '../ui/copy.js';
@@ -2104,3 +2105,5 @@ initPose();
 
 // 把 AI 檔案存在手機裡：第二次打開不用再下載，沒有網路也能用
 setupOffline();
+// 加到主畫面（10/29）：瀏覽器說可以安裝時，頁尾出現按鈕
+setupInstall(document.getElementById('installBtn'));
