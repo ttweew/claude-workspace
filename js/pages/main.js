@@ -33,6 +33,7 @@ import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
 import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
+import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -879,7 +880,9 @@ function finishRep(rep, depth) {
     // 疲勞提醒（10/28，js/analysis/fatigue.js）：做到第 6 下以後越來越淺就提醒一次（畫面和講話）；
     // 這一下有錯誤時先講錯誤（比較要緊），等沒有錯誤的那一下再提醒
     const tired = workout.kind === 'reps' && !shorts.length ? fatigueWatch.check(workout.id, tracker.items) : null;
-    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + similar, kind);
+    // 動作流暢度（10/29，js/analysis/fluency.js）：這一下中途卡住，提示寫出來（不講話：說話規則只講要緊的）
+    const stall = rep.stalls > 0 ? ' · 卡了一下' : '';
+    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + stall + similar, kind);
     sayRep(rep, depth, tired);
 }
 
@@ -1026,6 +1029,7 @@ let shownSummary = null;
 const summaryTitle = document.getElementById('summaryTitle');
 const repChart = document.getElementById('repChart');
 const fatigueBox = document.getElementById('fatigueBox');
+const fluencyBox = document.getElementById('fluencyBox');
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 function showSummary(s, previous, fromDemo = false, series = null, goal = null) {
     shownSummary = { s, previous };
@@ -1042,6 +1046,10 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null) 
     renderRepChart(repChart, series, { goal: s.workout === 'plank' ? goal : null });
     // 疲勞分析（10/28）：前段和後段比（棒式沒有，收起來）
     renderFatigue(fatigueBox, fatigueOf(series));
+    // 動作流暢度（10/29）：每一下順不順、整組的節奏（棒式沒有，收起來）
+    const fluency = fluencyOf(series);
+    fluencyBox.hidden = !fluency;
+    fluencyBox.textContent = fluencyLine(fluency);
     showHistory();
 }
 

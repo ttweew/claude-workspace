@@ -5,6 +5,7 @@
 import { WORKOUTS, isWorkout } from './workouts.js';
 import { FormChecker } from './form.js';
 import { repSimilarity } from './similarity.js';
+import { repStalls } from './fluency.js';
 import { Calibrator, personalThresholds } from './calibrate.js';
 
 // 站著做的動作才校正（伏地挺身、棒式是趴著，用不到站直的角度）
@@ -141,7 +142,7 @@ export class WorkoutTracker {
         this.timed = false;
     }
 
-    // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度，曲線算完就不留（省記憶體）
+    // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度、中途卡住幾次（fluency.js），曲線算完就不留（省記憶體）
     attach(item) {
         // 棒式整次都沒一直線：趴著時看到的錯誤就是這一次的錯誤
         if (this.workout.kind === 'hold' && !this.timed) this.merge(this.prep, this.prepPeaks);
@@ -152,6 +153,7 @@ export class WorkoutTracker {
         this.clearErrors();
         if (item.samples) {
             item.similarity = repSimilarity(this.workout.id, item.samples);
+            item.stalls = repStalls(this.workout.id, item.samples);
             delete item.samples;
         }
     }
