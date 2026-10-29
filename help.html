@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="AI 智慧運動分析系統使用說明：怎麼擺手機、畫面上每個東西的意思、錄製與重播、常見問題">
     <meta name="theme-color" content="#0B1220">
+    <!-- 加到手機主畫面（10/29）：manifest.webmanifest 寫名稱、圖示、從主畫面打開時沒有網址列；iPhone 的 Safari 看 apple- 開頭的設定 -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AI 運動分析">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>使用說明 · AI 智慧運動分析系統</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
@@ -299,6 +306,16 @@
                     <details>
                         <summary>第一次打開很慢？</summary>
                         <p>第一次需要下載約 18 MB 的 AI 檔案。下載完會存在裝置裡，之後打開幾乎馬上就能用，沒有網路也可以用。</p>
+                    </details>
+                    <!-- 加到主畫面（10/29，manifest.webmanifest、js/platform/install.js） -->
+                    <details id="installFaq">
+                        <summary>可以像 App 一樣放在手機主畫面嗎？</summary>
+                        <p>可以，不用下載 App。加到主畫面之後，從圖示打開沒有網址列，畫面比較大；網站更新時跟著更新。</p>
+                        <ul class="faq-list">
+                            <li><strong>Android（Chrome）：</strong>首頁最下面出現「加到主畫面」就按它；沒有的話按右上角的「⋮」→「加到主畫面」或「安裝應用程式」。長按主畫面的圖示，可以直接選深蹲、伏地挺身、棒式、弓箭步。</li>
+                            <li><strong>iPhone、iPad（Safari）：</strong>按「分享」（方框加往上的箭頭；iPhone 在下面、iPad 在右上角，新版 iOS 在網址列旁的「⋯」裡面）→「加入主畫面」→「新增」。從主畫面打開時會再問一次能不能用鏡頭。注意：iPhone 從主畫面打開和在 Safari 打開，運動紀錄、錄製檔是分開存的（Android 是同一份）。</li>
+                            <li><strong>電腦（Chrome、Edge）：</strong>首頁最下面的「加到主畫面」，或網址列右邊的安裝圖示。</li>
+                        </ul>
                     </details>
                     <details>
                         <summary>聽不到提示音？</summary>

@@ -1397,6 +1397,18 @@ footer {
 footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     color: var(--info);
 }
+/* 首頁頁尾「加到主畫面」（10/29）：瀏覽器說可以安裝時才出現 */
+.install-btn {
+    margin-top: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
 
 /* ---------- 導覽列：首頁、重播分析、使用說明三頁共用 ----------
    捲動時固定在最上方；左右留白和頁面內容對齊（內容最寬 1000px）
@@ -1744,6 +1756,15 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
 .faq details p {
     margin: 0;
     padding: 0 16px 14px;
+    color: var(--muted);
+    font-size: 14px;
+}
+/* 常見問題裡的條列（10/29「加到主畫面」：Android、iPhone、電腦各一項），和段落一樣的字和邊距 */
+.faq-list {
+    margin: 0;
+    padding: 0 16px 14px 34px;
+    display: grid;
+    gap: 6px;
     color: var(--muted);
     font-size: 14px;
 }
