@@ -1016,6 +1016,13 @@ h2 {
     font-weight: 600;
     line-height: 1.5;
 }
+/* 動作流暢度（10/29，js/analysis/fluency.js）：一句話，和疲勞分析的那一句一樣大小 */
+.fluency {
+    margin: 6px 0 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+}
 /* 總結下面：填實際做了幾下，算計次準確率（10/20） */
 .actual-form {
     display: flex;

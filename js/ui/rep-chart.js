@@ -145,7 +145,7 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
     const fig = figure(box, '每一下最低的' + series.joint + '角度', [['good', '到位 ≤ ' + series.good + '°'], ['close', '再低一點 ≤ ' + series.close + '°'], ['shallow', '太淺']]);
     columns(fig, width, {
         label: reps.length + ' 下，最深 ' + deepest.angle + '°（第 ' + deepest.n + ' 下），到位 ' + good + ' 下',
-        items: reps.map(r => ({ n: r.n, value: r.angle, cls: r.depth, title: '第 ' + r.n + ' 下：' + r.angle + '°，' + DEPTH_TEXT[r.depth] + (r.errors.length ? '，' + r.errors.join('、') : '') })),
+        items: reps.map(r => ({ n: r.n, value: r.angle, cls: r.depth, title: '第 ' + r.n + ' 下：' + r.angle + '°，' + DEPTH_TEXT[r.depth] + (r.stalls > 0 ? '，中途卡了一下' : '') + (r.errors.length ? '，' + r.errors.join('、') : '') })),
         count, scale: depthScale,
         lines: [series.good],
         peak: { n: deepest.n, value: deepest.angle }, peakText: deepest.angle + '°',
@@ -171,6 +171,9 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
             axisLabels: [{ value: 0, text: '0' }, { value: max, text: max + ' 秒' }]
         });
     }
-    if (withTable) table(box, ['第幾下', '最低角度', '深度', '秒數', '錯誤'],
-        reps.map(r => [String(r.n), r.angle + '°', DEPTH_TEXT[r.depth], r.seconds === null ? '—' : String(r.seconds), r.errors.join('、') || '—']));
+    // 「順不順」（動作流暢度，10/29，js/analysis/fluency.js）：中途卡住幾次；弓箭步不看，整欄不畫
+    const fluent = reps.some(r => Number.isInteger(r.stalls));
+    const smooth = r => (!Number.isInteger(r.stalls) ? '—' : r.stalls ? '卡了 ' + r.stalls + ' 次' : '順');
+    if (withTable) table(box, ['第幾下', '最低角度', '深度', '秒數', ...(fluent ? ['順不順'] : []), '錯誤'],
+        reps.map(r => [String(r.n), r.angle + '°', DEPTH_TEXT[r.depth], r.seconds === null ? '—' : String(r.seconds), ...(fluent ? [smooth(r)] : []), r.errors.join('、') || '—']));
 }

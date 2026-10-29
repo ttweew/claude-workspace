@@ -26,6 +26,7 @@ function errorNames(workoutId, list) {
 //   計次：{ kind: 'reps', joint, good, close, reps: [{ n, angle, depth, seconds, errors, similarity }], tempo }
 //   similarity：和示範動作相似幾分（0～100 的整數；沒有算、或被改壞的是 null），疲勞分析（fatigue.js）用
 //   start、end：這一下開始、結束是第幾秒（壞掉的是 null），疲勞分析找中途休息用
+//   stalls：中途卡住幾次（fluency.js；這個動作不看、或被改壞的是 null），動作流暢度用
 //   棒式：{ kind: 'hold', holds: [{ n, seconds, errors }] }
 // n 是第幾下（照原本的順序；數字壞掉的那一下不畫，但後面的編號不變，和重播分析的表格對得起來）
 // tempo：平均每下幾秒，和總結的「每下約 2.3 秒」同一個算法（先平均再四捨五入；中途停住超過 10 秒的不算，見 session.js 的 PAUSE_REP）
@@ -50,7 +51,8 @@ export function repSeries(workoutId, items) {
         if (ok) raw.push(r.end - r.start);
         const similarity = isNum(r.similarity) && r.similarity >= 0 && r.similarity <= 100 ? Math.round(r.similarity) : null;
         reps.push({ n: i + 1, angle, depth, seconds: ok ? Math.round((r.end - r.start) * 10) / 10 : null, errors: errorNames(workoutId, r.errors), similarity,
-            start: ok ? r.start : null, end: ok ? r.end : null });
+            start: ok ? r.start : null, end: ok ? r.end : null,
+            stalls: Number.isInteger(r.stalls) && r.stalls >= 0 && r.stalls <= 99 ? r.stalls : null });
     });
     if (!reps.length) return null;
     const normal = raw.filter(d => Math.round(d * 10) / 10 <= PAUSE_REP);
