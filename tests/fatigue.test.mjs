@@ -176,3 +176,8 @@ test('運動中的提醒：休息過後重新算，休息後又越來越淺會�
     // 第 8 下（第一段）、第 17 下（休息後的第 8 下）
     assert.deepEqual(said, [8, 17]);
 });
+
+test('10/29 保養：中途停住的下數很多時只寫幾下、列前 5 下', () => {
+    const f = of(set([...Array.from({ length: 6 }, () => [85, 20]), ...steady(6), ...Array.from({ length: 6 }, () => [85, 30])]));
+    assert.deepEqual(fatigueNotes(f), ['12 下中途停住（第 1 下、第 2 下、第 3 下、第 4 下、第 5 下⋯），不算進每下幾秒']);
+});

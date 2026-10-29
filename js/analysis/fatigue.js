@@ -9,6 +9,7 @@
 //   門檻取自然差別的 1.5 倍（留一半的餘裕，正常做的不會被說成累了）；人多了再調
 import { repSeries } from './rep-series.js';
 import { PAUSE_REP } from './session.js';
+import { repList, LIST_MAX } from './fluency.js';
 
 export const FATIGUE = {
     MIN_REPS: 6,       // 前段、後段各至少 2 下：10/20 只做 5 下的組前後各 1 下，秒數差 0.49～1.57 倍，太亂
@@ -120,7 +121,9 @@ export function fatigueNotes(f) {
             + '：休息前後分開算，只比連續做的第 ' + f.rests.from + '～' + f.rests.to + ' 下');
     }
     const paused = f.enough ? [...f.front.paused, ...f.back.paused] : [];
-    if (paused.length) notes.push(paused.map(p => '第 ' + p.n + ' 下').join('、') + '中途停住（' + paused.map(p => p.seconds + ' 秒').join('、') + '），不算進每下幾秒');
+    // 很多下都停住時只寫幾下、列前幾下（和動作流暢度一樣，fluency.js 的 repList），不寫每一下停幾秒
+    if (paused.length > LIST_MAX) notes.push(paused.length + ' 下中途停住（' + repList(paused.map(p => p.n)) + '），不算進每下幾秒');
+    else if (paused.length) notes.push(paused.map(p => '第 ' + p.n + ' 下').join('、') + '中途停住（' + paused.map(p => p.seconds + ' 秒').join('、') + '），不算進每下幾秒');
     return notes;
 }
 
