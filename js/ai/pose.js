@@ -616,6 +616,7 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
             if (m.lost) lost = true;
             const p = pending;
             pending = null;
+            if (p) clearTimeout(p.timer);
             if (!p || p.id !== m.id) return;
             if (m.type === 'result') p.resolve({ landmarks: m.landmarks, world: m.world });
             else p.reject(new Error(m.message));
@@ -629,7 +630,10 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
     function fail(err) {
         const p = pending;
         pending = null;
-        if (p) p.reject(err);
+        if (p) {
+            clearTimeout(p.timer);
+            p.reject(err);
+        }
     }
     attach(worker);
 
@@ -640,18 +644,20 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) visibleSince = performance.now();
     });
+    // 計時器記在 pending.timer，結果回來就取消（10/29 保養：以前每一格都排一個 5 秒後才跑的檢查，
+    // 結果早就回來了也要等滿 5 秒才清掉，每秒 30 格時一直有約 150 個在排隊，佔約 120 KB）
     function watchDetect(id, sentAt) {
         const check = () => {
             if (!pending || pending.id !== id) return;
             const waited = performance.now() - Math.max(sentAt, visibleSince);
             if (document.hidden || waited < DETECT_TIMEOUT_MS) {
-                setTimeout(check, document.hidden ? 1000 : DETECT_TIMEOUT_MS - waited);
+                pending.timer = setTimeout(check, document.hidden ? 1000 : DETECT_TIMEOUT_MS - waited);
                 return;
             }
             dead = '背景運算沒有回應';
             fail(new Error(dead));
         };
-        setTimeout(check, DETECT_TIMEOUT_MS);
+        pending.timer = setTimeout(check, DETECT_TIMEOUT_MS);
     }
 
     const pose = {
@@ -675,6 +681,7 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
                 try {
                     worker.postMessage({ type: 'detect', id, bitmap, ts: timeMs }, [bitmap]);
                 } catch (err) {
+                    clearTimeout(pending.timer);
                     pending = null;
                     bitmap.close();
                     reject(err);

@@ -76,6 +76,13 @@ export function fluencyOf(series) {
     return { stalls, rhythm };
 }
 
+// 列出第幾下：最多 LIST_MAX 個，再多寫「⋯」（10/29 保養：運動 30 分鐘做 550 下，卡住的 55 下全部列出來，那一句長到看不完）
+// 全部的在「每一下的數字」表格的「順不順」那一欄
+export const LIST_MAX = 5;
+export function repList(ns) {
+    return ns.slice(0, LIST_MAX).map(n => '第 ' + n + ' 下').join('、') + (ns.length > LIST_MAX ? '⋯' : '');
+}
+
 // 總結的那一句
 export function fluencyLine(f) {
     if (!f) return '';
@@ -87,7 +94,7 @@ export function fluencyLine(f) {
     }
     if (f.stalls) {
         parts.push(f.stalls.list.length
-            ? f.stalls.list.length + ' 下中途卡了一下（' + f.stalls.list.map(n => '第 ' + n + ' 下').join('、') + '）'
+            ? f.stalls.list.length + ' 下中途卡了一下（' + repList(f.stalls.list) + '）'
             : '每一下都很順，沒有卡住');
     }
     return '動作流暢度：' + parts.join('；');

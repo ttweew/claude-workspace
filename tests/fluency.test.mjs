@@ -88,3 +88,12 @@ test('計次時就算好：WorkoutTracker 完成一下時記上卡住幾次（�
     assert.equal(item.samples, undefined);
     assert.ok(FLUENCY.STALL_WORKOUTS.includes('squat'));
 });
+
+test('10/29 保養：卡住的下數很多（運動 30 分鐘做 550 下、卡住 55 下）時只列前 5 下，全部的看表格', () => {
+    const many = set(Array.from({ length: 30 }, (_, i) => [1.4, i % 3 === 0 ? 1 : 0]));
+    const f = fluencyOf(repSeries('squat', many));
+    assert.equal(f.stalls.list.length, 10);
+    assert.equal(fluencyLine(f), '動作流暢度：節奏穩（30 下有 30 下和平均的 1.4 秒差不到 2 成）；10 下中途卡了一下（第 1 下、第 4 下、第 7 下、第 10 下、第 13 下⋯）');
+    // 剛好 5 下：全部列出來、沒有⋯
+    assert.ok(!fluencyLine(fluencyOf(repSeries('squat', set(Array.from({ length: 10 }, (_, i) => [1.4, i < 5 ? 1 : 0]))))).includes('⋯'));
+});
