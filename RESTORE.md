@@ -98,5 +98,10 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main28/`：疲勞分析。先 `node make_fake.mjs <網站資料夾>`（tired：6 下正常＋6 下又淺又慢；steady：8 下一樣），再 `python3 check.py <網站資料夾> <port> [old]`（18 項：總結、數字和每一下的表格對得起來、第 8 下提醒一次、只講錯誤、差不多、4 下、棒式、320／390、axe-core；4 下深蹲、棒式用 `../goal25` 的假 AI）。
   - `maint28/`：極端情況。先 `node make_fake.mjs <網站資料夾>`（9 下、站著休息 35 秒、再 9 下），再 `python3 check.py <網站資料夾> <port> [old]`（25 項：假資料直接畫 100 下、停住 40 秒、1 下、中途休息；假的 AI 休息後再提醒；`old` 是 4 項：320 寬會疊、縱軸到 40 秒）。
   - `prop28/check.py <網站資料夾> <port>`：研究成果頁（21 項：三種寬度、大數字、表格不捲動、axe-core、錨點和連結、數字和使用說明一樣）。
+- 10/29：
+  - `flu29/`：訂動作流暢度的門檻用。`ROOT=<網站資料夾> node dump.mjs <實測檔資料夾>` 把每一下的角度曲線存成 `reps.json`，`node an.mjs [速度比例 0.2] [毫秒 150] [邊緣 0.15]` 用不同條件算每一組卡住幾下，`ROOT=<網站資料夾> node real.mjs <實測檔資料夾>` 用網站的 fluency.js 跑每一組（實測檔和 `reps.json` 是組員的錄影算出來的，不放進這個分支）；`curvecheck.mjs` 看單元測試的假曲線長怎樣。
+  - `main29/`：動作流暢度。先 `node make_fake.mjs <網站資料夾>`（6 下，第 3 下下去到一半停 0.5 秒），再 `python3 check.py <網站資料夾> <port> [old]`（13 項：只有第 3 下的提示寫「卡了一下」、不講話、總結、平均和「每下約幾秒」一樣、表格的「順不順」、深度圖的說明、4 下、棒式、320 寬、axe-core；4 下深蹲、棒式用 `../goal25` 的假 AI；`old` 確認舊程式沒有）。
+  - `maint29/`：運動 30 分鐘。先 `node make_fake.mjs <網站資料夾>`（一直重複做深蹲，每 10 下約 32.7 秒），再 `python3 soak30.py <網站資料夾> <port> [分鐘，預設 30]`（每 2 分鐘量記憶體、畫面元素、事件監聽、排著的長計時器、每秒幾格、主畫面忙碌、次數；第 10～12 分鐘打開數據面板；最後關鏡頭看總結；不到 10 分鐘時每 30 秒量一次）。`heapsample.py <網站資料夾> <port> [分鐘]`：記憶體取樣，前半和全部各拍一次，列出留最多、變多的程式位置（`draw :8` 是測試工具的假鏡頭，不是網站的）。`repsize.mjs`（`node --expose-gc`）：一下的資料大約多大。
+  - `prop29/`：加到手機主畫面。`make_icons.py <輸出資料夾>` 用 Chromium 畫四張圖示；`check.py <網站資料夾> <port> [old]`（29 項：六頁的 manifest、圖示大小、捷徑、Chrome 說可以安裝、按鈕什麼時候出現、從主畫面打開不出現、使用說明、320 寬、axe-core；`old` 2 項）。Playwright 一般的視窗算無痕，Chrome 不讓無痕安裝，「可以安裝」要用 `launch_persistent_context`；這版 Chromium 的 CDP 不能假裝 display-mode，改在網頁裡假裝。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
