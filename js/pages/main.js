@@ -34,6 +34,7 @@ import { renderRepChart } from '../ui/rep-chart.js';
 import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
 import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
+import { stabilityOf, stabilityLine } from '../analysis/stability.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -1031,6 +1032,7 @@ const summaryTitle = document.getElementById('summaryTitle');
 const repChart = document.getElementById('repChart');
 const fatigueBox = document.getElementById('fatigueBox');
 const fluencyBox = document.getElementById('fluencyBox');
+const stabilityBox = document.getElementById('stabilityBox');
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 function showSummary(s, previous, fromDemo = false, series = null, goal = null) {
     shownSummary = { s, previous };
@@ -1051,6 +1053,10 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null) 
     const fluency = fluencyOf(series);
     fluencyBox.hidden = !fluency;
     fluencyBox.textContent = fluencyLine(fluency);
+    // 動作穩定度（10/30）：深蹲、弓箭步每一下重心前後晃動、棒式髖部上下晃動（伏地挺身沒有，收起來）
+    const stability = stabilityOf(series, s.workout);
+    stabilityBox.hidden = !stability;
+    stabilityBox.textContent = stabilityLine(stability);
     showHistory();
 }
 
