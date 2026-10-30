@@ -31,9 +31,10 @@
    - 結尾的署名照系統提示。commit、PR 裡不寫模型名稱。
 3. 測試：
    - 每次都跑：`npm test`。
+   - 改到畫面或運動流程：`npm run test:browser`（專案裡的瀏覽器測試，見下面「瀏覽器測試工具」）。
    - 改到 `firestore.rules` 或 `js/cloud/`：再跑 `npm run test:rules`（要 Firebase 模擬器，見 docs/firebase-setup.md）。
    - 相關的瀏覽器端到端測試，再加完整回歸測試（見下面「瀏覽器測試工具」）。
-4. 推上去、開 PR，等 GitHub Actions 的 `test` 和 `rules` 兩個工作都通過，再用完整的 40 碼 SHA 合併。
+4. 推上去、開 PR，等 GitHub Actions 的 `test`、`rules`、`browser` 三個工作都通過，再用完整的 40 碼 SHA 合併。
 5. 合併後：進度地圖的工作表打勾、寫上 PR 編號，然後回報使用者。
 
 ## 程式的習慣
@@ -46,7 +47,10 @@
 
 ## 瀏覽器測試工具
 
-- 放在第一個對話的暫存區：`/tmp/claude-0/-home-user-claude-workspace/06177a5d-45ba-5b18-b395-0fd8d80e2079/scratchpad`。
+- 專案裡的 `tests/browser/`（10/30 起，只用合成資料）：`npm run test:browser`。
+  - 這個環境：`PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium AXE_CORE=<暫存區>/a11y/node_modules/axe-core/axe.min.js npm run test:browser`（Playwright 環境裡就有）。
+  - 其他電腦的準備步驟見 docs/architecture.md「怎麼測試」。
+- 其他的（更多情境、完整回歸測試）放在第一個對話的暫存區：`/tmp/claude-0/-home-user-claude-workspace/06177a5d-45ba-5b18-b395-0fd8d80e2079/scratchpad`。
   - 內容：`reg2.sh`、`*check/`、`audit2/`、`fbcheck/`、`mp/`（MediaPipe）、`fb/`（Firebase）。
   - 容器被回收時會不見：照 GitHub 上 `test-tools` 分支的 `RESTORE.md` 還原。
 - 完整回歸測試：`bash reg2.sh`，約 50 分鐘，結果和 `reg_r22.txt` 比對。三項都要符合：

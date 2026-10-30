@@ -210,7 +210,23 @@ npm test
 | 骨頭長度往反方向修、修正失效 | ✓ |
 | 拿掉「深度方向明確才修」（以前試過、比較差的做法） | ✓ |
 
-**瀏覽器端測試**：開發時另外用 Playwright（自動操作瀏覽器的工具）配合假鏡頭，測過開關鏡頭、錄製、匯出、重播、離線、手機版面、背景執行緒當掉恢復等上百種情境。這些測試要先在電腦上準備好 MediaPipe 和瀏覽器才能跑，所以沒有放進專案裡；測過的情境與結果記錄在各 PR 的說明裡。
+**瀏覽器端測試**（`tests/browser/`，10/30 整理進專案）：用 Playwright（自動操作瀏覽器的工具）打開真的 Chromium，鏡頭、AI、講話都換成假的，骨架用示範動畫的火柴人（合成資料，不用組員的錄影、不用連網路），約 2 分鐘：
+
+```
+npm install --no-save playwright@1.63.0 axe-core@4.10.3
+npx playwright install chromium
+npm run test:browser
+```
+
+| 檔案 | 測什麼 |
+|---|---|
+| `tests/browser/harness.mjs` | 共用工具：在本機開網站；假的 MediaPipe（網站向 CDN 要 MediaPipe 時給一個假的模組，每一格照時間回傳排好的骨架，背景執行緒和主畫面兩種都有）；假鏡頭（一直重畫的畫布）；假的講話（記下講了什麼）；選動作、開鏡頭、等做完、關鏡頭看總結 |
+| `tests/browser/workout.test.mjs` | 深蹲 6 下（後 3 下前後晃）：次數、總結、動作流暢度、動作穩定度、每一下的表格和那一句的數字一樣；棒式 26 秒（後半髖部晃）：穩定度前段、後段；伏地挺身沒有穩定度；320 寬的手機總結不超出畫面 |
+| `tests/browser/a11y.test.mjs` | 無障礙：axe-core 檢查六個頁面（320、1280 寬）、運動完的總結（圖表、打開的「每一下的數字」） |
+
+每次推送到 GitHub 也會跑（`.github/workflows/test.yml` 的 `browser`，Playwright、axe-core 在那裡臨時下載）。用電腦上已經有的 Chromium 時加 `PLAYWRIGHT_CHROMIUM=<Chromium 的位置>`，axe-core 放在別的地方時加 `AXE_CORE=<axe.min.js 的位置>`；`SITE_ROOT=<另一份網站的資料夾>` 可以拿同一套測試跑改之前的程式，比較改前改後。
+
+更多的情境（開關鏡頭、錄製、匯出、重播、離線、手機版面、背景執行緒當掉恢復、真的 AI 看照片等上百種）還在開發用的暫存區，要先準備好 MediaPipe、AI 模型和照片才能跑（GitHub 的 `test-tools` 分支有備份和還原的步驟），測過的情境與結果記錄在各 PR 的說明裡；之後常用的再陸續搬進 `tests/browser/`。
 
 **真人、真手機的驗證**：見使用說明頁的「驗證實驗」，以及 [roadmap.md](roadmap.md) 的「要等真人、真手機才能確認的事」。
 

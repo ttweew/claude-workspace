@@ -44,7 +44,8 @@ export function renderFatigue(box, f) {
     const list = el('ul', 'fatigue-list', undefined, box);
     for (const [key, name, a, b, diff] of rows) {
         const li = el('li', flagged.has(key) ? 'tired' : '', undefined, list);
-        el('span', 'fatigue-name', name, li);
+        // 名稱後面加「：」（10/30 無障礙）：以前只靠空白隔開，螢幕閱讀器念成「每下幾秒2.3 秒」，連在一起聽不出哪裡斷
+        el('span', 'fatigue-name', name + '：', li);
         li.append(a + ' → ' + b + '（' + diff + '）');
         if (flagged.has(key)) el('span', 'tired-tag', '可能累了', li);
     }

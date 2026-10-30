@@ -40,8 +40,8 @@
         </div>
     </nav>
 
-    <!-- 實測報表（10/21，js/pages/report.js）：重播分析底下的一頁，導覽列標在「重播分析」 -->
-    <div class="page replay report">
+    <!-- 實測報表（10/21，js/pages/report.js）：重播分析底下的一頁，導覽列標在「重播分析」；主要內容用 <main>（10/30 無障礙） -->
+    <main class="page replay report">
         <header class="replay-head">
             <h1>實測報表</h1>
             <p class="intro">一次讀很多個實測檔（實測模式錄的，檔名 test_ 開頭），每一組比對<strong>應該做的</strong>和<strong>網站算的</strong>：次數對不對、故意做錯有沒有抓到、做對的有沒有被誤報。網站算的和鏡頭畫面上當時看到的一樣（重播分析同一套算法）。檔案只在這個瀏覽器裡處理，不會上傳。</p>
@@ -83,7 +83,7 @@
                 </div>
             </section>
         </div>
-    </div>
+    </main>
 
     <script type="module" src="js/pages/report.js"></script>
     <script nomodule>

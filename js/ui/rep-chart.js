@@ -50,8 +50,11 @@ function xTicks(count, band) {
 // 一張長條圖。items：[{ n, value, cls, title }]；scale：數值 → 高度比例（0～1）
 // lines：參考線的數值（到位門檻、平均、目標）：線上不寫字（會和長條擠在一起），說明寫在標題旁的圖例；
 // peak：{ n, value } 要在長條上方寫數字的那一個
+// 螢幕閱讀器念的（10/30 無障礙）：圖的標題＋這張圖的重點，例如「每一下最低的膝蓋角度：6 下，最深 85°（第 3 下），到位 6 下」
+// 以前只念重點，聽不出是哪一張圖；長條上的說明（title）念不到，全部的數字在下面的表格
 function columns(box, width, { label, items, count, scale, lines, peak, peakText, axisLabels }) {
-    const svg = el('svg', { class: 'rep-svg', width, height: H, viewBox: '0 0 ' + width + ' ' + H, role: 'img', 'aria-label': label });
+    const title = box.querySelector('.rep-title');
+    const svg = el('svg', { class: 'rep-svg', width, height: H, viewBox: '0 0 ' + width + ' ' + H, role: 'img', 'aria-label': (title ? title.textContent + '：' : '') + label });
     const plotW = width - PAD.left - PAD.right, plotH = H - PAD.top - PAD.bottom;
     const base = PAD.top + plotH;
     const y = v => base - scale(v) * plotH;
@@ -96,10 +99,15 @@ function figure(parent, title, legend) {
     return fig;
 }
 
-function table(parent, head, rows) {
+// name：表格的名字（棒式是「每一次的數字」，10/30 以前也寫「每一下」）
+function table(parent, head, rows, name = '每一下的數字') {
     const details = html('details', 'rep-table', undefined, parent);
-    html('summary', '', '每一下的數字', details);
+    html('summary', '', name, details);
+    // 窄的手機上表格比框寬，要在框裡左右捲動：框要能用鍵盤選到（Tab 到這裡再按方向鍵），螢幕閱讀器念得出這是什麼（10/30 無障礙）
     const wrap = html('div', 'table-wrap', undefined, details);
+    wrap.tabIndex = 0;
+    wrap.setAttribute('role', 'region');
+    wrap.setAttribute('aria-label', name + '（表格，可以左右捲動）');
     const t = html('table', '', undefined, wrap);
     const tr = html('tr', '', undefined, html('thead', '', undefined, t));
     for (const h of head) html('th', '', h, tr).setAttribute('scope', 'col');
@@ -135,7 +143,7 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
         // 「晃動」（動作穩定度，10/30，js/analysis/stability.js）：髖部上下晃動幾度；一次都沒算到就整欄不畫
         const swayed = holds.some(h => h.sway !== null && h.sway !== undefined);
         const holdSway = h => (h.sway === null || h.sway === undefined ? '—' : '±' + h.sway + '°');
-        if (withTable) table(box, ['第幾次', '秒數', ...(swayed ? ['晃動'] : []), '錯誤'], holds.map(h => [String(h.n), String(h.seconds), ...(swayed ? [holdSway(h)] : []), h.errors.join('、') || '—']));
+        if (withTable) table(box, ['第幾次', '秒數', ...(swayed ? ['晃動'] : []), '錯誤'], holds.map(h => [String(h.n), String(h.seconds), ...(swayed ? [holdSway(h)] : []), h.errors.join('、') || '—']), '每一次的數字');
         return;
     }
     const reps = series.reps;
