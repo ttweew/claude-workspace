@@ -132,7 +132,10 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
             peak: { n: best.n, value: best.seconds }, peakText: best.seconds + ' 秒',
             axisLabels: [{ value: 0, text: '0' }, { value: max, text: max + ' 秒' }]
         });
-        if (withTable) table(box, ['第幾次', '秒數', '錯誤'], holds.map(h => [String(h.n), String(h.seconds), h.errors.join('、') || '—']));
+        // 「晃動」（動作穩定度，10/30，js/analysis/stability.js）：髖部上下晃動幾度；一次都沒算到就整欄不畫
+        const swayed = holds.some(h => h.sway !== null && h.sway !== undefined);
+        const holdSway = h => (h.sway === null || h.sway === undefined ? '—' : '±' + h.sway + '°');
+        if (withTable) table(box, ['第幾次', '秒數', ...(swayed ? ['晃動'] : []), '錯誤'], holds.map(h => [String(h.n), String(h.seconds), ...(swayed ? [holdSway(h)] : []), h.errors.join('、') || '—']));
         return;
     }
     const reps = series.reps;
@@ -174,6 +177,9 @@ export function renderRepChart(box, series, { goal = null, table: withTable = tr
     // 「順不順」（動作流暢度，10/29，js/analysis/fluency.js）：中途卡住幾次；弓箭步不看，整欄不畫
     const fluent = reps.some(r => Number.isInteger(r.stalls));
     const smooth = r => (!Number.isInteger(r.stalls) ? '—' : r.stalls ? '卡了 ' + r.stalls + ' 次' : '順');
-    if (withTable) table(box, ['第幾下', '最低角度', '深度', '秒數', ...(fluent ? ['順不順'] : []), '錯誤'],
-        reps.map(r => [String(r.n), r.angle + '°', DEPTH_TEXT[r.depth], r.seconds === null ? '—' : String(r.seconds), ...(fluent ? [smooth(r)] : []), r.errors.join('、') || '—']));
+    // 「晃動」（動作穩定度，10/30，js/analysis/stability.js）：重心前後晃動幾 %；伏地挺身不看，整欄不畫
+    const swayed = reps.some(r => r.sway !== null && r.sway !== undefined);
+    const sway = r => (r.sway === null || r.sway === undefined ? '—' : r.sway + '%');
+    if (withTable) table(box, ['第幾下', '最低角度', '深度', '秒數', ...(fluent ? ['順不順'] : []), ...(swayed ? ['晃動'] : []), '錯誤'],
+        reps.map(r => [String(r.n), r.angle + '°', DEPTH_TEXT[r.depth], r.seconds === null ? '—' : String(r.seconds), ...(fluent ? [smooth(r)] : []), ...(swayed ? [sway(r)] : []), r.errors.join('、') || '—']));
 }
