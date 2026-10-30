@@ -35,6 +35,16 @@ mkdir -p $S/fb && cd $S/fb && npm init -y >/dev/null && npm install --no-audit -
 
 瀏覽器用環境裡的 Chromium（`/opt/pw-browsers/chromium`）。
 
+Python 的 Playwright（10/30 還原時沒有）：環境裡的 `python3` 是 3.11，要用 `python3 -m pip` 裝（`pip` 指令是別的版本的 Python），版本和環境的 Chromium 一樣：
+
+```
+python3 -m pip install --break-system-packages playwright==1.63.0
+```
+
+無障礙的測試要 axe-core：`mkdir -p $S/a11y && cd $S/a11y && npm init -y >/dev/null && npm install axe-core@4.10.3`。實測報表的測試先 `mkdir -p $S/report21/files && node $S/report21/make_files.mjs /home/user/claude-workspace $S/report21/files`。
+
+10/30 起專案裡也有 `tests/browser/`（合成資料、不用連網路）：`PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium AXE_CORE=$S/a11y/node_modules/axe-core/axe.min.js npm run test:browser`。
+
 `fbreal/browser_real.py`（真的 Firebase 專案，經過環境的代理連網）要讓 Chromium 信任代理的憑證；這個環境原本的瀏覽器憑證庫是空的，要自己加（只加代理的 3 張）：
 
 ```
@@ -103,5 +113,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main29/`：動作流暢度。先 `node make_fake.mjs <網站資料夾>`（6 下，第 3 下下去到一半停 0.5 秒），再 `python3 check.py <網站資料夾> <port> [old]`（13 項：只有第 3 下的提示寫「卡了一下」、不講話、總結、平均和「每下約幾秒」一樣、表格的「順不順」、深度圖的說明、4 下、棒式、320 寬、axe-core；4 下深蹲、棒式用 `../goal25` 的假 AI；`old` 確認舊程式沒有）。
   - `maint29/`：運動 30 分鐘。先 `node make_fake.mjs <網站資料夾>`（一直重複做深蹲，每 10 下約 32.7 秒），再 `python3 soak30.py <網站資料夾> <port> [分鐘，預設 30]`（每 2 分鐘量記憶體、畫面元素、事件監聽、排著的長計時器、每秒幾格、主畫面忙碌、次數；第 10～12 分鐘打開數據面板；最後關鏡頭看總結；不到 10 分鐘時每 30 秒量一次）。`heapsample.py <網站資料夾> <port> [分鐘]`：記憶體取樣，前半和全部各拍一次，列出留最多、變多的程式位置（`draw :8` 是測試工具的假鏡頭，不是網站的）。`repsize.mjs`（`node --expose-gc`）：一下的資料大約多大。
   - `prop29/`：加到手機主畫面。`make_icons.py <輸出資料夾>` 用 Chromium 畫四張圖示；`check.py <網站資料夾> <port> [old]`（29 項：六頁的 manifest、圖示大小、捷徑、Chrome 說可以安裝、按鈕什麼時候出現、從主畫面打開不出現、使用說明、320 寬、axe-core；`old` 2 項）。Playwright 一般的視窗算無痕，Chrome 不讓無痕安裝，「可以安裝」要用 `launch_persistent_context`；這版 Chromium 的 CDP 不能假裝 display-mode，改在網頁裡假裝。
+- 10/30：
+  - `main30/`：動作穩定度。先 `node make_fake.mjs <網站資料夾>`（fake_sway：深蹲 6 下、後 3 下前後晃 ±13 像素；fake_plank：棒式 26 秒、後半髖部上下晃；fake_pushup：伏地挺身 3 下），再 `python3 check.py <網站資料夾> <port> [old]`（17 項：表格「晃動」、那一句的平均／最多的一下／前段後段、棒式、伏地挺身沒有、320 寬、axe-core；`old` 也印出舊程式 320 寬的表格寬度和 axe-core）。`proto.mjs`、`ref.mjs`、`ref2.mjs`、`ref3.mjs <網站資料夾>`：示範動畫加雜訊、前後晃、底部停幾格時算出來的數字（訂說明裡的參考數字用）。
+  - `maint30/`：無障礙。`aria.py <網站資料夾> <port> [plank]`：運動完的總結，印出螢幕閱讀器拿到的（Playwright 的 aria snapshot，用 `../main30` 的假 AI）；`pixdiff.py <舊的網站資料夾> <新的網站資料夾>`：重播分析、實測報表、量角器三頁 320／1280 寬整頁拍照，PNG 一樣才算一樣（這個環境 python3 的 PIL 壞的，用檔案的 md5 比）。
+  - `main28/check.py`：疲勞分析每一項的名稱後面多了「：」（10/30），比名稱時去掉；`main29/check.py`：表格「順不順」後面多一欄「晃動」（10/30）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

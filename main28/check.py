@@ -44,7 +44,7 @@ INIT = """(() => {
 FAT = """() => { const box = document.getElementById('fatigueBox'); if (!box) return null;
   return { hidden: box.hidden, line: (box.querySelector('.fatigue-line') || {}).textContent || '',
     range: (box.querySelector('.fatigue-range') || {}).textContent || '',
-    rows: [...box.querySelectorAll('.fatigue-list li')].map(li => ({ tired: li.classList.contains('tired'), name: li.querySelector('.fatigue-name').textContent,
+    rows: [...box.querySelectorAll('.fatigue-list li')].map(li => ({ tired: li.classList.contains('tired'), name: li.querySelector('.fatigue-name').textContent.replace(/：$/, ''),
       text: li.childNodes[1].textContent, tag: (li.querySelector('.tired-tag') || {}).textContent || '' })),
     reps: [...document.querySelectorAll('#repChart .rep-table tbody tr')].map(tr => [...tr.children].map(td => td.textContent)),
     summary: [...document.querySelectorAll('#summaryLines li')].map(li => li.textContent) }; }"""

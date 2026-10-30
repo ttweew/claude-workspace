@@ -78,7 +78,8 @@ with sync_playwright() as p:
     stall_toasts = [t for t in toasts if '卡了一下' in t]
     check(len(stall_toasts) == 1 and stall_toasts[0].startswith('第 3 下'), f'畫面提示：只有第 3 下寫「卡了一下」{stall_toasts}')
     check(not any('卡' in s for s in said), '不講話（卡一下只寫在提示）')
-    check(f['head'] == ['第幾下', '最低角度', '深度', '秒數', '順不順', '錯誤'] and [r[4] for r in f['rows']] == ['順', '順', '卡了 1 次', '順', '順', '順'],
+    # 10/30 起「順不順」後面多一欄「晃動」（動作穩定度）
+    check(f['head'] == ['第幾下', '最低角度', '深度', '秒數', '順不順', '晃動', '錯誤'] and [r[4] for r in f['rows']] == ['順', '順', '卡了 1 次', '順', '順', '順'],
           f'每一下的表格：「順不順」第 3 下卡了 1 次 {[r[4] for r in f["rows"]]}')
     check('中途卡了一下' in f['titles'][2] and not any('卡' in t for i, t in enumerate(f['titles']) if i != 2), f'深度圖第 3 條的說明寫「中途卡了一下」{f["titles"][2]}')
     pg.locator('#summary').screenshot(path=os.path.join(HERE, 'stall_1280.png'))
