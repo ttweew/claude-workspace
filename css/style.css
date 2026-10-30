@@ -965,6 +965,11 @@ h2 {
     min-width: 100%;
     overflow-x: auto;
 }
+/* 可以用鍵盤選到、左右捲動（10/30 無障礙，js/ui/rep-chart.js）：按 Tab 到這裡時看得出來（和實測報表一樣） */
+.rep-table .table-wrap:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
 .rep-table table {
     width: 100%;
     margin: 6px 0 0;
@@ -1000,7 +1005,7 @@ h2 {
     font-variant-numeric: tabular-nums;
 }
 .fatigue-name {
-    margin-right: 6px;
+    margin-right: 2px;
     color: var(--muted-2);
 }
 .fatigue-list li.tired { font-weight: 600; }

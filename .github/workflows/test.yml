@@ -38,3 +38,16 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-15.34.1
       - run: npx --yes firebase-tools@15.34.1 emulators:exec --only firestore --project demo-sport "npm run test:rules"
+
+  # 瀏覽器端到端測試（tests/browser/，10/30）：真的 Chromium 打開網站，鏡頭、AI 換成假的（合成資料，不用連 MediaPipe）
+  # Playwright、axe-core 只在這裡臨時下載，專案本身還是不用安裝套件
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.63.0 axe-core@4.10.3
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

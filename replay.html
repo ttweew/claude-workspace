@@ -39,7 +39,8 @@
         </div>
     </nav>
 
-    <div class="page replay">
+    <!-- 頁面的主要內容（10/30 無障礙：螢幕閱讀器可以直接跳到這裡，和首頁、使用說明一樣用 <main>） -->
+    <main class="page replay">
         <header class="replay-head">
             <h1>錄製資料重播分析</h1>
             <p class="intro">選擇「數據」面板下載的 JSON 或 CSV 檔，用和鏡頭畫面<strong>完全相同</strong>的處理（平滑、擋鬼點、角度、拍攝方向）重算一次，畫出角度曲線。檔案只在這個瀏覽器裡處理，不會上傳。</p>
@@ -163,7 +164,7 @@
                 <button id="csvOut" type="button" class="primary-btn">下載角度 CSV</button>
             </section>
         </div>
-    </div>
+    </main>
 
     <script type="module" src="js/pages/replay.js"></script>
     <script nomodule>
