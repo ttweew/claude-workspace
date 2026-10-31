@@ -85,17 +85,22 @@ export function rep(id, { half = 30, hold = 0, rest = 30, move } = {}) {
 }
 
 // 假的 MediaPipe：第一次偵測時開始算時間，每 1000/30 毫秒換下一格；排完了就是「沒有人」
+//   self.__fakeUsed：網站真的拿到的每一格 [第幾格, 時間]（測試用 usedFrames() 讀，在 node 照一樣的格子重算）
+//   電腦慢的時候網站來不及每格都拿（10/31 CI 的測試機器：跳了好幾格），算出來的數字會和每秒 30 格不一樣
 function fakeBody(frames) {
     return `const FRAMES = ${JSON.stringify(frames)};
 const toPoints = f => f.map(([x, y, z, visibility]) => ({ x, y, z, visibility }));
 const toWorld = f => f.map(([x, y]) => ({ x: x - 0.5, y: y - 0.5, z: 0 }));
+const used = self.__fakeUsed = [];
 let t0 = null;
 const fake = {
     detectForVideo(source, ts) {
         // 網站量畫面亮度、開頭試算用的小圖（64 寬）：不算
         if (source && source.width === 64) return { landmarks: [], worldLandmarks: [] };
         if (t0 === null) t0 = ts;
-        const f = FRAMES[Math.floor((ts - t0) / (1000 / 30))];
+        const i = Math.floor((ts - t0) / (1000 / 30));
+        used.push([i, ts]);
+        const f = FRAMES[i];
         return f ? { landmarks: [toPoints(f)], worldLandmarks: [toWorld(f)] } : { landmarks: [], worldLandmarks: [] };
     },
     close() {}
@@ -105,6 +110,13 @@ class PoseLandmarker { static async createFromOptions() { return fake; } }`;
 }
 export const fakeModule = frames => fakeBody(frames) + '\nexport { FilesetResolver, PoseLandmarker };\n';
 export const fakeWorkerScript = frames => '(() => {\n' + fakeBody(frames) + '\nself.Vision = { FilesetResolver, PoseLandmarker };\n})();\n';
+
+// 網站真的拿到的格子（照時間排好）：AI 在背景執行緒（pose-worker.js）或主畫面，兩邊都看
+export async function usedFrames(page) {
+    const lists = [await page.evaluate(() => self.__fakeUsed || [])];
+    for (const w of page.workers()) lists.push(await w.evaluate(() => self.__fakeUsed || []));
+    return lists.flat().sort((a, b) => a[1] - b[1]);
+}
 
 // 假鏡頭（640×480）、假的講話（記下講了什麼，在 window.__said）；錄製前不倒數
 const INIT = `(() => {
@@ -175,13 +187,15 @@ export async function open(browser, frames, { width = 1280, height = 900, mobile
 }
 
 // 選好動作、開鏡頭、等假 AI 播完（done：網頁裡的判斷式，例如次數到 6），再按「結束」回首頁看總結
-export async function workout(page, base, id, done, { settle = 1500 } = {}) {
+//   beforeStop：按「結束」前要做的事（例如斷網，10/31 保養：看總結時沒有網路）
+export async function workout(page, base, id, done, { settle = 1500, beforeStop = null } = {}) {
     await page.goto(base + 'index.html?workout=' + id);
     await page.waitForFunction(() => /已就緒|失敗/.test(document.getElementById('poseStatus').textContent), null, { timeout: 60000 });
     await page.click('#startBtn');
     await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
     await page.waitForFunction(done, null, { timeout: 120000 });
     await page.waitForTimeout(settle);
+    if (beforeStop) await beforeStop();
     await page.click('#stopBtn');
     await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
 }
