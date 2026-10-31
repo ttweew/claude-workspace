@@ -4,21 +4,25 @@
 //   伏地挺身 3 下：沒有穩定度；320 寬的手機：總結不超出畫面
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, serve, open, script, rep, workout, summary } from './harness.mjs';
+import { launch, serve, open, script, rep, workout, summary, usedFrames } from './harness.mjs';
 import { P } from '../../js/skeleton/landmarks.js';
 import { PosePipeline } from '../../js/skeleton/pipeline.js';
 import { WorkoutTracker } from '../../js/analysis/tracker.js';
 
-// 同樣的骨架在 node 裡照每秒 30 格算一次（網站同一套程式）：瀏覽器算出來的要和這個差不多
-// （瀏覽器是照真的時間拿格子，偶爾跳過或重複一格，所以只要差不到 0.3）
-function inNode(id, frames) {
+// 同樣的骨架在 node 裡用網站同一套程式算一次：瀏覽器算出來的要和這個差不多
+//   used：網站真的拿到的格子 [第幾格, 時間]（harness.mjs 的 usedFrames）；省略時照每秒 30 格、每格都拿
+//   瀏覽器是照真的時間拿格子，電腦慢就會跳格：10/31 GitHub 的測試機器跳了好幾格，第 5 下算出 6.1，每秒 30 格是 6.7
+//   所以照瀏覽器真的拿到的格子重算：把電腦調慢 1、4、8 倍（跳過 22～492 格）都完全一樣，只留四捨五入的差（0.1）
+//   （每秒 30 格的算法在調慢 8 倍時差到 0.8）
+function inNode(id, frames, used = frames.map((f, i) => [i, i * 1000 / 30])) {
     const pipeline = new PosePipeline(), tracker = new WorkoutTracker(id);
     const done = [];
-    frames.forEach((f, i) => {
-        const lm = f.map(([x, y, z, visibility]) => ({ x, y, z, visibility }));
-        const r = tracker.update(pipeline.process(lm, i * 1000 / 30, 640, 480), i * 1000 / 30);
+    for (const [i, ts] of used) {
+        const f = frames[i];
+        const lm = f ? f.map(([x, y, z, visibility]) => ({ x, y, z, visibility })) : null;
+        const r = tracker.update(pipeline.process(lm, ts, 640, 480), ts);
         if (r.done) done.push(r.done);
-    });
+    }
     return done;
 }
 
@@ -50,9 +54,9 @@ test('深蹲 6 下：總結、流暢度、穩定度（後 3 下晃得多）、�
     assert.match(s.fluency, /^動作流暢度：節奏穩（6 下有 6 下/);
     assert.deepEqual(s.head, ['第幾下', '最低角度', '深度', '秒數', '順不順', '晃動', '錯誤']);
     const sway = s.rows.map(r => parseFloat(r[5]));
-    const expected = inNode('squat', SQUAT).map(r => r.sway);
+    const expected = inNode('squat', SQUAT, await usedFrames(page)).map(r => r.sway);
     assert.equal(expected.length, 6);
-    sway.forEach((v, i) => assert.ok(Math.abs(v - expected[i]) <= 0.3, '第 ' + (i + 1) + ' 下：瀏覽器 ' + sway + '，node ' + expected));
+    sway.forEach((v, i) => assert.ok(Math.abs(v - expected[i]) <= 0.1, '第 ' + (i + 1) + ' 下：瀏覽器 ' + sway + '，node ' + expected));
     assert.ok(Math.max(...sway.slice(0, 3)) <= 2.5 && Math.min(...sway.slice(3)) >= 5, '前 3 下沒晃、後 3 下晃得多：' + sway);
     const m = s.stability.match(/^動作穩定度：重心前後晃動平均 ([\d.]+)%（小腿長 100%；示範動畫 2\.3%），最多的是第 \d 下（[\d.]+%）；前段（第 1～2 下）([\d.]+)% → 後段（第 5～6 下）([\d.]+)%$/);
     assert.ok(m, s.stability);

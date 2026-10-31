@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { coachFacts, fixedAdvice, COACH } from '../js/analysis/coach.js';
-import { coachPrompt, checkReply, failureOf, FAILURE_TEXT, AiCoach, AI_COACH } from '../js/cloud/ai-coach.js';
+import { coachPrompt, checkReply, replyProblem, cleanReply, failureOf, FAILURE_TEXT, AiCoach, AI_COACH } from '../js/cloud/ai-coach.js';
 import { summarize } from '../js/analysis/session.js';
 import { repSeries } from '../js/analysis/rep-series.js';
 
@@ -69,7 +69,7 @@ test('給 Gemini 的話：規則、這組的數字（JSON），沒有日期和�
 
 test('檢查 Gemini 的回答：分成最多 3 句；太長、沒有中文、空的不能用', () => {
     assert.deepEqual(checkReply('蹲得很深，很好。\n上身再挺直一點，胸口往前看！'), ['蹲得很深，很好。', '上身再挺直一點，胸口往前看！']);
-    assert.deepEqual(checkReply('一。二。三。四。'), ['一。', '二。', '三。']);
+    assert.deepEqual(checkReply('第一句很好。第二句也好。第三句不錯。第四句多了。'), ['第一句很好。', '第二句也好。', '第三句不錯。']);
     assert.equal(checkReply('Great job! Keep your back straight.'), null);
     assert.equal(checkReply('好'.repeat(AI_COACH.maxChars + 1)), null);
     assert.equal(checkReply('   '), null);
@@ -108,9 +108,72 @@ test('AI 教練失敗：主控台還沒開 AI Logic、逾時、回答不能用�
 
 test('AI 教練：載入失敗下次再試（不會一直用壞掉的那次）', async () => {
     let calls = 0;
-    const c = new AiCoach({ apiKey: 'x' }, { load: async () => { calls++; if (calls === 1) throw new Error('下載失敗'); return (await fakeModel('很穩。')()); } });
+    const c = new AiCoach({ apiKey: 'x' }, { load: async () => { calls++; if (calls === 1) throw new Error('下載失敗'); return (await fakeModel('每一下都很穩。')()); } });
     c.setEnabled(true);
     await assert.rejects(c.advise(good6()));
-    assert.deepEqual(await c.advise(good6()), ['很穩。']);
+    assert.deepEqual(await c.advise(good6()), ['每一下都很穩。']);
     assert.equal(calls, 2);
+});
+
+// ---------- 10/31 保養：AI 教練的失敗情況 ----------
+
+test('回答怪怪的：英文、網址、簡體字、太短、太長、數字對不起來（模型自己編的）都不能用', () => {
+    const f = good6();   // 6 下、到位 6、相似 95、每下 2 秒
+    assert.equal(replyProblem('Great job! Keep your back straight and go slower.', f), 'english');
+    assert.equal(replyProblem('做得很好，教學影片看 https://example.com 這裡。', f), 'link');
+    assert.equal(replyProblem('这个动作做得很好，下次放慢一点。', f), 'simplified');
+    assert.equal(replyProblem('好。', f), 'empty');
+    assert.equal(replyProblem('很'.repeat(AI_COACH.maxChars + 1), f), 'long');
+    assert.equal(replyProblem('你做了 12 下，比上次多。下次再加油。', f), 'number');
+    // 這組裡有的數字、5 以下的小數字（「數 1、2」「多做 2 下」）可以
+    assert.equal(replyProblem('6 下都到位，和示範動作相似 95%。下次數 1、2 慢慢下去。', f), null);
+    assert.equal(replyProblem('每下約 2 秒，節奏很穩。下次多做 2 下。', f), null);
+    // 四捨五入（重心晃動 3.6% 說成約 4%、每下 2.6 秒說成約 3 秒）、第幾下（不超過次數）、規則裡的數字也可以；不在裡面的不行
+    const eight = squat([[85, 2.1], [87, 2.3], [84, 2.2], [92, 2.6], [95, 2.9], [99, 3.3], [101, 3.1], [97, 2.4]]);
+    assert.equal(replyProblem('平均每下約 3 秒，相似 95 分。第 7 下開始變淺，最後 8 下都沒有錯誤。', eight), null);
+    // 到位的門檻 90° 沒有給它（規則寫「數字只能用下面有的」），說了也不行；開通後看 Gemini 真的回答，常常被擋再加進給它的數字
+    assert.equal(replyProblem('最低蹲到 84 度，很好。下次每一下都蹲到 90 度。', eight), 'number');
+    assert.equal(replyProblem('第 9 下開始變淺，下次放慢一點。', eight), 'number');
+    // 不給這組的數字（例如只檢查格式）時不比數字
+    assert.equal(replyProblem('你做了 12 下，做得很好。'), null);
+});
+
+test('回答整理：列點的符號、粗體、標題、表情符號拿掉；重複的句子只留一句', () => {
+    assert.equal(cleanReply('## 建議\n- **每一下都到位**，很好 💪\n1. 下次放慢一點'), '建議\n每一下都到位，很好\n下次放慢一點');
+    assert.deepEqual(checkReply('- 每一下都到位，很好。\n- 每一下都到位，很好。\n- 下次放慢一點。', good6()), ['每一下都到位，很好。', '下次放慢一點。']);
+    // 列點沒有句號：補上（接在一起唸時才會停一下）
+    assert.deepEqual(checkReply('- **每一下都到位**，很穩 💪\n- 下次放慢一點', good6()), ['每一下都到位，很穩。', '下次放慢一點。']);
+});
+
+test('沒有網路：不送、不等，直接用固定句子', async () => {
+    let calls = 0;
+    const c = new AiCoach({ apiKey: 'x' }, { load: async () => { calls++; return fakeModel('每一下都很穩。')(); } });
+    c.setEnabled(true);
+    const had = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+    try {
+        await assert.rejects(c.advise(good6()), e => failureOf(e) === 'offline');
+        assert.equal(calls, 0, '沒有載入、沒有送');
+    } finally {
+        if (had) Object.defineProperty(globalThis, 'navigator', had); else delete globalThis.navigator;
+    }
+});
+
+test('載入 Firebase 的程式卡住：逾時，下次重新載入（不會一直等同一個卡住的）', async () => {
+    let calls = 0;
+    const c = new AiCoach({ apiKey: 'x' }, { timeoutMs: 30, load: () => { calls++; return calls === 1 ? new Promise(() => {}) : fakeModel('每一下都很穩，很好。')(); } });
+    c.setEnabled(true);
+    await assert.rejects(c.advise(good6()), e => failureOf(e) === 'timeout');
+    assert.deepEqual(await c.advise(good6()), ['每一下都很穩，很好。']);
+    assert.equal(calls, 2);
+});
+
+test('Google 回的錯誤：429 用量用完、404 模型停用、回答被擋下（response-error）、網路斷掉', () => {
+    const err = (code, status) => Object.assign(new Error(code), { code, customErrorData: status ? { status } : undefined });
+    assert.equal(failureOf(err('fetch-error', 429)), 'busy');
+    assert.equal(failureOf(err('fetch-error', 404)), 'model');
+    assert.equal(failureOf(err('response-error')), 'bad-reply');
+    assert.equal(failureOf(err('api-not-enabled', 403)), 'disabled');
+    assert.equal(failureOf(new TypeError('Failed to fetch')), 'error');
+    for (const k of ['offline', 'busy', 'model']) assert.match(FAILURE_TEXT[k], /固定的建議$/);
 });

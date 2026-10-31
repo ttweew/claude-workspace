@@ -98,6 +98,21 @@ npm run test:live
 
 還沒開的時候，Google 回的是「Firebase AI Logic API has not been used in project … or it is disabled」（10/31 實際打過一次確認），網站寫「AI 教練還沒開通（Firebase 主控台要先開 AI Logic），先用固定的建議」。
 
+**用不到 AI 的時候（10/31 保養）**：都改用固定句子，總結寫出原因（`js/cloud/ai-coach.js` 的 `FAILURE_TEXT`、`failureOf`）：
+
+| 情況 | 怎麼認出來 | 網站寫 |
+|---|---|---|
+| 沒有網路 | 瀏覽器說離線（`navigator.onLine`）：不送、不等 | 沒有網路 |
+| 超過 10 秒沒回答 | 計時；載入 Firebase 的程式卡住時，下次重新載入 | 超過 10 秒沒回答 |
+| AI Logic 還沒開 | Google 回 403、SDK 的錯誤代號 `api-not-enabled` | 還沒開通 |
+| 免費的用量用完了 | Google 回 429（`RESOURCE_EXHAUSTED`）；Gemini Developer API 免費方案有每分鐘、每天的上限 | 太忙 |
+| 模型停用、改名 | Google 回 404：改 `js/cloud/config.js` 的 `AI_MODEL` | 模型要更新 |
+| 回答被 Google 擋下（安全規則）| SDK 的錯誤代號 `response-error` | 回答怪怪的 |
+| 回答不能用 | 英文太多、簡體字、網址、太短（不到 6 個中文字）、太長（超過 160 字）、說了給它的話裡沒有的數字（四捨五入到整數、5 以下的小數字、不超過次數的「第幾下」可以；到位的門檻 90° 沒給它，說了也不行） | 回答怪怪的 |
+| 其他（連不上、伺服器錯誤）| | 暫時連不上 |
+
+回答能用時，列點的符號、粗體、標題、表情符號拿掉，沒有句號的補上，重複的句子只留一句，最多 3 句。這些情況用真的 Firebase AI 程式（npm 的 firebase 12.19.0，和 gstatic 上的同一份）、假的 Google 伺服器測過（測試工具 `maint31/real_sdk.py`）。
+
 **之後可以加的**：App Check（確認是從我們的網站送的，別人拿不到這個專案的 Gemini 免費額度；要用 reCAPTCHA，使用者要在主控台多設定一次）。
 
 ## 六、之後換成自己的伺服器
