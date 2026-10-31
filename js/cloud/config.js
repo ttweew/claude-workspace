@@ -15,6 +15,11 @@ export const FIREBASE_CONFIG = {
 export const FIREBASE_VERSION = '12.19.0';
 export const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/' + FIREBASE_VERSION;
 
+// AI 教練（10/31，js/cloud/ai-coach.js）用的 Gemini 模型：經過 Firebase AI Logic 的 Gemini Developer API（免費方案就能用）
+// gemini-3.5-flash-lite：2026 年 7 月正式推出、3.5 這一代最快最便宜的，寫兩三句建議夠用；
+// 2.0 系列 2026/6/1 已停用、2.5 系列新的專案不能用。Google 換新模型、舊的停用時改這裡（停用了會改用固定句子，網站不會壞）
+export const AI_MODEL = 'gemini-3.5-flash-lite';
+
 // 開發、測試用的本機模擬器（firebase emulators:start）：在自己的電腦（localhost）打開網址加 ?cloud=emulator 才會用，
 // 不會碰到真的資料；專案代號 demo- 開頭，模擬器不需要登入 Google 帳號
 export const EMULATOR_CONFIG = { apiKey: 'demo-key', authDomain: 'demo-sport.firebaseapp.com', projectId: 'demo-sport' };

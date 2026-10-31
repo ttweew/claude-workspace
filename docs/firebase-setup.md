@@ -82,13 +82,31 @@ npm run test:live
 - 會建立兩個測試用的匿名帳號，測完連同測試紀錄一起刪掉，不會碰到別人的資料。
 - 哪一步沒設定好，會直接說是哪一步（例如「匿名登入還沒啟用」「安全規則擋下來」）。
 
-## 五、之後換成自己的伺服器
+## 五、AI 教練（10/31）：Gemini 寫建議
+
+- 首頁「AI 教練（Gemini）」開關：**預設關閉**。打開後，每組做完把這組的數字給 Google 的 Gemini，寫兩三句建議，顯示在總結最上面的「教練建議」，完整語音時唸出來。關閉、連不上時用網站內建的固定句子（`js/analysis/coach.js`），這一段一定有。
+- 經過 **Firebase AI Logic** 的 **Gemini Developer API**（免費方案 Spark 就能用，不用綁信用卡）：用和雲端同步同一個 Firebase 專案，網頁裡不用放 Gemini 自己的金鑰。程式在 `js/cloud/ai-coach.js`，模型名稱在 `js/cloud/config.js` 的 `AI_MODEL`（目前 `gemini-3.5-flash-lite`）。
+- **送出去的只有數字**：動作名稱、次數、到位／再低一點／太淺、最低和平均角度、每下幾秒、相似度、各種錯誤幾下、疲勞的跡象、節奏、中途卡住的是第幾下、穩定度（棒式：最久、總共幾秒）。沒有影像、骨架座標、日期、帳號。Google 的免費方案可能會用送過去的內容改進服務，所以只送這些數字。
+- 不需要登入、不需要雲端同步打開；兩個開關分開。
+
+**在 Firebase 主控台開 AI Logic（使用者做，約 3 分鐘）**：
+
+1. 打開 [Firebase 主控台](https://console.firebase.google.com/)，選專案 `ai-sport-analysis-bf82e`。
+2. 左邊選單找「AI Logic」（在「AI」或「建構」底下），按「開始使用」。
+3. 選「Gemini Developer API」（不要選需要付費方案的另一個），按「啟用 API」，等它跑完，再按「繼續」。
+4. 不用下載檔案、不用改程式（網站已經接好）。做完之後幾分鐘才會生效；用網站做一組、看總結的「教練建議」後面寫不寫「AI 教練，Gemini」。
+
+還沒開的時候，Google 回的是「Firebase AI Logic API has not been used in project … or it is disabled」（10/31 實際打過一次確認），網站寫「AI 教練還沒開通（Firebase 主控台要先開 AI Logic），先用固定的建議」。
+
+**之後可以加的**：App Check（確認是從我們的網站送的，別人拿不到這個專案的 Gemini 免費額度；要用 reCAPTCHA，使用者要在主控台多設定一次）。
+
+## 六、之後換成自己的伺服器
 
 - 網站只透過 `js/cloud/cloud.js` 用雲端：換成 FastAPI＋MongoDB 時，改寫這個檔案的連線、上傳、刪除；上傳的內容（`js/cloud/sync.js` 的 `cloudSession`）不用改。
 - 資料搬家：把 Firestore 的資料讀出來、寫進 MongoDB；每一筆的代號、欄位都一樣。
 - 帳號：匿名帳號要換成伺服器的帳號系統（建議先加 Google 登入）。
 
-## 六、目前的限制
+## 七、目前的限制
 
 - 匿名帳號跟著瀏覽器：清掉瀏覽器資料、換手機，就是新的帳號，之前雲端的紀錄讀不到。之後加 Google 登入就能跨裝置。
 - 雲端目前只有「存」：網站上看到的運動紀錄還是這台裝置的；成長曲線、老師看全班的資料是下一步。

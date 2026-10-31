@@ -123,6 +123,28 @@ const INIT = `(() => {
   window.SpeechSynthesisUtterance = function (text) { this.text = text; this.volume = 1; this.lang = ''; this.voice = null; this.rate = 1; };
 })();`;
 
+// 假的 Firebase（10/31，AI 教練）：網站向 gstatic 要 firebase-app.js、firebase-ai.js 時給假的；
+// Gemini 怎麼回答看 window.__fakeAI（{ reply: '…' }、{ error: { code } }、{ hang: true }），送出去的話記在 window.__aiPrompts
+const FAKE_FIREBASE = {
+    'firebase-app.js': `const apps = [];
+export const getApps = () => apps;
+export const getApp = name => apps.find(a => a.name === name);
+export function initializeApp(options, name = '[DEFAULT]') { const app = { name, options }; apps.push(app); return app; }`,
+    'firebase-ai.js': `export class GoogleAIBackend {}
+export const getAI = (app, options) => ({ app, options });
+export function getGenerativeModel(ai, params) {
+    return {
+        async generateContent(prompt) {
+            (window.__aiPrompts = window.__aiPrompts || []).push({ prompt, model: params.model });
+            const how = window.__fakeAI || {};
+            if (how.hang) return new Promise(() => {});
+            if (how.error) throw Object.assign(new Error(how.error.message || 'fake'), how.error);
+            return { response: { text: () => how.reply } };
+        }
+    };
+}`
+};
+
 const CDNS = ['https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@*/**', 'https://unpkg.com/@mediapipe/tasks-vision@*/**'];
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/**';
 
@@ -143,6 +165,11 @@ export async function open(browser, frames, { width = 1280, height = 900, mobile
         });
     }
     await context.route(MODEL, route => route.fulfill({ body: 'fake-model', contentType: 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' } }));
+    await context.route('https://www.gstatic.com/firebasejs/**', route => {
+        const file = new URL(route.request().url()).pathname.split('/').pop();
+        const body = Object.prototype.hasOwnProperty.call(FAKE_FIREBASE, file) ? FAKE_FIREBASE[file] : null;
+        return body ? route.fulfill({ body, contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' } }) : route.fulfill({ status: 404 });
+    });
     await context.addInitScript(INIT);
     return { context, page };
 }

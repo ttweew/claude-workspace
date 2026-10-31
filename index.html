@@ -100,6 +100,12 @@
                 <div id="summary" class="summary" aria-live="polite" hidden>
                     <h2 id="summaryTitle">這次運動</h2>
                     <ul id="summaryLines"></ul>
+                    <!-- 教練建議（10/31，js/analysis/coach.js、js/ui/coach-view.js）：兩三句；AI 教練打開時請 Gemini 寫，不然用固定句子 -->
+                    <div id="coachAdvice" class="coach-advice" hidden>
+                        <h3 class="coach-title">教練建議<span id="coachSource" class="coach-source"></span></h3>
+                        <ul id="coachLines" class="coach-lines"></ul>
+                        <p id="coachStatus" class="coach-status" role="status"></p>
+                    </div>
                     <!-- 疲勞分析（10/28，js/analysis/fatigue.js、js/ui/fatigue-view.js）：同一組的前段和後段比，6 下以上才比 -->
                     <div id="fatigueBox" class="fatigue" hidden></div>
                     <!-- 動作流暢度（10/29，js/analysis/fluency.js）：每一下有沒有中途卡住、整組的節奏穩不穩 -->
@@ -173,6 +179,13 @@
                         <p class="switch-more"><a href="help.html#cloudFaq">雲端同步是什麼？</a></p>
                         <p id="cloudStatus" class="cloud-status" aria-live="polite"></p>
                         <button id="cloudDelete" type="button" class="cloud-delete" hidden>刪除雲端的紀錄</button>
+                    </div>
+                    <!-- AI 教練（10/31，js/cloud/ai-coach.js、js/ui/coach-view.js）：預設關閉；打開後每組做完把這組的數字給 Google 的 Gemini 寫兩三句建議
+                         （只送數字，不含影像、骨架）；關閉或連不上時用網站內建的固定建議。網站還沒接上 Firebase 時整段不出現 -->
+                    <div id="coachBox" class="set-card" hidden>
+                        <label class="switch-pick"><input type="checkbox" id="coachToggle" role="switch" aria-describedby="coachNote"> <span>AI 教練（Gemini）<small>做完一組，請 AI 看這組的數字給建議；只送數字，不含影像</small></span></label>
+                        <p class="switch-more"><a href="help.html#coachFaq">AI 教練是什麼？</a></p>
+                        <p id="coachNote" class="cloud-status"></p>
                     </div>
                     <!-- 實測模式（10/20，js/data/test-mode.js）：實測那天主持人用。開著時鏡頭畫面上方出現「這組要做的」按鈕，
                          選了就倒數、自動錄製，按「這組做完」存進錄製檔（可以改成也馬上下載；檔名有受測者代號、動作、這組要做的）

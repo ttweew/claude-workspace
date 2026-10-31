@@ -25,6 +25,8 @@ import { BalanceMeter, balanceOf, BALANCE } from '../analysis/balance.js';
 import { errorShort, errorRule, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { setupCloudPanel } from '../ui/cloud-panel.js';
+import { setupCoach } from '../ui/coach-view.js';
+import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
@@ -1057,6 +1059,8 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null) 
     const stability = stabilityOf(series, s.workout);
     stabilityBox.hidden = !stability;
     stabilityBox.textContent = stabilityLine(stability);
+    // 教練建議（10/31）：兩三句；AI 教練打開時請 Gemini 寫，不然（或連不上）用固定句子
+    coach.show(coachFacts(s, series));
     showHistory();
 }
 
@@ -1679,6 +1683,15 @@ setupGoalPick(next => {
     showGoal(null);
 });
 const cloudPanel = setupCloudPanel();
+// 教練建議（10/31，js/ui/coach-view.js）：完整語音、有中文的聲音時唸出來（關鏡頭了，前面沒講完的先停掉）
+// 用英文的聲音唸中文會亂唸，不如不唸（畫面上照樣有字）
+const coach = setupCoach({
+    speak(text) {
+        if (!text || !canSpeak('count') || !voice.chinese) return;
+        voice.stop();
+        voice.speak('教練建議：' + text);
+    }
+});
 
 // ---------- AI 模型（自動調整的第 3 步） ----------
 // 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）
