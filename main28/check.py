@@ -119,7 +119,8 @@ with sync_playwright() as p:
     check(f['line'] == '疲勞分析：前段（第 1～2 下）和後段（第 7～8 下）差不多，沒有看到疲勞的跡象' and len(f['rows']) == 4 and not any(r['tired'] or r['tag'] for r in f['rows'])
           and rows_text_same(f['rows']),
           '一樣的 8 下：差不多，沒有「可能累了」｜' + f['line'])
-    check(not [t for t in said if '淺' in t or '慢' in t], '一樣的 8 下：運動中不提醒')
+    # 10/31 起關鏡頭後會唸「教練建議：…」（做得好時說「下次…放慢一點」），那不是運動中的提醒，不算
+    check(not [t for t in said if ('淺' in t or '慢' in t) and not t.startswith('教練建議：')], '一樣的 8 下：運動中不提醒')
     r = pg.evaluate("[Math.round(document.getElementById('fatigueBox').getBoundingClientRect().right), document.documentElement.scrollWidth]")
     check(max(r) <= 390, f'390 寬不超出 {r}')
     pg.locator('#fatigueBox').screenshot(path=os.path.join(HERE, 'steady_390.png'))

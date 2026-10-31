@@ -117,5 +117,13 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main30/`：動作穩定度。先 `node make_fake.mjs <網站資料夾>`（fake_sway：深蹲 6 下、後 3 下前後晃 ±13 像素；fake_plank：棒式 26 秒、後半髖部上下晃；fake_pushup：伏地挺身 3 下），再 `python3 check.py <網站資料夾> <port> [old]`（17 項：表格「晃動」、那一句的平均／最多的一下／前段後段、棒式、伏地挺身沒有、320 寬、axe-core；`old` 也印出舊程式 320 寬的表格寬度和 axe-core）。`proto.mjs`、`ref.mjs`、`ref2.mjs`、`ref3.mjs <網站資料夾>`：示範動畫加雜訊、前後晃、底部停幾格時算出來的數字（訂說明裡的參考數字用）。
   - `maint30/`：無障礙。`aria.py <網站資料夾> <port> [plank]`：運動完的總結，印出螢幕閱讀器拿到的（Playwright 的 aria snapshot，用 `../main30` 的假 AI）；`pixdiff.py <舊的網站資料夾> <新的網站資料夾>`：重播分析、實測報表、量角器三頁 320／1280 寬整頁拍照，PNG 一樣才算一樣（這個環境 python3 的 PIL 壞的，用檔案的 md5 比）。
   - `main28/check.py`：疲勞分析每一項的名稱後面多了「：」（10/30），比名稱時去掉；`main29/check.py`：表格「順不順」後面多一欄「晃動」（10/30）。
+- 10/31：
+  - Firebase AI 的程式（AI 教練用）：`fb/node_modules/firebase/` 裡的 `firebase-app.js`、`firebase-ai.js` 就是 gstatic 上的同一份（12.19.0）；這個環境連不到 gstatic、firebase.google.com，測試時用 route 換成這兩個檔。
+  - `main31/real_sdk.py <網站資料夾> <port>`：AI 教練（主線），真的 Firebase AI 程式、假的 Gemini 伺服器（firebasevertexai.googleapis.com），3 種：正常、`disabled_403.json`（10/31 真的打一次拿到的 403，AI Logic 還沒開）、模型 404；12 項。用 `../main30` 的 fake_sway（先跑那裡的 `make_fake.mjs`）。`shot.mjs`：總結的教練建議拍照（320、1280 寬）。
+  - `maint31/real_sdk.py <網站資料夾> <port> [情況…]`：AI 教練的失敗情況（取代上面那個），12 種：ok（列點的回答整理好）、disabled、busy429、model404、safety、promptblock、promptblock2（擋下但沒附 safetyRatings，firebase-ai.js 自己出錯）、english、number、abort、hang（等 10 秒）、offline（按結束前 `set_offline`）。Playwright Python 的 route 處理函式只能有一個參數（兩個的話第二個會被塞 request）。
+  - `maint31/flaky_sway.mjs <網站資料夾> <慢幾倍…>`：CPU 調慢（CDP `Emulation.setCPUThrottlingRate`）時，瀏覽器算的晃動、node 每秒 30 格算的、照瀏覽器真的拿到的格子（`usedFrames`）重算的差多少（10/31 CI 失敗的原因：慢 8 倍時每秒 30 格的差到 0.8，照拿到的格子 0.0）。`fps_sway.mjs`：只用 node，假裝每秒 10～30 格、時間抖動時算出來的晃動。
+  - `maint31/chain.sh`：合併前在主要資料夾依序跑（專案的瀏覽器測試 → real_sdk → main28／29／30 → voice20 → 完整回歸），一次一個。
+  - `main28/check.py`、`main29/check.py`：關鏡頭後的教練建議會說「放慢」「卡了一下」，檢查「運動中沒講」時不算「教練建議：」開頭的那句。
+  - 安全規則測試要先開模擬器，再帶 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npm run test:rules`（沒帶會全部跳過）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

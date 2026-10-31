@@ -77,7 +77,8 @@ with sync_playwright() as p:
     check(m1 and m2 and m1.group(1) == m2.group(1), f'節奏的平均和總結的「每下約幾秒」一樣 {m1 and m1.group(0)} {m2 and m2.group(0)}')
     stall_toasts = [t for t in toasts if '卡了一下' in t]
     check(len(stall_toasts) == 1 and stall_toasts[0].startswith('第 3 下'), f'畫面提示：只有第 3 下寫「卡了一下」{stall_toasts}')
-    check(not any('卡' in s for s in said), '不講話（卡一下只寫在提示）')
+    # 10/31 起關鏡頭後的「教練建議：…」會提到卡住的是第幾下，那不是運動中的提醒，不算
+    check(not any('卡' in s and not s.startswith('教練建議：') for s in said), '不講話（卡一下只寫在提示）')
     # 10/30 起「順不順」後面多一欄「晃動」（動作穩定度）
     check(f['head'] == ['第幾下', '最低角度', '深度', '秒數', '順不順', '晃動', '錯誤'] and [r[4] for r in f['rows']] == ['順', '順', '卡了 1 次', '順', '順', '順'],
           f'每一下的表格：「順不順」第 3 下卡了 1 次 {[r[4] for r in f["rows"]]}')
