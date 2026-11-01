@@ -142,6 +142,28 @@ const FAKE_FIREBASE = {
 export const getApps = () => apps;
 export const getApp = name => apps.find(a => a.name === name);
 export function initializeApp(options, name = '[DEFAULT]') { const app = { name, options }; apps.push(app); return app; }`,
+    // 雲端同步（11/1，成長曲線讀雲端的紀錄）：匿名登入、Firestore 只做網站用到的幾個；
+    // window.__fakeCloud：{ docs: [雲端上的每一筆] }、{ error: 'unavailable' }、{ hang: true }；上傳的記在 window.__cloudWrites，讀的記在 window.__cloudReads
+    'firebase-auth.js': `export function getAuth() { return window.__fakeAuth = window.__fakeAuth || { currentUser: null, authStateReady: async () => {} }; }
+export async function signInAnonymously(auth) { auth.currentUser = { uid: 'fake-uid' }; return { user: auth.currentUser }; }
+export function connectAuthEmulator() {}`,
+    'firebase-firestore.js': `const how = () => window.__fakeCloud || {};
+export const getFirestore = app => ({ app });
+export function connectFirestoreEmulator() {}
+export const collection = (db, ...path) => ({ path: path.join('/') });
+export const doc = (db, ...path) => ({ path: path.join('/') });
+export const limit = n => ({ limit: n });
+export const query = (ref, ...parts) => ({ path: ref.path, parts });
+export const serverTimestamp = () => ({ server: true });
+export async function setDoc(ref, data) { (window.__cloudWrites = window.__cloudWrites || []).push({ path: ref.path, data }); }
+export async function getDocs(q) {
+    (window.__cloudReads = window.__cloudReads || []).push(q.path);
+    if (how().hang) return new Promise(() => {});
+    if (how().error) throw Object.assign(new Error('fake ' + how().error), { code: how().error });
+    const docs = (how().docs || []).map(d => ({ data: () => d, ref: {} }));
+    return { docs, empty: !docs.length, size: docs.length };
+}
+export function writeBatch() { return { delete() {}, async commit() {} }; }`,
     'firebase-ai.js': `export class GoogleAIBackend {}
 export const getAI = (app, options) => ({ app, options });
 export function getGenerativeModel(ai, params) {

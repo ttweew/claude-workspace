@@ -48,6 +48,17 @@ export function cloudSession(s) {
     return out;
 }
 
+// 雲端讀回來的一筆 → 和這台裝置的紀錄一樣的格式（成長曲線用，11/1）；不能用的回傳 null
+// 雲端上的資料也當成可能被改過：用上傳的同一套條件（cloudSession）再檢查一次、只留白名單的欄位，
+// 送得上去的才算（雲端的安全規則本來就只收這些，這裡是多一層：例如以後規則改鬆了、或模擬器沒套規則）
+export function fromCloud(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    const s = cloudSession(data);
+    if (!s) return null;
+    delete s.v;
+    return s;
+}
+
 // ---------- 哪幾筆已經上傳（這台裝置的 localStorage） ----------
 // 記的是雲端帳號（uid）和已上傳的代號；換了帳號（例如清掉瀏覽器資料後變成新的匿名帳號）就重新上傳全部
 const KEY = 'cloudSynced';

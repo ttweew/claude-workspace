@@ -130,6 +130,16 @@
                         </div>
                     </div>
                 </div>
+                <!-- 成長曲線（11/1，js/ui/growth-chart.js）：運動紀錄照日期畫成一條線，一天一個點；雲端同步打開時雲端上的也算 -->
+                <details id="growthBox" class="history row-card" hidden>
+                    <summary><span>成長曲線<small id="growthSub"></small></span></summary>
+                    <div class="growth-pick">
+                        <label class="fps-pick">動作 <select id="growthWorkout"></select></label>
+                        <label class="fps-pick">數字 <select id="growthMetric"></select></label>
+                    </div>
+                    <div id="growthChart" class="rep-chart growth-chart" hidden></div>
+                    <p id="growthNote" class="growth-note" role="status"></p>
+                </details>
                 <details id="historyBox" class="history row-card" hidden>
                     <summary>運動紀錄</summary>
                     <ul id="historyList"></ul>

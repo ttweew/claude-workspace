@@ -1146,6 +1146,36 @@ h2 {
     font-size: 13px;
     font-weight: 400;
 }
+/* 成長曲線（11/1，js/ui/growth-chart.js）：兩個選單同一列（窄的手機上各一列）、一條線（資訊藍，和「每一下花幾秒」同色）、
+   直徑 9 的點外面一圈底色（線穿過去時點看得清楚）；格線只有最上面一條細線 */
+.growth-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+}
+.growth-pick .fps-pick {
+    flex: 1 1 220px;
+    margin-top: 8px;
+}
+.growth-line { fill: none; stroke: var(--info); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.growth-dot { fill: var(--info); stroke: var(--surface-2); stroke-width: 2; }
+.growth-day:hover .growth-dot { stroke: var(--text); }
+.growth-grid { stroke: rgba(255, 255, 255, 0.12); stroke-width: 1; }
+.growth-line-text {
+    margin: 0 0 6px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.growth-note {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.growth-note:empty {
+    display: none;
+}
 /* 有還沒下載的錄製檔：整列變黃（清除瀏覽器資料就會不見，要記得下載） */
 #libraryBox.attn {
     border-color: var(--attn);
