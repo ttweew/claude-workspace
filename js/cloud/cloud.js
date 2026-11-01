@@ -5,10 +5,12 @@
 // 沒有網路、Firebase 載不到、雲端還沒設定好：紀錄照樣存在這台裝置，之後自動再試（每一筆有固定的代號，重傳不會變兩筆）
 
 import { FIREBASE_CONFIG, FIREBASE_SDK, EMULATOR_CONFIG, EMULATOR_HOSTS } from './config.js';
-import { sessionId, cloudSession, loadSynced, saveSynced, forgetSynced, hasSynced, pendingSessions } from './sync.js';
+import { sessionId, cloudSession, fromCloud, loadSynced, saveSynced, forgetSynced, hasSynced, pendingSessions } from './sync.js';
 
 const KEY = 'cloudSync';
 const TIMEOUT_MS = 15000;   // 下載 Firebase、登入、上傳超過這麼久沒有回應：當作暫時連不上，之後再試（Firebase 自己也會在背景繼續送）
+// 成長曲線讀雲端的紀錄最多讀幾筆（11/1）：一天做 10 組、做一年也不到 4000 筆；一筆約 300 位元組，4000 筆約 1.2 MB
+const READ_MAX = 4000;
 
 // 開發、測試用：在自己的電腦（localhost）打開網址加 ?cloud=emulator，連到 Firebase 的本機模擬器（js/cloud/config.js）
 const EMULATOR = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
@@ -169,6 +171,17 @@ export class Cloud {
             console.warn('雲端同步：上傳失敗', failure);
             this.setStatus('error', explain(failure) + '：' + left + ' 筆還沒上傳，之後會自動再試' + note);
         }
+    }
+
+    // 讀雲端上自己的紀錄（成長曲線用，11/1）：回傳和這台裝置的紀錄一樣格式的陣列（不能用的那幾筆不算，見 sync.js 的 fromCloud）
+    // 雲端同步沒打開回傳 null（不載入 Firebase、不登入）；沒有網路、連不上時丟出錯誤（code：offline、timeout…），畫面改成只畫這台裝置的
+    // 匿名帳號跟著這個瀏覽器：讀到的是這台裝置傳上去的（這台裝置只留最近 50 次，雲端上的全部都在）
+    async loadRecords() {
+        if (!this.enabled) return null;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) throw Object.assign(new Error('沒有網路'), { code: 'offline' });
+        const { fs, db, uid } = await this.connect();
+        const page = await withTimeout(fs.getDocs(fs.query(fs.collection(db, 'users', uid, 'sessions'), fs.limit(READ_MAX))), this.timeoutMs, '讀取雲端的紀錄');
+        return page.docs.map(d => fromCloud(d.data())).filter(Boolean);
     }
 
     // 刪除雲端上這台裝置（這個匿名帳號）的全部紀錄，並關閉同步（不然下次又會把這台裝置的紀錄傳上去）

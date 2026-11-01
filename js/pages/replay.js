@@ -13,6 +13,10 @@ import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
 import { summarize, describe } from '../analysis/session.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
+import { fatigueOf } from '../analysis/fatigue.js';
+import { renderFatigue } from '../ui/fatigue-view.js';
+import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
+import { stabilityOf, stabilityLine } from '../analysis/stability.js';
 import { errorShort, errorRule } from '../analysis/form.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES, BALANCE_FIELDS } from '../data/replay-core.js';
@@ -30,6 +34,19 @@ const toggles = $('toggles'), chart = $('chart'), skeleton = $('skeleton'), read
 const playBtn = $('playBtn'), mirrorBtn = $('mirrorBtn'), stats = $('stats'), csvOut = $('csvOut');
 const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable'), workoutPick = $('workoutPick'), squatNote = $('squatNote');
 const repChart = $('repChart');   // 每一下的圖表（10/27，和首頁的運動總結同一套：js/ui/rep-chart.js）
+// 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套
+const fatigueBox = $('fatigueBox'), fluencyBox = $('fluencyBox'), stabilityBox = $('stabilityBox');
+
+// 疲勞分析、流暢度、穩定度：series 是 repSeries() 的結果（null：收起來）；寫法和首頁 main.js 的 showSummary 一樣
+function showAnalysis(series, workoutId) {
+    renderFatigue(fatigueBox, fatigueOf(series));
+    const fluency = fluencyOf(series);
+    fluencyBox.hidden = !fluency;
+    fluencyBox.textContent = fluencyLine(fluency);
+    const stability = stabilityOf(series, workoutId);
+    stabilityBox.hidden = !stability;
+    stabilityBox.textContent = stabilityLine(stability);
+}
 const worldCard = $('worldCard'), boneTable = $('boneTable'), kneeTable = $('kneeTable'), kneeNote = $('kneeNote');
 const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 
@@ -308,13 +325,16 @@ function showSquats() {
         squatTable.replaceChildren();
         squatNote.textContent = '';
         renderRepChart(repChart, null);
+        showAnalysis(null, null);
         return;
     }
     const s = summarize(id, reps, 0, 0);
     squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
     squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
     // 每一下的圖表：和首頁的運動總結同一套數字和畫法；下面的表格比較詳細，圖表就不再附表格
-    renderRepChart(repChart, s ? repSeries(id, reps) : null, { table: false });
+    const series = s ? repSeries(id, reps) : null;
+    renderRepChart(repChart, series, { table: false });
+    showAnalysis(series, id);
     // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面（錯誤一直是最後一欄）
     const balanced = BALANCE.workouts.includes(id);
     const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']

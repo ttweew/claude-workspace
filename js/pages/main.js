@@ -25,6 +25,7 @@ import { BalanceMeter, balanceOf, BALANCE } from '../analysis/balance.js';
 import { errorShort, errorRule, whyText } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { setupCloudPanel } from '../ui/cloud-panel.js';
+import { setupGrowth } from '../ui/growth-chart.js';
 import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
@@ -116,6 +117,8 @@ const summaryBox = document.getElementById('summary');      // 首頁：這次�
 const summaryLines = document.getElementById('summaryLines');
 const historyBox = document.getElementById('historyBox');   // 首頁：運動紀錄
 const historyList = document.getElementById('historyList');
+// 成長曲線（11/1，js/ui/growth-chart.js）：首頁「運動紀錄」上面；運動紀錄改變時（showHistory）重新畫
+const growth = setupGrowth();
 const hudReps = document.getElementById('hudReps');
 const repToast = document.getElementById('repToast');
 const hud = new Hud(hudRoot);
@@ -1105,6 +1108,8 @@ function showHistory() {
     }));
     // 清單只列最近 10 次，CSV 是全部（最多 50 次）：按鈕上寫幾次
     historyCsvBtn.textContent = '下載 CSV（全部 ' + list.length + ' 次）';
+    // 成長曲線（11/1）：多了一筆、清除紀錄時重新畫
+    growth.refresh();
 }
 // 運動紀錄匯出 CSV（10/25，js/data/history-csv.js）：自己用 Excel 畫圖、寫報告
 const historyCsvBtn = document.getElementById('historyCsv');
