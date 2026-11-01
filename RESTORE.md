@@ -125,5 +125,10 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `maint31/chain.sh`：合併前在主要資料夾依序跑（專案的瀏覽器測試 → real_sdk → main28／29／30 → voice20 → 完整回歸），一次一個。
   - `main28/check.py`、`main29/check.py`：關鏡頭後的教練建議會說「放慢」「卡了一下」，檢查「運動中沒講」時不算「教練建議：」開頭的那句。
   - 安全規則測試要先開模擬器，再帶 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npm run test:rules`（沒帶會全部跳過）。
+- 11/1：
+  - `main1101/cloud_growth.py <網站資料夾>`：成長曲線讀雲端的紀錄，用真的 Firebase 程式＋本機模擬器＋專案的 firestore.rules（10 項：只在雲端的畫進來、管理者權限塞的被改過的那筆不算、另一個匿名帳號讀不到別人的、規則全部拒絕時先畫這台裝置的、規則恢復後再打開讀得到）。先開模擬器、先跑 `node make_records.mjs <網站資料夾> > records.json`（6 次深蹲的合成紀錄＋預期的那一句）。
+  - `main1101/shot.mjs <輸出資料夾>`：成長曲線拍照（320、1280 寬，14 天的合成紀錄）。`rec_try.mjs`：在 node 用重播的同一套程式算合成錄製檔（js/data/synth.js）的疲勞、流暢度、穩定度。
+  - `main1101/chain.sh`、`chain_m.sh`：主線、保養合併前在主要資料夾依序跑的腳本（模擬器用 `pkill -f "[f]irebase emulators:start"` 關：不加括號的話 pkill 會連自己的 shell 一起砍掉）。
+  - 專案裡新增 `tests/browser/growth.test.mjs`（成長曲線、重播的三段）、`consistency.test.mjs`（同一次運動手機上、雲端、重播的數字一樣）；假的 Firebase 多了匿名登入和 Firestore（`window.__fakeCloud`）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`

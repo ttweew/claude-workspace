@@ -1,0 +1,18 @@
+import { makeDemoRecording } from '/home/user/claude-workspace/js/data/synth.js';
+import { parseRecording, analyzeRecording } from '/home/user/claude-workspace/js/data/replay-core.js';
+import { repSeries } from '/home/user/claude-workspace/js/analysis/rep-series.js';
+import { summarize, describe } from '/home/user/claude-workspace/js/analysis/session.js';
+import { fatigueOf, fatigueLine } from '/home/user/claude-workspace/js/analysis/fatigue.js';
+import { fluencyOf, fluencyLine } from '/home/user/claude-workspace/js/analysis/fluency.js';
+import { stabilityOf, stabilityLine } from '/home/user/claude-workspace/js/analysis/stability.js';
+const rec = makeDemoRecording({ depths: [85, 84, 86, 85, 85, 104, 106, 108], tempo: { down: 1, bottom: 0.3, up: 1, rest: 0.4 } });
+rec.meta.workout = 'squat';
+const parsed = parseRecording(JSON.stringify(rec));
+const r = await analyzeRecording(parsed, 640, 480, { workout: 'squat' });
+const s = summarize('squat', r.reps, 0, 0);
+const series = repSeries('squat', r.reps);
+console.log(describe(s).join(' | '));
+console.log(fatigueLine(fatigueOf(series)));
+console.log(fluencyLine(fluencyOf(series)));
+console.log(stabilityLine(stabilityOf(series, 'squat')));
+console.log(Object.keys(rec.meta), rec.frames.length);
