@@ -106,6 +106,8 @@ test('棒式：撐住的秒數不會比真的撐住的時間多，也不會少�
         const holds = tracker.items;
         assert.equal(holds.length, 1, `seed ${seed}：${holds.length} 次`);
         const sec = holds[0].seconds;
+        // 最後一格趴著的時間（11/1，重播看「停止錄製時還在撐」用）：在起身之前，起身 3 秒以上才結束
+        assert.ok(holds[0].lying < holds[0].end - 2.9 && holds[0].lying > holds[0].start, `seed ${seed}：最後趴著 ${holds[0].lying}、結束 ${holds[0].end}`);
         // 從趴好到骨架算出趴好，平滑要幾格；暫停的那段不算
         assert.ok(sec <= good / 1000 + 0.1 && sec >= good / 1000 - 0.5, `seed ${seed}：算 ${sec.toFixed(2)} 秒，真的撐 ${(good / 1000).toFixed(2)} 秒`);
         const s = summarize('plank', holds, 0, 1);

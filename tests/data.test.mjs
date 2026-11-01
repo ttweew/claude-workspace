@@ -33,6 +33,16 @@ test('錄製上限：預設 5 分鐘；選 20 分鐘時錄到 20 分鐘才自動
     assert.equal(recorder.maxSeconds, 300);
 });
 
+test('時間存到小數第 2 位（11/1）：重播用的時間和運動時一樣，算出來的才不會差一點', () => {
+    const recorder = new PoseRecorder();
+    recorder.start({});
+    const raw = demoFrames({ yaw: 5 })[0].raw;
+    for (const t of [1000.1234, 1033.4567, 1066.789, 1100]) recorder.add(t, raw, null);
+    recorder.stop();
+    assert.deepEqual(recorder.frames.map(f => f.t), [0, 33.33, 66.67, 99.88]);
+    assert.deepEqual(JSON.parse(recorder.toJSON()).frames.map(f => f.t), [0, 33.33, 66.67, 99.88]);
+});
+
 test('CSV：498 欄（原始 234 欄在前面），每一列欄數一樣', () => {
     const lines = record().toCSV().trim().split('\r\n');
     const header = lines[0].replace(/^﻿/, '').split(',');
