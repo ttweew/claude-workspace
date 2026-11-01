@@ -104,8 +104,11 @@ export class PoseRecorder {
             this.stop();
             return false;
         }
+        // 時間存到小數第 2 位（0.01 毫秒，11/1 保養）：以前四捨五入到整數毫秒，重播的平滑、棒式每 2 秒一段的切法和運動時差一點點，
+        // 一位小數的數字偶爾差 0.1（同一串棒式模擬 60 次有 2 次：首頁「往下彎 0.2°」、重播「0.1°」）；
+        // 存到第 1、2 位都 60 次全部一樣，取第 2 位多留一點；一格只多 3 個字（一格約 2000 個字）
         this.frames.push({
-            t: Math.round(t),
+            t: Math.round(t * 100) / 100,
             landmarks: landmarks ? pack(landmarks, ['x', 'y', 'z', 'visibility']) : null,
             world: world ? pack(world, ['x', 'y', 'z']) : null,
             smoothed: smoothed ? pack(smoothed.map(p => ({ ...p, seen: isVisible(p) ? 1 : 0 })), ['x', 'y', 'z', 'visibility', 'seen']) : null,

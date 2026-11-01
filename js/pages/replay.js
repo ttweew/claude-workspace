@@ -34,6 +34,7 @@ const toggles = $('toggles'), chart = $('chart'), skeleton = $('skeleton'), read
 const playBtn = $('playBtn'), mirrorBtn = $('mirrorBtn'), stats = $('stats'), csvOut = $('csvOut');
 const squatCard = $('squatCard'), squatSummary = $('squatSummary'), squatTable = $('squatTable'), workoutPick = $('workoutPick'), squatNote = $('squatNote');
 const repChart = $('repChart');   // 每一下的圖表（10/27，和首頁的運動總結同一套：js/ui/rep-chart.js）
+const LATE_START_S = 0.5;   // 棒式第 1 次離檔案開頭（最後一次離檔案結尾）不到這麼久：錄製開始（停止）時還在撐（見 showSquats）
 // 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套
 const fatigueBox = $('fatigueBox'), fluencyBox = $('fluencyBox'), stabilityBox = $('stabilityBox');
 
@@ -330,7 +331,18 @@ function showSquats() {
     }
     const s = summarize(id, reps, 0, 0);
     squatSummary.textContent = s ? describe(s).join('。') : '沒有偵測到完整的' + w.name + '（要側面拍；每一下都要伸直再彎下去' + (id === 'pushup' || id === 'plank' ? '，而且要趴著' : '') + '）';
-    squatNote.textContent = w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
+    // 棒式：錄製開始時已經在撐了（11/1 保養，資料一致性）：第 1 次是從檔案的第一格開始（差不到 0.5 秒，AI 要一兩格才認得出趴好），
+    // 按錄製前撐的秒數沒錄到，這一次的秒數、晃動會比運動完首頁的總結少一點；寫出來才知道為什麼和首頁不一樣
+    // 停止錄製時還在撐也一樣：最後一次趴著到檔案的最後一格（lying，reps.js；不用 end：起身 3 秒才算結束，檔案結束時 end 一定是最後一格），
+    // 停止錄製後撐的秒數沒錄到（11/1 檢查時首頁多算了 0.3 秒）
+    const times = analysis.times;
+    const lateStart = hold && reps.length > 0 && times.length > 0 && reps[0].start - times[0] < LATE_START_S;
+    const last = reps[reps.length - 1];
+    const earlyStop = hold && reps.length > 0 && times.length > 0 && Number.isFinite(last.lying) && times[times.length - 1] - last.lying < LATE_START_S;
+    squatNote.textContent = (lateStart ? '錄製開始時已經在撐了：第 1 次只算錄到的秒數。' : '')
+        + (earlyStop ? '停止錄製時還在撐：最後一次只算到停止錄製。' : '')
+        + (lateStart || earlyStop ? '先按錄製、撐完起身再停止錄製，重播和首頁的總結才會一樣。' : '')
+        + w.hint + '。只在側面、斜側面拍時計算；斜側面角度誤差約 10°，僅供參考。曲線圖上的虛線是每一下最低（棒式是開始）的時間點。';
     // 每一下的圖表：和首頁的運動總結同一套數字和畫法；下面的表格比較詳細，圖表就不再附表格
     const series = s ? repSeries(id, reps) : null;
     renderRepChart(repChart, series, { table: false });

@@ -303,11 +303,14 @@ export class HoldTimer {
 
     end(timeMs) {
         const cur = this.current;
+        const lying = this.lastLying;
         this.current = null;
         this.lastGood = null;
         this.lastLying = null;
         if (cur.lyingMs < this.config.minHoldMs) return null;
-        const hold = { n: this.holds.length + 1, start: cur.start / 1000, end: timeMs / 1000, seconds: cur.ms / 1000 };
+        // lying：最後一格趴著的時間（秒）。起身 3 秒才算結束（endMs），鏡頭關掉、檔案結束時 end 是最後一格；
+        // 重播分析用 lying 看「停止錄製時還在撐」（11/1 保養），不是用 end
+        const hold = { n: this.holds.length + 1, start: cur.start / 1000, end: timeMs / 1000, lying: (lying ?? timeMs) / 1000, seconds: cur.ms / 1000 };
         this.holds.push(hold);
         return hold;
     }
