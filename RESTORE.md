@@ -131,5 +131,11 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main1101/chain.sh`、`chain_m.sh`：主線、保養合併前在主要資料夾依序跑的腳本（模擬器用 `pkill -f "[f]irebase emulators:start"` 關：不加括號的話 pkill 會連自己的 shell 一起砍掉）。
   - 專案裡新增 `tests/browser/growth.test.mjs`（成長曲線、重播的三段）、`consistency.test.mjs`（同一次運動手機上、雲端、重播的數字一樣）；假的 Firebase 多了匿名登入和 Firestore（`window.__fakeCloud`）。
   - `maint1101/`：資料一致性。`node tround.mjs <小數幾位> <幾次>`：同一串棒式，時間用原本的（有小數）和四捨五入到幾位各算一次，看動作穩定度那一句一不一樣（整數毫秒 60 次有 2 次不一樣，第 1、2 位都 0 次 → 錄製檔的時間改成存到第 2 位）；`cround.mjs`：座標存到小數第 5 位前後（加很多位小數的雜訊，40 次都一樣）；`findseed.mjs`：找一組「整數毫秒會差、第 2 位不會差」的時間（單元測試 `tests/consistency.test.mjs` 用的 seed 7）；`debug_plank.mjs`：首頁做一組棒式（邊做邊錄），把首頁真的拿到的格子（usedFrames）和錄製檔一格一格比、兩邊在 node 各算一次（11/1 找到還在撐就停止錄製時首頁多算 0.3 秒）。
+- 11/2：
+  - `main1102/equiv.mjs`：合成的實測檔（專案的 `tests/synthetic-sets.mjs`）每一下每條規則，「規則報錯 ⇔ 特徵 > 門檻」（`SUBJ=A,B` 選受測者；11/2 四位 504 個全部對得上，專案裡的 `tests/features.test.mjs` 也有）。`plank_dbg.mjs`：棒式合成組故意做錯的程度、撐了幾秒、特徵（11/2 用它發現受測者代號直接當亂數起點時每個人一樣）。`try_synth.mjs`：合成組的下數、抓到幾下、特徵（`W=lunge` 只看一個動作；調弓箭步故意做錯的幅度用的）。
+  - `main1102/old_axe.mjs`：`SITE_ROOT=<改之前的資料夾>` 打開實測報表、載入合成的實測檔後整頁 axe-core（11/2 確認 landmark-unique 是 10/30 起就有的）。
+  - `main1102/chain.sh`、`chain_m.sh <資料夾> <標記>`、`chain_m2.sh`：主線、保養合併前依序跑（自動測試 → 專案的瀏覽器測試 → report21 → 完整回歸）。保養在 git worktree 先跑瀏覽器測試（等主線的 GitHub 測試時），程式和主要資料夾逐檔 cmp 一模一樣後，主要資料夾只跑自動測試和完整回歸。
+  - `main1102/map/map_edit.py <主線PR> <保養PR> <自動測試項數> <檔案>`：進度地圖 11/2 的修改（先讀線上的版本存成檔案）。
+  - 專案裡的命令列：`node tools/dataset.mjs --synthetic A,B,C --test C --out x.csv`：合成的 AI 模型資料、照受測者分訓練和測試。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
