@@ -35,6 +35,14 @@ export function setResult(info, items, kind, startedAt = 0, name = '') {
     return row;
 }
 
+// 報表的順序：受測者、動作（深蹲、弓箭步、伏地挺身、棒式）、這組（做對在前面）、開始錄的時間（實測報表、AI 模型的資料都照這個順序）
+export const WORKOUT_ORDER = ['squat', 'lunge', 'pushup', 'plank'];
+export function sortReport(rows) {
+    const w = id => WORKOUT_ORDER.indexOf(id);
+    return rows.sort((a, b) => a.subject.localeCompare(b.subject) || w(a.workout) - w(b.workout)
+        || (a.condition === 'good' ? -1 : 0) - (b.condition === 'good' ? -1 : 0) || a.condition.localeCompare(b.condition) || a.startedAt - b.startedAt);
+}
+
 // 同一個人、同一個動作、同一組錄了好幾次（次數做錯、中途停下來重錄）：以最後一次為準（主持人卡的規則），前面的標成重錄、不算進統計
 export function markRedos(rows) {
     const latest = new Map();

@@ -71,10 +71,20 @@
                 <button id="csvBtn" type="button" class="primary-btn">下載報表 CSV</button>
             </section>
 
+            <!-- AI 模型的資料（11/2，js/data/dataset.js）：同一批檔案的每一下一列，給 AI 模型（Random Forest）訓練、和規則比 -->
+            <section id="aiDataCard" class="card" aria-labelledby="aiDataTitle" hidden>
+                <h2 id="aiDataTitle">AI 模型的資料</h2>
+                <ul id="aiDataSummary" class="report-summary"></ul>
+                <p class="note">每一下一列：網站量到的數字（最低角度、秒數、和示範動作相似、晃動、每種錯誤量到的數字），加上這組要做的（做對，或故意做哪一種錯）當作答案。故意做錯的組，每一下都標成那種錯（做得不明顯的那幾下也一樣），建議抽查幾下。規則的判斷另外放一欄，只拿來和 AI 模型比，不給 AI 模型看。</p>
+                <button id="aiDataBtn" type="button" class="primary-btn">下載 AI 模型的資料（CSV）</button>
+            </section>
+
             <section class="card" aria-labelledby="tableTitle">
                 <h2 id="tableTitle">每一組</h2>
-                <!-- 手機上表格比畫面寬，要能用鍵盤捲動（tabindex），螢幕閱讀器才知道這一塊是什麼 -->
-                <div class="table-wrap" tabindex="0" role="region" aria-labelledby="tableTitle">
+                <!-- 手機上表格比畫面寬，要能用鍵盤捲動（tabindex），螢幕閱讀器才知道這一塊是什麼；
+                     名字不能和外面這張卡片（「每一組」）一樣：螢幕閱讀器會聽到兩個同名的區塊
+                     （axe-core 的 landmark-unique；10/30 起就有，11/2 的瀏覽器測試在載入檔案後檢查才找到） -->
+                <div class="table-wrap" tabindex="0" role="region" aria-label="每一組的表格">
                     <table id="reportTable" class="stats report-table"></table>
                 </div>
                 <div id="badFiles" class="bad-files" hidden>
