@@ -1,5 +1,6 @@
 // AI 模型的資料（11/2，瀏覽器端到端）：實測報表選很多個合成的實測檔（不是真人）→「AI 模型的資料」寫幾列、每種標記幾下 →
 // 下載的 CSV 和 node 用同一套程式算的一模一樣（網頁是在背景執行緒算的）；重錄的組不放進去；320 寬不左右超出、axe-core 0 個問題
+// 只有一位受測者時提醒：訓練和測試要用不同的人（11/2 保養）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -55,6 +56,22 @@ test('實測報表：AI 模型的資料（摘要、下載的 CSV 和 node 算的
     // 手機寬度不左右超出；載入後的整頁 axe-core 0 個問題
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     assert.deepEqual(await violations(page), []);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
+
+test('實測報表：只有一位受測者時提醒訓練和測試要用不同的人', async () => {
+    const { context, page } = await open(browser, []);
+    await page.goto(site.base + 'report.html');
+    const files = syntheticSubject('C', ['squat']);
+    await page.setInputFiles('#fileInput', files.map(f => ({ name: f.name, mimeType: 'application/json', buffer: Buffer.from(f.text) })));
+    await page.waitForFunction(() => /^(已分析|沒有可以分析)/.test(document.getElementById('loadStatus').textContent), null, { timeout: 120000 });
+    const lines = await page.$$eval('#aiDataSummary li', els => els.map(el => el.textContent));
+    assert.deepEqual(lines.slice(0, 3), [
+        '共 20 列（每一下一列，棒式每一次一列；受測者：C）',
+        '只有 1 位受測者：AI 模型要拿一些人來學、另外的人來考（同一個人不能兩邊都有，不然等於先看過考題），至少要 2 位',
+        '深蹲：做對 10 下、故意腳跟離地 5 下、故意上身前傾 5 下'
+    ]);
     assert.deepEqual(page.errors, []);
     await context.close();
 });

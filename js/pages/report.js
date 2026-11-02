@@ -247,6 +247,8 @@ function showDataset(li) {
     if (!data.length) return;
     const d = datasetSummary(data);
     const lines = [li('共 ' + d.rows + ' 列（每一下一列，棒式每一次一列；受測者：' + d.subjects.join('、') + '）')];
+    // 訓練和測試要用不同的人（11/2 保養，tools/split.mjs）：只有一位時分不了
+    if (d.subjects.length < 2) lines.push(li('只有 1 位受測者：AI 模型要拿一些人來學、另外的人來考（同一個人不能兩邊都有，不然等於先看過考題），至少要 2 位'));
     for (const w of [...new Set(d.groups.map(g => g.workout))]) {
         const unit = WORKOUTS[w].kind === 'hold' ? ' 次' : ' 下';
         lines.push(li(workoutName(w) + '：' + d.groups.filter(g => g.workout === w).map(g => g.name + ' ' + g.n + unit).join('、')));

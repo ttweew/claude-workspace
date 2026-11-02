@@ -110,15 +110,20 @@ test('合成的實測檔 → 資料表（和實測報表同一套）：重錄的
     assert.ok(lines.includes('沒有讀到 broken.json：檔案內容不完整或格式不正確'));
 });
 
-test('命令列工具：--synthetic 寫出 CSV，摘要印在錯誤輸出；沒給檔案時說用法', async () => {
+test('命令列工具：--synthetic 寫出 CSV，摘要印在錯誤輸出；--test 照受測者分、檢查有沒有混到；沒給檔案時說用法', async () => {
     const run = promisify(execFile);
     const tool = fileURLToPath(new URL('../tools/dataset.mjs', import.meta.url));
-    const { stdout, stderr } = await run(process.execPath, [tool, '--synthetic', 'F'], { maxBuffer: 1 << 24 });
+    const { stdout, stderr } = await run(process.execPath, [tool, '--synthetic', 'F,G', '--test', 'G'], { maxBuffer: 1 << 24 });
     const lines = stdout.split('\r\n');
     assert.equal(lines[0], '\uFEFF' + DATASET_HEAD.join(','));
-    // 一位受測者：深蹲、弓箭步、伏地挺身各 20 下，棒式 3 次，最後一行是空的
-    assert.equal(lines.length, 1 + 63 + 1);
-    assert.match(stderr, /^AI 模型的資料：63 列（受測者：F）/);
-    assert.match(stderr, /其中 63 列是合成的/);
+    // 一位受測者：深蹲、弓箭步、伏地挺身各 20 下，棒式 3 次；最後一行是空的
+    assert.equal(lines.length, 1 + 2 * 63 + 1);
+    assert.match(stderr, /^AI 模型的資料：126 列（受測者：F、G）/);
+    assert.match(stderr, /其中 126 列是合成的/);
+    // 11/2 保養：訓練和測試照受測者分
+    assert.match(stderr, /\n訓練：F（63 列）；測試：G（63 列）\n檢查：沒有混到（每位受測者只在一邊）\n$/);
+    // 只有一位、拿他當測試：訓練資料是空的，結束代碼 1
+    await assert.rejects(run(process.execPath, [tool, '--synthetic', 'F', '--test', 'F'], { maxBuffer: 1 << 24 }),
+        e => e.code === 1 && /檢查：訓練資料是空的/.test(e.stderr));
     await assert.rejects(run(process.execPath, [tool]), e => /用法/.test(e.stderr));
 });

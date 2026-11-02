@@ -2,7 +2,8 @@
 // 用法（在專案資料夾）：
 //   node tools/dataset.mjs 實測檔或資料夾… --out ai_dataset.csv     讀實測模式錄的 JSON（資料夾裡的 .json 都讀；zip 先解開）
 //   node tools/dataset.mjs --synthetic A,B,C --out ai_dataset.csv   還沒有真人實測檔時：合成的受測者（tests/synthetic-sets.mjs，不是真人）
-// 沒寫 --out 就印到畫面；摘要（幾列、每種標記幾下、沒讀到的檔案）印在錯誤輸出，不會混進 CSV
+//   加上 --test C：照受測者分成訓練（A、B）和測試（C），檢查有沒有混到（tools/split.mjs，11/2 保養）；混到時結束代碼是 1
+// 沒寫 --out 就印到畫面；摘要（幾列、每種標記幾下、沒讀到的檔案、分法）印在錯誤輸出，不會混進 CSV
 // 同一個人、同一個動作、同一組錄了好幾次：以最後一次為準（和實測報表一樣），前面的不放
 // 11/3 訓練 AI 模型也用這裡的 buildDataset
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
@@ -12,6 +13,7 @@ import { analyzeOne } from '../js/data/report-core.js';
 import { setResult, markRedos, sortReport } from '../js/data/test-report.js';
 import { datasetRows, datasetCsv, datasetSummary } from '../js/data/dataset.js';
 import { WORKOUTS } from '../js/analysis/workouts.js';
+import { splitBySubject, checkSplit, splitLine } from './split.mjs';
 
 // sources：[{ name（檔名）, text（檔案內容） }] → { rows（資料表的每一列）, redos（重錄、沒放進來的組數）, failed（[{ name, why }]） }
 export async function buildDataset(sources) {
@@ -56,28 +58,37 @@ export function summaryLines({ rows, redos, failed }) {
 }
 
 async function main(args) {
-    let out = null, synthetic = null;
+    let out = null, synthetic = null, testSubjects = null;
     const paths = [];
+    const codes = text => String(text || '').split(',').map(c => c.trim()).filter(Boolean);
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--out') out = args[++i];
         else if (args[i] === '--synthetic') synthetic = args[++i];
+        else if (args[i] === '--test') testSubjects = codes(args[++i]);
         else paths.push(args[i]);
     }
     if (!paths.length && !synthetic) {
-        console.error('用法：node tools/dataset.mjs 實測檔或資料夾… [--out ai_dataset.csv]，或 node tools/dataset.mjs --synthetic A,B,C [--out …]');
+        console.error('用法：node tools/dataset.mjs 實測檔或資料夾… [--out ai_dataset.csv] [--test C]，或 node tools/dataset.mjs --synthetic A,B,C [--out …] [--test C]');
         process.exitCode = 1;
         return;
     }
     const sources = await readSources(paths);
     if (synthetic) {
         const { syntheticSubject } = await import('../tests/synthetic-sets.mjs');
-        for (const code of synthetic.split(',').map(c => c.trim()).filter(Boolean)) sources.push(...syntheticSubject(code));
+        for (const code of codes(synthetic)) sources.push(...syntheticSubject(code));
     }
     const result = await buildDataset(sources);
     const csv = datasetCsv(result.rows);
     if (out) await writeFile(out, csv);
     else process.stdout.write(csv);
     console.error(summaryLines(result).join('\n'));
+    if (testSubjects) {
+        const parts = splitBySubject(result.rows, testSubjects);
+        const problems = checkSplit(parts.train, parts.test);
+        console.error(splitLine(parts));
+        console.error(problems.length ? '檢查：' + problems.join('；') : '檢查：沒有混到（每位受測者只在一邊）');
+        if (problems.length) process.exitCode = 1;
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main(process.argv.slice(2));
