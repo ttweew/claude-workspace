@@ -1,5 +1,6 @@
 // 一次運動的計算：次數（棒式計時）＋動作錯誤，並把做每一下期間出現過的錯誤記到那一下（rep.errors，最嚴重的數字在 rep.peaks）、
-// 和示範動作的相似度（rep.similarity，0～100，見 similarity.js）、動作穩定度（rep.sway，見 stability.js）
+// 和示範動作的相似度（rep.similarity，0～100，見 similarity.js）、動作穩定度（rep.sway，見 stability.js）、
+// AI 模型的特徵（rep.features：每條規則量到的數字「持續 0.4 秒的最大值」，見 features.js）
 // 鏡頭畫面（main.js）和重播分析（js/data/replay-core.js）共用，重播算出來的結果就和當時畫面上的一樣
 
 import { WORKOUTS, isWorkout } from './workouts.js';
@@ -7,6 +8,7 @@ import { FormChecker } from './form.js';
 import { repSimilarity } from './similarity.js';
 import { repStalls } from './fluency.js';
 import { StabilityMeter } from './stability.js';
+import { FeatureMeter } from './features.js';
 import { Calibrator, personalThresholds } from './calibrate.js';
 
 // 站著做的動作才校正（伏地挺身、棒式是趴著，用不到站直的角度）
@@ -28,6 +30,8 @@ export class WorkoutTracker {
         this.timed = false;        // 這一次有沒有一直線（計時）過
         // 動作穩定度（10/30）：做這一下的期間每一格的重心（棒式：撐著時髖部彎幾度），做完算好就清掉
         this.stability = new StabilityMeter(this.workout.id);
+        // AI 模型的資料（11/2，features.js）：做這一下的期間每條規則量到的數字，做完算出「持續 0.4 秒的最大值」（rep.features）
+        this.featureMeter = new FeatureMeter(this.workout.id);
         // 個人校正（calibrate.js）：站直不動約 2 秒後，「站直」的門檻和上身前傾的判斷依這個人調整
         this.calibrator = CALIBRATED.includes(this.workout.id) ? new Calibrator() : null;
         this.defaults = this.counter ? { up: this.counter.config.up, down: this.counter.config.down } : null;
@@ -92,7 +96,9 @@ export class WorkoutTracker {
         if (during && hold) this.collectHold(form, timeMs);
         else if (during) this.collect(form, form.errors, this.errors, this.peaks);
         // 棒式只記撐著（正在計時）的格子：趴下準備、姿勢跑掉的那幾秒不算晃動
-        if (during && (!hold || this.counter.lastGood === timeMs)) this.stability.add(pose, timeMs);
+        const counted = !hold || this.counter.lastGood === timeMs;
+        if (during && counted) this.stability.add(pose, timeMs);
+        if (during) this.featureMeter.add(form.m, timeMs, counted);
         const done = count.rep || count.hold || null;
         if (done) this.attach(done);
         else if (!during) this.clearErrors();
@@ -146,6 +152,7 @@ export class WorkoutTracker {
         this.prepPeaks.clear();
         this.timed = false;
         this.stability.clear();
+        this.featureMeter.clear();
     }
 
     // 完成的一下：記上錯誤；有角度曲線的（計次的動作）算和示範動作的相似度、中途卡住幾次（fluency.js），曲線算完就不留（省記憶體）
@@ -156,7 +163,7 @@ export class WorkoutTracker {
         // 最嚴重的數字取整數（畫面、總結、錄製檔都一樣）；只留這一下有出現的錯誤
         item.peaks = {};
         for (const id of item.errors) if (this.peaks.has(id)) item.peaks[id] = Math.round(this.peaks.get(id));
-        Object.assign(item, this.stability.take());
+        Object.assign(item, this.stability.take(), this.featureMeter.take());
         this.clearErrors();
         if (item.samples) {
             item.similarity = repSimilarity(this.workout.id, item.samples);

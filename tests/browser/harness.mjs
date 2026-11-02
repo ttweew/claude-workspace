@@ -6,6 +6,7 @@
 //   模型檔：給幾個位元組就好（假 AI 不讀它）
 // 需要 Playwright 和它的 Chromium（npm run test:browser 的說明見 docs/architecture.md「怎麼測試」）
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { extname, join, normalize, dirname } from 'node:path';
@@ -23,6 +24,24 @@ export function playwright() {
     } catch (err) {
         throw new Error('找不到 Playwright：先執行 npm install --no-save playwright 和 npx playwright install chromium（見 docs/architecture.md）');
     }
+}
+
+// axe-core（無障礙自動檢查，10/30）：要另外裝（npm install --no-save axe-core），或用 AXE_CORE 指定 axe.min.js 的位置；用到時才讀
+let axe = null;
+function axeSource() {
+    if (axe) return axe;
+    try {
+        axe = readFileSync(process.env.AXE_CORE || require.resolve('axe-core/axe.min.js'), 'utf8');
+    } catch (err) {
+        throw new Error('找不到 axe-core：先執行 npm install --no-save axe-core（見 docs/architecture.md）');
+    }
+    return axe;
+}
+// 這一頁（或 selector 那一塊）的無障礙問題：回傳 ['規則:幾個地方 (第一個地方)']
+export async function violations(page, selector = null) {
+    await page.addScriptTag({ content: axeSource() });
+    return page.evaluate(sel => window.axe.run(sel ? document.querySelector(sel) : document)
+        .then(r => r.violations.map(v => v.id + ':' + v.nodes.length + ' (' + v.nodes[0].target.join(' ') + ')')), selector);
 }
 
 // 有 PLAYWRIGHT_CHROMIUM 就用指定的 Chromium（例如雲端開發環境的 /opt/pw-browsers/chromium），不然用 Playwright 自己的

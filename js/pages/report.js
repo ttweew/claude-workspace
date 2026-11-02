@@ -1,10 +1,12 @@
 // 實測報表（report.html，10/21）：選很多個實測檔（或 zip、或這支手機裡的錄製檔）→ 一個一個重算 → 每一組比對應該做的和網站算的
 // 重算在背景執行緒（js/data/report-worker.js），一次一個檔案，主畫面不會卡；背景執行緒開不起來就在主畫面算
 // 比對、加總在 js/data/test-report.js；zip 在 js/data/unzip.js
+// AI 模型的資料（11/2）：同一批檔案的每一下（量到的數字＋這組要做的），js/data/dataset.js 做成 CSV
 
-import { setResult, markRedos, summarizeReport, ratioText, countedText, verdictText, reportCsv } from '../data/test-report.js';
+import { setResult, markRedos, sortReport, summarizeReport, ratioText, countedText, verdictText, reportCsv } from '../data/test-report.js';
 import { readZip } from '../data/unzip.js';
 import { analyzeOne } from '../data/report-core.js';
+import { datasetRows, datasetCsv, datasetFileName, datasetSummary } from '../data/dataset.js';
 import { listRecordings, getRecordingFile } from '../data/library.js';
 import { WORKOUTS, isWorkout } from '../analysis/workouts.js';
 import { downloadText } from '../data/recorder.js';
@@ -15,6 +17,7 @@ const fileInput = $('fileInput'), drop = $('drop'), loadStatus = $('loadStatus')
 const phoneRow = $('phoneRow'), phoneBtn = $('phoneBtn'), phoneNote = $('phoneNote');
 const result = $('result'), reportSummary = $('reportSummary'), reportTable = $('reportTable');
 const badFiles = $('badFiles'), badList = $('badList'), csvBtn = $('csvBtn');
+const aiDataCard = $('aiDataCard'), aiDataSummary = $('aiDataSummary'), aiDataBtn = $('aiDataBtn');
 
 const MAX_BYTES = 400 * 1024 * 1024;   // 一個檔案最大 400 MB（和重播分析一樣）
 let rows = [];
@@ -104,7 +107,10 @@ async function analyzeAll(sources, bad) {
         try {
             if (s.blob.size > MAX_BYTES) throw new Error('檔案太大（超過 400 MB）');
             const r = await analyzeFile(s.blob);
-            rows.push(setResult(r.info, r.items, r.kind, r.startedAt, s.name));
+            const row = setResult(r.info, r.items, r.kind, r.startedAt, s.name);
+            // AI 模型的資料：這一組的每一下（重錄的組下載時不放進去，見 dataset()）
+            row.dataset = datasetRows(r.info, r.items, { file: s.name, synthetic: r.synthetic });
+            rows.push(row);
         } catch (err) {
             failed.push({ name: s.name, why: err instanceof SyntaxError || /JSON/.test(err.message) ? '檔案內容不完整或格式不正確' : err.message });
         }
@@ -180,13 +186,11 @@ function setStatus(text, error = false) {
 }
 
 const workoutName = id => (isWorkout(id) ? WORKOUTS[id].name : id);
-const ORDER = ['squat', 'lunge', 'pushup', 'plank'];
 
 function show(failed) {
     result.hidden = !rows.length && !failed.length;
     // 依受測者、動作、這組（做對在前面）、時間排
-    rows.sort((a, b) => a.subject.localeCompare(b.subject) || ORDER.indexOf(a.workout) - ORDER.indexOf(b.workout)
-        || (a.condition === 'good' ? -1 : 0) - (b.condition === 'good' ? -1 : 0) || a.condition.localeCompare(b.condition) || a.startedAt - b.startedAt);
+    sortReport(rows);
     const s = summarizeReport(rows);
     const li = text => { const el = document.createElement('li'); el.textContent = text; return el; };
     const lines = [];
@@ -199,6 +203,7 @@ function show(failed) {
     }
     reportSummary.replaceChildren(...lines);
     csvBtn.hidden = !rows.length;
+    showDataset(li);
 
     const head = document.createElement('tr');
     for (const h of ['受測者', '動作', '這組', '應做', '網站算', '結果']) {
@@ -231,6 +236,28 @@ function show(failed) {
     badFiles.hidden = !failed.length;
     badList.replaceChildren(...failed.map(f => li(f.name + '：' + f.why)));
 }
+
+// ---------- AI 模型的資料 ----------
+// 照報表的順序（受測者、動作、這組）；重錄的組不放（以最後一次為準，和上面的統計一樣）
+const dataset = () => rows.filter(r => !r.redo).flatMap(r => r.dataset);
+
+function showDataset(li) {
+    const data = dataset();
+    aiDataCard.hidden = !data.length;
+    if (!data.length) return;
+    const d = datasetSummary(data);
+    const lines = [li('共 ' + d.rows + ' 列（每一下一列，棒式每一次一列；受測者：' + d.subjects.join('、') + '）')];
+    for (const w of [...new Set(d.groups.map(g => g.workout))]) {
+        const unit = WORKOUTS[w].kind === 'hold' ? ' 次' : ' 下';
+        lines.push(li(workoutName(w) + '：' + d.groups.filter(g => g.workout === w).map(g => g.name + ' ' + g.n + unit).join('、')));
+    }
+    const redos = rows.filter(r => r.redo).length;
+    if (redos) lines.push(li('重錄的 ' + redos + ' 組沒有放進來（以最後一次為準）'));
+    if (d.synthetic) lines.push(li('其中 ' + d.synthetic + ' 列是合成的實測檔（示範動畫的火柴人，不是真人）：只能拿來試流程，不能當成研究結果'));
+    aiDataSummary.replaceChildren(...lines);
+}
+
+aiDataBtn.addEventListener('click', () => downloadText(datasetFileName(), datasetCsv(dataset()), 'text/csv'));
 
 csvBtn.addEventListener('click', () => {
     const d = new Date();
