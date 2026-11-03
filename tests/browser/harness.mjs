@@ -55,11 +55,12 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
     '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.task': 'application/octet-stream' };
 
 // 在本機開網站（127.0.0.1、隨便一個沒用的 port）；回傳 { base, close }
-export function serve() {
+// root：網站的資料夾（預設是這個專案；11/4 保養：發布時每個檔案加了版本號的複本）
+export function serve(root = ROOT) {
     const server = createServer(async (req, res) => {
         const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-        const file = normalize(join(ROOT, path === '/' ? 'index.html' : path));
-        if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
+        const file = normalize(join(root, path === '/' ? 'index.html' : path));
+        if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
         try {
             const body = await readFile(file);
             res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream' }).end(body);
