@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { launch, serve, open, script, rep } from './harness.mjs';
 import { P } from '../../js/skeleton/landmarks.js';
 import { cloudSession, sessionId } from '../../js/cloud/sync.js';
+import { parseRecording, analyzeRecording } from '../../js/data/replay-core.js';
+import { aiJudge, judgeText } from '../../js/analysis/ai-judge.js';
 
 const stand = (id, frames) => ({ id, depth: 0, frames });
 // 整個人（腳不動）每秒前後晃一次（和 workout.test.mjs 一樣）
@@ -144,6 +146,10 @@ test('深蹲 8 下：手機上（總結、圖、CSV、成長曲線）、雲端�
     // 每一下：第幾下、最低角度、深度（重播的表格寫「蹲到位」，首頁寫「到位」）
     const depthWord = t => t.replace(/^蹲到位/, '到位').replace(/（斜側面）$/, '');
     assert.deepEqual(replay.reps.map(r => [r[0], r[2], depthWord(r[3])]), home.reps.map(r => [r[0], r[1], r[2]]));
+    // AI 判斷（11/4 保養）：首頁錄的檔案，重播分析每一下最後一欄和 node 用同一套程式算的一樣
+    const parsed = parseRecording(recording);
+    const node = await analyzeRecording(parsed, parsed.meta.videoWidth, parsed.meta.videoHeight, { workout: 'squat' });
+    assert.deepEqual(replay.reps.map(r => r[r.length - 1]), node.reps.map(it => { const j = aiJudge('squat', it); return judgeText(j.label) + '（' + Math.round(j.confidence * 100) + '%）'; }));
     assert.deepEqual(page.errors, []);
     await context.close();
 });
