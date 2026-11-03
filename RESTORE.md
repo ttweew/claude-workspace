@@ -135,7 +135,6 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main1102/equiv.mjs`：合成的實測檔（專案的 `tests/synthetic-sets.mjs`）每一下每條規則，「規則報錯 ⇔ 特徵 > 門檻」（`SUBJ=A,B` 選受測者；11/2 四位 504 個全部對得上，專案裡的 `tests/features.test.mjs` 也有）。`plank_dbg.mjs`：棒式合成組故意做錯的程度、撐了幾秒、特徵（11/2 用它發現受測者代號直接當亂數起點時每個人一樣）。`try_synth.mjs`：合成組的下數、抓到幾下、特徵（`W=lunge` 只看一個動作；調弓箭步故意做錯的幅度用的）。
   - `main1102/old_axe.mjs`：`SITE_ROOT=<改之前的資料夾>` 打開實測報表、載入合成的實測檔後整頁 axe-core（11/2 確認 landmark-unique 是 10/30 起就有的）。
   - `main1102/chain.sh`、`chain_m.sh <資料夾> <標記>`、`chain_m2.sh`：主線、保養合併前依序跑（自動測試 → 專案的瀏覽器測試 → report21 → 完整回歸）。保養在 git worktree 先跑瀏覽器測試（等主線的 GitHub 測試時），程式和主要資料夾逐檔 cmp 一模一樣後，主要資料夾只跑自動測試和完整回歸。
-  - `main1102/map/map_edit.py <主線PR> <保養PR> <自動測試項數> <檔案>`：進度地圖 11/2 的修改（先讀線上的版本存成檔案）。
   - 專案裡的命令列：`node tools/dataset.mjs --synthetic A,B,C --test C --out x.csv`：合成的 AI 模型資料、照受測者分訓練和測試。
 - 11/3：
   - `main1103/explore.mjs`：合成的受測者（`SUBJ=A,B,…`，預設 A～H）每個動作每種標記，每個特徵的範圍、規則抓到幾下（11/3 用它發現合成資料做對、做錯完全分得開，加上每個人本來的樣子）。
@@ -148,8 +147,7 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main1104/draft/apply_maint.py`：保養（整合測試）的草稿套到主要資料夾（`tests/browser/ai-site.test.mjs`、harness 的 `serve(root)`、資料一致性多一項、文件）；把裡面的 `W` 換成 git worktree 的路徑，就能先在 worktree 跑。
   - `main1105/chain.sh`：保養＋凍結檢查，依序：自動測試 → 瀏覽器測試 → 模擬器（安全規則、`fbcheck/cloud.py`）→ 真的 Firebase（test:live）→ report21 → maint27 → 完整回歸。安全規則的測試要用 `npx firebase-tools@15.34.1 emulators:exec --only auth,firestore --project demo-sport "npm run test:rules"`（或自己帶 `FIRESTORE_EMULATOR_HOST`），不然全部跳過（11/3 第一次寫漏了，另外補跑）。
   - `main1106/`（簡報、進度地圖、示範影片；都不放進專案）：
-    - `slides_week3.py config.json`：簡報第 27 頁後加第 28、29 頁，頁碼和互相參照 +2，封面、目錄、限制、下一步、結尾跟著改（先用 Artifact 的 `read` 把線上的每一頁存到 artifact-files）。`render.mjs <slides 資料夾> <輸出資料夾> id…`：每一頁放進 1920×1080 檢查有沒有超出（本機的文泉驛正黑，中文字寬和 Noto Sans TC 一樣）。
+    - `render.mjs <slides 資料夾> <輸出資料夾> id…`：簡報每一頁放進 1920×1080 檢查有沒有超出（本機的文泉驛正黑，中文字寬和 Noto Sans TC 一樣）。改簡報、進度地圖的腳本（`slides_week3.py`、`map_edit.py`、`timing.py`）裡面有這兩頁的文字，只放在暫存區、不備份到這裡（這兩頁只有使用者看得到；要改時先用 Artifact 的 `read` 讀線上版本）。
     - `shot_slide.mjs <輸出資料夾>`：第 29 頁的截圖（合成受測者 K 故意屁股太高的伏地挺身，seed 112＝實測報表的那一組），也照 PR 的「怎麼試」走一次。`kpick.mjs`：K 的 9 組每一下 AI 和規則的判斷、哪幾組不一樣、K 全部各猜對幾下。
     - `record_demo.mjs <輸出資料夾>`：錄示範影片（Playwright 的 recordVideo，1280×720：首頁深蹲 6 下、總結、重播分析的 AI 判斷、研究成果頁），再用 `ffmpeg -c:v libx264 -pix_fmt yuv420p` 轉成 mp4。
-    - `timing.py`：簡報第 1～32 頁講稿的字數換成秒數（每分鐘 240 字）、精簡版；`map_edit.py <線上版本存的檔> <輸出> map_config.json`：進度地圖 11/4～11/9 那幾列和「11/9 報告準備」。
-  - 10/18 第一次備份時順手放進來的簡報、進度地圖（`artifact-files/`，不是測試工具）11/3 刪掉了：這兩頁只有使用者看得到，最新的版本在線上，要改先用 Artifact 的 `read` 讀。
+  - 10/18 第一次備份時順手放進來的簡報、進度地圖（`artifact-files/`），和裡面有這兩頁文字的腳本（`main1102/map/map_edit.py` 等），11/3 刪掉了：不是測試工具，這兩頁只有使用者看得到；最新的版本在線上，要改先用 Artifact 的 `read` 讀。
