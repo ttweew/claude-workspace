@@ -2,8 +2,10 @@
 // 用法（在專案資料夾）：
 //   node tools/train.mjs --synthetic A,B,C,D,E,F,G,H --test G,H         合成的受測者（tests/synthetic-sets.mjs，不是真人），G、H 當測試
 //   node tools/train.mjs 實測檔或資料夾… --test C [--out models.json]    真人的實測檔
+//   node tools/train.mjs --synthetic A,B,C,D --cv [--out models.json]    交叉驗證（11/3 保養）：每一位輪流當測試
 // 每個動作一個模型：用訓練的受測者長森林，拿測試的受測者比 AI 模型、規則、DTW 各猜對幾下（tools/evaluate.mjs）
-// 訓練和測試照受測者分（tools/split.mjs），混到就不訓練；--out 把每個動作的模型存成一個 JSON（11/4 放進網站）
+// 訓練和測試照受測者分（tools/split.mjs），混到就不訓練；--out 把每個動作的模型存成一個 JSON（11/4 放進網站；
+// 加 --cv 時存的是用全部受測者訓練的模型：交叉驗證只是用來估準確率）
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { buildDataset, readSources } from './dataset.mjs';
@@ -72,18 +74,78 @@ export function resultLines(results) {
     return lines;
 }
 
+// ---------- 交叉驗證（11/3 保養） ----------
+// 每次留一位受測者當測試、其他人訓練，每一位都輪一次（leave-one-subject-out）
+// 只用一種分法（例如 G、H 當測試）運氣成分大：剛好那兩位好分，準確率就好看。每個人都當一次測試、加起來，
+// 每一下剛好被「沒看過這個人的模型」猜過一次，也看得出哪一位特別難分、學到的門檻每次差多少
+// 每一次都先檢查訓練、測試有沒有混到（split.mjs）：同一個人、同一個檔案兩邊都有、有一邊是空的就停；
+// 「測試的標記訓練沒有」照樣算（例如只有這位做了棒式），問題寫在那一次
+const UNSEEN = '測試資料有、訓練資料沒有的標記';
+export function crossValidate(rows, options = {}) {
+    const subjects = [...new Set(rows.map(r => r.subject))].sort();
+    if (subjects.length < 2) throw new Error('受測者要 2 位以上才能交叉驗證');
+    return subjects.map(subject => {
+        const { train, test } = splitBySubject(rows, [subject]);
+        const problems = checkSplit(train, test);
+        const mixed = problems.filter(p => !p.startsWith(UNSEEN));
+        if (mixed.length) throw new Error(subject + ' 當測試時混到了：' + mixed.join('；'));
+        return { subject, problems, results: compareAll(train, test, options) };
+    });
+}
+
+// 每一次同一個動作的成績加起來（每一下剛好被猜過一次）、學到的門檻每一次的範圍
+// → [{ workout, test（幾下）, forest, rules, dtw, limits: [{ id, rule, unit, low, high }] }]
+export function foldTotals(folds) {
+    return WORKOUT_ORDER.map(workout => {
+        const list = folds.flatMap(f => f.results.filter(r => r.workout === workout));
+        if (!list.length) return null;
+        const limits = list[0].limits.map(({ id, rule, unit }) => {
+            const learned = list.map(r => r.limits.find(l => l.id === id).learned).filter(v => v !== null);
+            return { id, rule, unit, low: learned.length ? Math.min(...learned) : null, high: learned.length ? Math.max(...learned) : null };
+        });
+        return {
+            workout, test: list.reduce((s, r) => s + r.test, 0), limits,
+            forest: addScores(list.map(r => r.forest)), rules: addScores(list.map(r => r.rules)), dtw: addScores(list.map(r => r.dtw))
+        };
+    }).filter(Boolean);
+}
+
+// 給人看的幾行：每一位當測試時的正確率、每個動作加起來（含學到的門檻範圍）、全部
+const pct = s => (s.n && s.kind !== null ? Math.round(s.kind / s.n * 100) + '%' : '—');
+export function cvLines(folds) {
+    const n = v => Math.round(v * 10) / 10;
+    const lines = ['交叉驗證：每次留一位受測者當測試、其他人訓練，共 ' + folds.length + ' 次'];
+    lines.push('每一位當測試時猜對種類（AI 模型／規則）：' + folds.map(f => f.subject + ' '
+        + pct(addScores(f.results.map(r => r.forest))) + '／' + pct(addScores(f.results.map(r => r.rules)))).join('、'));
+    for (const f of folds) for (const p of f.problems) lines.push('  ' + f.subject + ' 當測試：' + p);
+    const totals = foldTotals(folds);
+    for (const t of totals) {
+        lines.push(WORKOUTS[t.workout].name + '（每一下都被猜過一次，共 ' + t.test + ' 下）');
+        lines.push(line('AI 模型', t.forest));
+        lines.push('  AI 模型學到的門檻（每一次）：' + t.limits.map(l => NAMES[l.id] + ' '
+            + (l.low === null ? '—' : n(l.low) + (l.high !== l.low ? '～' + n(l.high) : '') + l.unit) + '（規則 ' + n(l.rule) + l.unit + '）').join('、'));
+        lines.push(line('規則', t.rules));
+        if (t.dtw.n) lines.push(line('DTW（門檻每一次用訓練資料挑）', t.dtw));
+    }
+    lines.push('全部的動作');
+    lines.push(line('AI 模型', addScores(totals.map(t => t.forest))), line('規則', addScores(totals.map(t => t.rules))));
+    lines.push(line('DTW（棒式沒有相似度，不算）', addScores(totals.map(t => t.dtw))));
+    return lines;
+}
+
 async function main(args) {
-    let out = null, synthetic = null, testSubjects = null;
+    let out = null, synthetic = null, testSubjects = null, cv = false;
     const paths = [];
     const codes = text => String(text || '').split(',').map(c => c.trim()).filter(Boolean);
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--out') out = args[++i];
         else if (args[i] === '--synthetic') synthetic = args[++i];
         else if (args[i] === '--test') testSubjects = codes(args[++i]);
+        else if (args[i] === '--cv') cv = true;
         else paths.push(args[i]);
     }
-    if ((!paths.length && !synthetic) || !testSubjects || !testSubjects.length) {
-        console.error('用法：node tools/train.mjs 實測檔或資料夾… --test C [--out models.json]，或 node tools/train.mjs --synthetic A,B,C,D --test D');
+    if ((!paths.length && !synthetic) || (!cv && (!testSubjects || !testSubjects.length))) {
+        console.error('用法：node tools/train.mjs 實測檔或資料夾… --test C（或 --cv）[--out models.json]，或 node tools/train.mjs --synthetic A,B,C,D --test D（或 --cv）');
         process.exitCode = 1;
         return;
     }
@@ -94,6 +156,23 @@ async function main(args) {
     }
     const { rows, failed } = await buildDataset(sources);
     for (const f of failed) console.log('沒有讀到 ' + f.name + '：' + f.why);
+    const synth = rows.filter(r => r.synthetic).length;
+    if (cv) {
+        if (synth) console.log('其中 ' + synth + ' 列是合成的（示範動畫的火柴人，不是真人）：只能拿來試流程，準確率不能當成研究結果');
+        try {
+            console.log(cvLines(crossValidate(rows)).join('\n'));
+        } catch (err) {
+            console.log('不訓練：' + err.message);
+            process.exitCode = 1;
+            return;
+        }
+        if (out) {
+            const models = WORKOUT_ORDER.filter(w => rows.some(r => r.workout === w)).map(w => trainModel(w, rows));
+            await writeFile(out, JSON.stringify({ version: 1, synthetic: synth > 0, subjects: [...new Set(rows.map(r => r.subject))].sort(), models }));
+            console.log('模型（全部受測者訓練）存到 ' + out);
+        }
+        return;
+    }
     const parts = splitBySubject(rows, testSubjects);
     const problems = checkSplit(parts.train, parts.test);
     console.log(splitLine(parts));
@@ -102,7 +181,6 @@ async function main(args) {
         process.exitCode = 1;
         return;
     }
-    const synth = rows.filter(r => r.synthetic).length;
     if (synth) console.log('其中 ' + synth + ' 列是合成的（示範動畫的火柴人，不是真人）：只能拿來試流程，準確率不能當成研究結果');
     const results = compareAll(parts.train, parts.test);
     console.log(resultLines(results).join('\n'));
