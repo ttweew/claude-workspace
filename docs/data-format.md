@@ -198,6 +198,21 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
 - 訓練和測試照受測者分（11/2 保養，`tools/split.mjs`）：同一個人的每一下很像，有些拿去訓練、有些拿去測試，等於先看過考題，準確率會太好看；所以同一個人只會在一邊。只能照代號分，同一個人要一直用同一個代號。只有 1 位受測者時實測報表會提醒。
 - 文字開頭是 `=`、`+`、`-`、`@`、Tab 的前面加 `'`，Excel 不會當成公式執行。
 
+## AI 模型的檔案（11/4，`js/analysis/ai-model.js`）
+
+網站用的 AI 模型（Random Forest）：重播分析、實測報表的「AI 判斷」用它（`js/analysis/ai-judge.js`）。**自動產生，不要手改**：`tools/train.mjs --cv --module js/analysis/ai-model.js`（先做交叉驗證估準確率，再用全部受測者訓練、存檔；開頭三行註解寫產生的指令、受測者、交叉驗證的成績）。JS 模組（`export default {…}`），網站直接 import，發布時跟著加版本號。
+
+```
+{ version: 1, synthetic: true（合成資料訓練的）, subjects: ['A', …]（訓練用的受測者代號）,
+  models: [{ type: 'random-forest', version: 1, workout: 'squat',
+             features: ['min', 'seconds', …]（特徵，順序照 features.js）, classes: ['good', 'lean', 'heel']（做對在第一個）,
+             trees: [分岔 { f（第幾個特徵）, t（門檻：特徵 ≤ t 走 l，否則走 r）, l, r } 或葉子 { p: [每一種的比例] }] }] }
+```
+
+- 看不到的特徵（null）當成 −1000000，樹可以把「看不到」分開。
+- 現在的模型是合成資料（8 位火柴人受測者）訓練的示範：真人的實測檔來了，換成 `node tools/train.mjs 實測檔資料夾 --cv --module js/analysis/ai-model.js`，畫面上的「示範」字樣會跟著拿掉（看 `synthetic`）。
+- 訓練時用過的受測者（`subjects`）不算進實測報表的「AI 模型猜對幾列」，重播分析也會寫「訓練時看過，猜對的不能算數」。
+
 ## 為什麼這樣設計（給後端 AI 的考量）
 
 1. **只傳關鍵點，不傳影片**：每格約 1.9 KB，一分鐘約 2～3 MB（每秒 20～30 格），同長度的影片通常要數十 MB；也不會把使用者的臉傳出去，隱私比較好
