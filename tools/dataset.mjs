@@ -32,8 +32,8 @@ export async function buildDataset(sources) {
     return { rows: sets.filter(s => !s.redo).flatMap(s => s.dataset), redos: sets.filter(s => s.redo).length, failed };
 }
 
-// 檔案或資料夾 → sources（資料夾只讀第一層的 .json，照檔名排）
-async function readSources(paths) {
+// 檔案或資料夾 → sources（資料夾只讀第一層的 .json，照檔名排；tools/train.mjs 也用）
+export async function readSources(paths) {
     const sources = [];
     for (const p of paths) {
         if ((await stat(p)).isDirectory()) {
