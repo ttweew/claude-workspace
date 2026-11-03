@@ -143,3 +143,13 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - 專案裡的命令列：`node tools/train.mjs --synthetic A,B,C,D,E,F,G,H --test G,H`（一種分法）、`--cv`（交叉驗證，每一位輪流當測試）、`--out models.json`（存模型）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
+- 11/3 下午（11/4～11/8 的工作提前做）：
+  - `main1104/chain.sh`：主線（AI 模型放進網站）合併前在主要資料夾依序跑：自動測試 → 專案的瀏覽器測試 → report21 → maint27 → 完整回歸。`main1104/shot_ai.mjs <輸出資料夾>`：重播分析的 AI 判斷（390、1280 寬）、實測報表 AI 模型那一行拍照。
+  - `main1104/draft/apply_maint.py`：保養（整合測試）的草稿套到主要資料夾（`tests/browser/ai-site.test.mjs`、harness 的 `serve(root)`、資料一致性多一項、文件）；把裡面的 `W` 換成 git worktree 的路徑，就能先在 worktree 跑。
+  - `main1105/chain.sh`：保養＋凍結檢查，依序：自動測試 → 瀏覽器測試 → 模擬器（安全規則、`fbcheck/cloud.py`）→ 真的 Firebase（test:live）→ report21 → maint27 → 完整回歸。安全規則的測試要用 `npx firebase-tools@15.34.1 emulators:exec --only auth,firestore --project demo-sport "npm run test:rules"`（或自己帶 `FIRESTORE_EMULATOR_HOST`），不然全部跳過（11/3 第一次寫漏了，另外補跑）。
+  - `main1106/`（簡報、進度地圖、示範影片；都不放進專案）：
+    - `slides_week3.py config.json`：簡報第 27 頁後加第 28、29 頁，頁碼和互相參照 +2，封面、目錄、限制、下一步、結尾跟著改（先用 Artifact 的 `read` 把線上的每一頁存到 artifact-files）。`render.mjs <slides 資料夾> <輸出資料夾> id…`：每一頁放進 1920×1080 檢查有沒有超出（本機的文泉驛正黑，中文字寬和 Noto Sans TC 一樣）。
+    - `shot_slide.mjs <輸出資料夾>`：第 29 頁的截圖（合成受測者 K 故意屁股太高的伏地挺身，seed 112＝實測報表的那一組），也照 PR 的「怎麼試」走一次。`kpick.mjs`：K 的 9 組每一下 AI 和規則的判斷、哪幾組不一樣、K 全部各猜對幾下。
+    - `record_demo.mjs <輸出資料夾>`：錄示範影片（Playwright 的 recordVideo，1280×720：首頁深蹲 6 下、總結、重播分析的 AI 判斷、研究成果頁），再用 `ffmpeg -c:v libx264 -pix_fmt yuv420p` 轉成 mp4。
+    - `timing.py`：簡報第 1～32 頁講稿的字數換成秒數（每分鐘 240 字）、精簡版；`map_edit.py <線上版本存的檔> <輸出> map_config.json`：進度地圖 11/4～11/9 那幾列和「11/9 報告準備」。
+  - 10/18 第一次備份時順手放進來的簡報、進度地圖（`artifact-files/`，不是測試工具）11/3 刪掉了：這兩頁只有使用者看得到，最新的版本在線上，要改先用 Artifact 的 `read` 讀。
