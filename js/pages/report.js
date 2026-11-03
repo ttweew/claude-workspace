@@ -7,6 +7,7 @@ import { setResult, markRedos, sortReport, summarizeReport, ratioText, countedTe
 import { readZip } from '../data/unzip.js';
 import { analyzeOne } from '../data/report-core.js';
 import { datasetRows, datasetCsv, datasetFileName, datasetSummary } from '../data/dataset.js';
+import { hasAiModel, aiJudgeFeatures, ruleJudge, AI_MODEL, seenInTraining } from '../analysis/ai-judge.js';
 import { listRecordings, getRecordingFile } from '../data/library.js';
 import { WORKOUTS, isWorkout } from '../analysis/workouts.js';
 import { downloadText } from '../data/recorder.js';
@@ -253,6 +254,17 @@ function showDataset(li) {
         const unit = WORKOUTS[w].kind === 'hold' ? ' 次' : ' 下';
         lines.push(li(workoutName(w) + '：' + d.groups.filter(g => g.workout === w).map(g => g.name + ' ' + g.n + unit).join('、')));
     }
+    // AI 模型（11/4，js/analysis/ai-judge.js）：訓練時沒看過的受測者，AI 模型和規則各猜對幾列（猜每一下是做對，還是哪一種錯）
+    // 訓練時看過的不算（先看過考題，猜對也不算數）
+    const judged = data.filter(r => hasAiModel(r.workout) && !seenInTraining(r.subject, r.synthetic));
+    const seen = [...new Set(data.filter(r => seenInTraining(r.subject, r.synthetic)).map(r => r.subject))].sort();
+    if (judged.length) {
+        const ai = judged.filter(r => aiJudgeFeatures(r.workout, r.features).label === r.condition).length;
+        const rule = judged.filter(r => ruleJudge(r.workout, r.ruleErrors, r.features) === r.condition).length;
+        lines.push(li('AI 模型（' + (AI_MODEL.synthetic ? '示範：用合成資料訓練的' : '用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練的')
+            + '）猜對 ' + ratioText(ai, judged.length) + ' 列，規則 ' + ratioText(rule, judged.length) + ' 列（猜每一下是做對，還是哪一種錯）'));
+    }
+    if (seen.length) lines.push(li('受測者 ' + seen.join('、') + ' 的資料訓練 AI 模型時看過，不算進 AI 模型猜對幾列'));
     const redos = rows.filter(r => r.redo).length;
     if (redos) lines.push(li('重錄的 ' + redos + ' 組沒有放進來（以最後一次為準）'));
     if (d.synthetic) lines.push(li('其中 ' + d.synthetic + ' 列是合成的實測檔（示範動畫的火柴人，不是真人）：只能拿來試流程，不能當成研究結果'));

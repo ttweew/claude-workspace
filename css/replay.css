@@ -361,6 +361,8 @@
 }
 /* 有錯誤的那一下：錯誤欄用黃色 */
 .has-errors { color: #FFC857; }
+/* AI 判斷和規則不一樣的那一下（11/4）：藍色粗體，和錯誤的黃色分開 */
+.ai-differ { color: var(--info); font-weight: 700; }
 .jump-row {
     cursor: pointer;
 }

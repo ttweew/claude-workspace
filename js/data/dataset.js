@@ -6,7 +6,7 @@
 // 重錄的組（同一個人、同一個動作、同一組錄了好幾次，以最後一次為準，見 test-report.js 的 markRedos）不放進來：是做壞、中途停下來的
 // 實測報表（js/pages/report.js）的「下載 AI 模型的資料」、tools/dataset.mjs 共用
 
-import { featureColumns } from '../analysis/features.js';
+import { featureColumns, itemFeatures } from '../analysis/features.js';
 import { errorShort } from '../analysis/form.js';
 import { WORKOUTS } from '../analysis/workouts.js';
 import { WORKOUT_ORDER } from './test-report.js';
@@ -22,10 +22,8 @@ export const DATASET_FEATURES = (() => {
 // info：test-mode.js 的 testInfo（受測者、動作、這組要做的）；items：tracker 的每一下（重播、實測報表算的）；
 // file：檔名；synthetic：合成的實測檔（tests/synthetic-sets.mjs，不是真人）
 export function datasetRows(info, items, { file = '', synthetic = false } = {}) {
-    const columns = featureColumns(info.workout);
     return (Array.isArray(items) ? items : []).map((it, i) => {
-        const features = {};
-        for (const c of columns) features[c.key] = c.of(it);
+        const features = itemFeatures(info.workout, it);
         return {
             file, subject: info.subject, workout: info.workout, condition: info.condition, conditionName: info.name,
             n: i + 1, features, ruleErrors: Array.isArray(it.errors) ? [...it.errors] : [], synthetic: !!synthetic

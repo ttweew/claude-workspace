@@ -4,8 +4,11 @@
 //   node tools/train.mjs 實測檔或資料夾… --test C [--out models.json]    真人的實測檔
 //   node tools/train.mjs --synthetic A,B,C,D --cv [--out models.json]    交叉驗證（11/3 保養）：每一位輪流當測試
 // 每個動作一個模型：用訓練的受測者長森林，拿測試的受測者比 AI 模型、規則、DTW 各猜對幾下（tools/evaluate.mjs）
-// 訓練和測試照受測者分（tools/split.mjs），混到就不訓練；--out 把每個動作的模型存成一個 JSON（11/4 放進網站；
-// 加 --cv 時存的是用全部受測者訓練的模型：交叉驗證只是用來估準確率）
+// 訓練和測試照受測者分（tools/split.mjs），混到就不訓練；--out 把每個動作的模型存成一個 JSON
+// （加 --cv 時存的是用全部受測者訓練的模型：交叉驗證只是用來估準確率）
+// --module js/analysis/ai-model.js（要加 --cv，11/4）：存成網站用的模型（JS 模組，重播分析、實測報表的「AI 判斷」）：
+//   node tools/train.mjs --synthetic A,B,C,D,E,F,G,H --cv --module js/analysis/ai-model.js
+//   真人的實測檔來了：node tools/train.mjs 實測檔資料夾 --cv --module js/analysis/ai-model.js
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { buildDataset, readSources } from './dataset.mjs';
@@ -133,8 +136,16 @@ export function cvLines(folds) {
     return lines;
 }
 
+// 網站用的模型檔（JS 模組）：開頭寫怎麼產生的、交叉驗證的成績，內容是一行 JSON
+export function moduleText(file, command, cvSummary) {
+    return '// AI 模型（自動產生，不要手改；js/analysis/ai-judge.js 用）：' + command + '\n'
+        + (file.synthetic ? '// 用合成資料（示範動畫的火柴人，不是真人）訓練的示範模型：真人的實測檔來了要重新訓練（docs/architecture.md「AI 模型」）\n' : '')
+        + '// 受測者：' + file.subjects.join('、') + '；交叉驗證（每一位輪流當測試）：' + cvSummary + '\n'
+        + 'export default ' + JSON.stringify(file) + ';\n';
+}
+
 async function main(args) {
-    let out = null, synthetic = null, testSubjects = null, cv = false;
+    let out = null, synthetic = null, testSubjects = null, cv = false, moduleOut = null;
     const paths = [];
     const codes = text => String(text || '').split(',').map(c => c.trim()).filter(Boolean);
     for (let i = 0; i < args.length; i++) {
@@ -142,10 +153,11 @@ async function main(args) {
         else if (args[i] === '--synthetic') synthetic = args[++i];
         else if (args[i] === '--test') testSubjects = codes(args[++i]);
         else if (args[i] === '--cv') cv = true;
+        else if (args[i] === '--module') moduleOut = args[++i];
         else paths.push(args[i]);
     }
-    if ((!paths.length && !synthetic) || (!cv && (!testSubjects || !testSubjects.length))) {
-        console.error('用法：node tools/train.mjs 實測檔或資料夾… --test C（或 --cv）[--out models.json]，或 node tools/train.mjs --synthetic A,B,C,D --test D（或 --cv）');
+    if ((!paths.length && !synthetic) || (!cv && (!testSubjects || !testSubjects.length)) || (moduleOut && !cv)) {
+        console.error('用法：node tools/train.mjs 實測檔或資料夾… --test C（或 --cv）[--out models.json]，或 node tools/train.mjs --synthetic A,B,C,D --test D（或 --cv）；--module 要和 --cv 一起用');
         process.exitCode = 1;
         return;
     }
@@ -159,17 +171,30 @@ async function main(args) {
     const synth = rows.filter(r => r.synthetic).length;
     if (cv) {
         if (synth) console.log('其中 ' + synth + ' 列是合成的（示範動畫的火柴人，不是真人）：只能拿來試流程，準確率不能當成研究結果');
+        let folds;
         try {
-            console.log(cvLines(crossValidate(rows)).join('\n'));
+            folds = crossValidate(rows);
+            console.log(cvLines(folds).join('\n'));
         } catch (err) {
             console.log('不訓練：' + err.message);
             process.exitCode = 1;
             return;
         }
-        if (out) {
+        if (out || moduleOut) {
             const models = WORKOUT_ORDER.filter(w => rows.some(r => r.workout === w)).map(w => trainModel(w, rows));
-            await writeFile(out, JSON.stringify({ version: 1, synthetic: synth > 0, subjects: [...new Set(rows.map(r => r.subject))].sort(), models }));
-            console.log('模型（全部受測者訓練）存到 ' + out);
+            const file = { version: 1, synthetic: synth > 0, subjects: [...new Set(rows.map(r => r.subject))].sort(), models };
+            if (out) {
+                await writeFile(out, JSON.stringify(file));
+                console.log('模型（全部受測者訓練）存到 ' + out);
+            }
+            if (moduleOut) {
+                const totals = foldTotals(folds);
+                const sum = key => addScores(totals.map(t => t[key]));
+                const cvSummary = 'AI 模型猜對 ' + ratio(sum('forest').kind, sum('forest').n) + '、規則 ' + ratio(sum('rules').kind, sum('rules').n);
+                const command = 'node tools/train.mjs ' + args.filter(a => a !== moduleOut && a !== '--module').join(' ') + ' --module ' + moduleOut;
+                await writeFile(moduleOut, moduleText(file, command, cvSummary));
+                console.log('網站用的模型存到 ' + moduleOut);
+            }
         }
         return;
     }

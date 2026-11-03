@@ -24,6 +24,8 @@ import { balanceLine, BALANCE } from '../analysis/balance.js';
 import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
+import { hasAiModel, aiJudge, ruleJudge, judgeText, AI_MODEL, seenInTraining } from '../analysis/ai-judge.js';
+import { itemFeatures } from '../analysis/features.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
 
 const $ = id => document.getElementById(id);
@@ -37,6 +39,7 @@ const repChart = $('repChart');   // 每一下的圖表（10/27，和首頁的�
 const LATE_START_S = 0.5;   // 棒式第 1 次離檔案開頭（最後一次離檔案結尾）不到這麼久：錄製開始（停止）時還在撐（見 showSquats）
 // 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套
 const fatigueBox = $('fatigueBox'), fluencyBox = $('fluencyBox'), stabilityBox = $('stabilityBox');
+const aiBox = $('aiBox');   // AI 判斷（11/4）
 
 // 疲勞分析、流暢度、穩定度：series 是 repSeries() 的結果（null：收起來）；寫法和首頁 main.js 的 showSummary 一樣
 function showAnalysis(series, workoutId) {
@@ -48,6 +51,34 @@ function showAnalysis(series, workoutId) {
     stabilityBox.hidden = !stability;
     stabilityBox.textContent = stabilityLine(stability);
 }
+// AI 判斷（11/4，js/analysis/ai-judge.js）：每一下 AI 模型和規則各判成什麼（做對，或哪一種錯）；這個動作沒有模型時 null
+function judgeReps(id, reps) {
+    if (!hasAiModel(id)) return null;
+    return reps.map(r => ({ ai: aiJudge(id, r), rule: ruleJudge(id, r.errors, itemFeatures(id, r)) }));
+}
+// 表格上面一句：和規則一樣幾下、不一樣的是第幾下；實測模式錄的（知道這組要做的）再寫 AI、規則各猜對幾下
+// 這位受測者的資料訓練時看過，猜對的不算數（先看過考題，見 tools/split.mjs）
+function showAi(id, reps, judged) {
+    aiBox.hidden = !judged || !judged.length;
+    if (aiBox.hidden) {
+        aiBox.textContent = '';
+        return;
+    }
+    const unit = WORKOUTS[id].kind === 'hold' ? '次' : '下';
+    const differ = judged.map((j, i) => (j.ai.label !== j.rule ? reps[i].n : null)).filter(n => n !== null);
+    let text = 'AI 判斷（' + (AI_MODEL.synthetic ? '示範：模型是用合成資料訓練的，不是真人' : '模型用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練')
+        + '）：和規則一樣 ' + (judged.length - differ.length) + ' ' + unit
+        + (differ.length ? '、不一樣 ' + differ.length + ' ' + unit + '（第 ' + differ.join('、') + ' ' + unit + '）' : '');
+    const test = data ? testInfo(data.meta) : null;
+    if (test && test.workout === id) {
+        const hit = pick => judged.filter(j => pick(j) === test.condition).length;
+        text += '。這組要做的是「' + test.name + '」：AI 猜對 ' + hit(j => j.ai.label) + '／' + judged.length + ' ' + unit
+            + '、規則 ' + hit(j => j.rule) + '／' + judged.length + ' ' + unit;
+        if (seenInTraining(test.subject, data.meta.synthetic === true)) text += '（受測者 ' + test.subject + ' 的資料訓練時看過，AI 猜對的不能算數）';
+    }
+    aiBox.textContent = text + '。';
+}
+
 const worldCard = $('worldCard'), boneTable = $('boneTable'), kneeTable = $('kneeTable'), kneeNote = $('kneeNote');
 const tapeThigh = $('tapeThigh'), tapeShank = $('tapeShank');
 
@@ -327,6 +358,7 @@ function showSquats() {
         squatNote.textContent = '';
         renderRepChart(repChart, null);
         showAnalysis(null, null);
+        showAi(null, [], null);
         return;
     }
     const s = summarize(id, reps, 0, 0);
@@ -347,28 +379,34 @@ function showSquats() {
     const series = s ? repSeries(id, reps) : null;
     renderRepChart(repChart, series, { table: false });
     showAnalysis(series, id);
-    // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面（錯誤一直是最後一欄）
+    const judged = judgeReps(id, reps);
+    showAi(id, reps, judged);
+    // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面；有 AI 模型的動作最後多一欄「AI 判斷（把握）」（11/4）
     const balanced = BALANCE.workouts.includes(id);
-    const head = hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']
-        : ['第幾下', '時間', '最小角度', '判斷', '相似度', ...(balanced ? ['重心（最低時）'] : []), '錯誤'];
+    const head = (hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']
+        : ['第幾下', '時間', '最小角度', '判斷', '相似度', ...(balanced ? ['重心（最低時）'] : []), '錯誤']).concat(judged ? ['AI 判斷（把握）'] : []);
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
     head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
     thead.appendChild(htr);
     const tbody = document.createElement('tbody');
     const depthText = id === 'squat' ? DEPTH_TEXT : { good: '到位', close: '再低一點', shallow: '太淺' };
-    for (const r of reps) {
+    reps.forEach((r, k) => {
         const tr = document.createElement('tr');
         const errors = (r.errors || []).map(e => errorShort(e) + peakText(id, e, r.peaks)).join('、') || '—';
         const cells = hold
             ? [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', formatSeconds(r.seconds), errors]
             : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),
                 r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', ...(balanced ? [lowestBalance(r.bottom)] : []), errors];
+        const errorsAt = cells.length - 1;
+        if (judged) cells.push(judgeText(judged[k].ai.label) + '（' + Math.round(judged[k].ai.confidence * 100) + '%）');
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;
             if (!hold && i === 3) td.className = 'depth-' + r.depth;
-            if (c !== '—' && i === cells.length - 1) td.className = 'has-errors';
+            if (c !== '—' && i === errorsAt) td.className = 'has-errors';
+            // AI 判斷和規則不一樣的那幾下標出來
+            if (judged && i === errorsAt + 1 && judged[k].ai.label !== judged[k].rule) td.className = 'ai-differ';
             tr.appendChild(td);
         });
         // 點一列（或用鍵盤選到後按 Enter）跳到那一下最低的時間（棒式跳到開始）
@@ -385,7 +423,7 @@ function showSquats() {
         tr.title = '跳到第 ' + r.n + (hold ? ' 次開始' : ' 下最低') + '的時間點';
         tr.className = 'jump-row';
         tbody.appendChild(tr);
-    }
+    });
     squatTable.replaceChildren(thead, tbody);
 }
 

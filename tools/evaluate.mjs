@@ -6,18 +6,11 @@
 // 訓練 AI 模型用（tools/），網站不用
 import { errorRule } from '../js/analysis/form.js';
 import { predictModel } from '../js/analysis/forest.js';
+import { ruleJudge } from '../js/analysis/ai-judge.js';
 
-// 規則的判斷：'good' 或錯誤代號
+// 規則的判斷：'good' 或錯誤代號（和網站的「AI 判斷」並排時同一套：js/analysis/ai-judge.js 的 ruleJudge）
 export function rulePrediction(row) {
-    const errors = row.ruleErrors.filter(id => errorRule(row.workout, id));
-    if (!errors.length) return 'good';
-    // 超過門檻幾倍（特徵 ÷ 門檻；特徵和門檻同一個單位，見 features.js）；看不到數字的排後面
-    const ratio = id => {
-        const rule = errorRule(row.workout, id);
-        const v = row.features[id];
-        return typeof v === 'number' && rule.why && rule.why.limit > 0 ? v / rule.why.limit : 0;
-    };
-    return errors.reduce((best, id) => (ratio(id) > ratio(best) ? id : best));
+    return ruleJudge(row.workout, row.ruleErrors, row.features);
 }
 
 // DTW 的門檻：訓練資料裡，「相似度 ≥ 門檻算做對」猜對最多的門檻（一樣多時取比較低的）；沒有相似度的回傳 null

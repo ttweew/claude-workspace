@@ -108,3 +108,11 @@ export function featureColumns(workoutId) {
     }));
     return common.concat(rules);
 }
+
+// 一下（tracker 的 item）→ 這個動作的特徵 { key: 數字或 null }（AI 模型的資料表、網站裡的 AI 判斷共用，11/4）
+export function itemFeatures(workoutId, item) {
+    const out = {};
+    const it = item && typeof item === 'object' ? item : {};
+    for (const c of featureColumns(workoutId)) out[c.key] = c.of(it);
+    return out;
+}
