@@ -137,5 +137,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `main1102/chain.sh`、`chain_m.sh <資料夾> <標記>`、`chain_m2.sh`：主線、保養合併前依序跑（自動測試 → 專案的瀏覽器測試 → report21 → 完整回歸）。保養在 git worktree 先跑瀏覽器測試（等主線的 GitHub 測試時），程式和主要資料夾逐檔 cmp 一模一樣後，主要資料夾只跑自動測試和完整回歸。
   - `main1102/map/map_edit.py <主線PR> <保養PR> <自動測試項數> <檔案>`：進度地圖 11/2 的修改（先讀線上的版本存成檔案）。
   - 專案裡的命令列：`node tools/dataset.mjs --synthetic A,B,C --test C --out x.csv`：合成的 AI 模型資料、照受測者分訓練和測試。
+- 11/3：
+  - `main1103/explore.mjs`：合成的受測者（`SUBJ=A,B,…`，預設 A～H）每個動作每種標記，每個特徵的範圍、規則抓到幾下（11/3 用它發現合成資料做對、做錯完全分得開，加上每個人本來的樣子）。
+  - `main1103/chain.sh`（主線）、`chain_mw.sh`（保養在 git worktree 跑自動測試、瀏覽器測試）、`chain_m2.sh`（等 worktree 的瀏覽器測試跑完，主要資料夾跑自動測試＋完整回歸）。
+  - 專案裡的命令列：`node tools/train.mjs --synthetic A,B,C,D,E,F,G,H --test G,H`（一種分法）、`--cv`（交叉驗證，每一位輪流當測試）、`--out models.json`（存模型）。
 - 真的 Firebase 專案：專案裡的 `npm run test:live`（在這個環境要加 `NODE_USE_ENV_PROXY=1`）；瀏覽器版 `fbreal/browser_real.py`（見上面的憑證）。`fbreal/emu_util.py`：模擬器換規則、清空、看剩下的資料。
 - 用法：`cd $S/<資料夾> && python3 <腳本>.py /home/user/claude-workspace`
