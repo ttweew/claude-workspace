@@ -70,6 +70,9 @@ async function homeSession(frames, workoutId, done, settle = 1500) {
         fluency: document.getElementById('fluencyBox').textContent,
         stability: document.getElementById('stabilityBox').textContent,
         ai: document.getElementById('aiSummaryBox').hidden ? '' : document.getElementById('aiSummaryBox').textContent,
+        score: document.getElementById('scoreSummaryBox').hidden ? '' : document.getElementById('scoreSummaryBox').textContent,
+        explain: document.getElementById('explainSummaryBox').hidden ? '' : document.getElementById('explainSummaryBox').textContent,
+        compare: document.getElementById('poseCompareBox').hidden ? null : { labels: [...document.querySelectorAll('#poseCompareBox .pose-compare-label')].map(t => t.textContent), figures: document.querySelectorAll('#poseCompareBox .demo-bones').length },
         toasts: window.__toasts,
         record: JSON.parse(localStorage.getItem('workoutHistory')).pop(),
         cloud: window.__cloudWrites
@@ -113,6 +116,9 @@ async function replayOf(page, recording, prefix) {
         fluency: document.getElementById('fluencyBox').textContent,
         stability: document.getElementById('stabilityBox').textContent,
         ai: document.getElementById('aiBox').hidden ? '' : document.getElementById('aiBox').textContent,
+        score: document.getElementById('scoreBox').hidden ? '' : document.getElementById('scoreBox').textContent,
+        explain: document.getElementById('explainBox').hidden ? '' : document.getElementById('explainBox').textContent,
+        compare: document.getElementById('poseCompareBox').hidden ? null : { labels: [...document.querySelectorAll('#poseCompareBox .pose-compare-label')].map(t => t.textContent), figures: document.querySelectorAll('#poseCompareBox .demo-bones').length },
         aiDiffer: [...document.querySelectorAll('#squatTable tbody tr')].map(tr => tr.lastElementChild.classList.contains('ai-differ'))
     }));
     replay.reps = await rows(page, '#squatTable tbody tr');
@@ -127,6 +133,19 @@ function sameAnalysis(home, replay) {
     assert.equal(replay.stability, home.stability, '動作穩定度');
     assert.match(home.ai, /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：.+；和規則一樣 \d+ [下次]/);
     assert.equal(replay.ai, home.ai, 'AI 判斷');
+    // AI 動作評分（11/10）：平均、最好、最差的一下，兩邊一字不差
+    assert.match(home.score, /^AI 評分（每一[下次] 0～100 分：AI 覺得做對的把握.*）：.+分。$/);
+    assert.equal(replay.score, home.score, 'AI 評分');
+    // AI 解釋（11/11）：最差的那一下為什麼這樣判，兩邊一字不差
+    assert.match(home.explain, /^AI 解釋（(最差的)?第 \d+ [下次]，判成.+）：.+。$/);
+    assert.equal(replay.explain, home.explain, 'AI 解釋');
+    // 你這一下 vs 標準動作（11/12）：同一下（分數最差的）最低點的骨架和標準動作並排；棒式不畫
+    if (/棒式/.test(home.lines[0])) assert.equal(home.compare, null);
+    else {
+        const n = home.explain.match(/第 (\d+) 下/)[1];
+        assert.deepEqual(home.compare, { labels: ['你（第 ' + n + ' 下）', '標準動作'], figures: 2 });
+    }
+    assert.deepEqual(replay.compare, home.compare, '你這一下 vs 標準動作');
 }
 
 test('深蹲 8 下：手機上（總結、圖、CSV、成長曲線）、雲端、重播的數字一樣', async () => {
@@ -157,8 +176,9 @@ test('深蹲 8 下：手機上（總結、圖、CSV、成長曲線）、雲端�
     const parsed = parseRecording(recording);
     const node = await analyzeRecording(parsed, parsed.meta.videoWidth, parsed.meta.videoHeight, { workout: 'squat' });
     assert.deepEqual(replay.reps.map(r => r[r.length - 1]), node.reps.map(it => { const j = aiJudge('squat', it); return judgeText(j.label) + '（' + Math.round(j.confidence * 100) + '%）'; }));
-    // 即時 AI 判斷（11/7）：運動中每一下提示的 AI 那一行（「AI：做對（97%）」），和重播分析每一下一樣；和規則不一樣的兩邊都標藍色
-    assert.deepEqual(home.toasts.map(t => [t.ai, t.differ]), replay.reps.map((r, i) => ['AI：' + r[r.length - 1], replay.aiDiffer[i]]));
+    // 即時 AI 判斷（11/7）：運動中每一下提示的 AI 那一行（「AI：做對（97%） · 94 分」），和重播分析每一下的 AI 判斷、AI 評分（11/10）一樣；
+    // 和規則不一樣的兩邊都標藍色
+    assert.deepEqual(home.toasts.map(t => [t.ai, t.differ]), replay.reps.map((r, i) => ['AI：' + r[r.length - 1] + ' · ' + r[r.length - 2], replay.aiDiffer[i]]));
     assert.deepEqual(page.errors, []);
     await context.close();
 });

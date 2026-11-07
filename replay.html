@@ -135,6 +135,12 @@
                 <p id="stabilityBox" class="fluency" hidden></p>
                 <!-- AI 判斷（11/4，js/analysis/ai-judge.js）：AI 模型和規則各判成什麼、一樣幾下；實測模式錄的再寫各猜對幾下 -->
                 <p id="aiBox" class="fluency ai-line" hidden></p>
+                <p id="scoreBox" class="fluency ai-line" hidden></p>
+                <p id="explainBox" class="fluency ai-line" hidden></p>
+                <!-- AI 解釋（11/11）：每一下 AI 為什麼這樣判（平常收起來，表格旁邊放不下這麼長的字） -->
+                <details id="explainMore" class="explain-more" hidden><summary>每一下 AI 為什麼這樣判</summary><ol id="explainList"></ol></details>
+                <!-- 你這一下 vs 標準動作（11/12，js/ui/pose-compare.js）：分數最差的那一下最低點的骨架和示範動畫並排（和首頁的運動總結同一下） -->
+                <div id="poseCompareBox" class="pose-compare" hidden></div>
                 <!-- 每一下的圖表（10/27，js/ui/rep-chart.js）：和首頁的運動總結同一套 -->
                 <div id="repChart" class="rep-chart" hidden></div>
                 <div class="table-wrap">

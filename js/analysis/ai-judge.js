@@ -23,12 +23,12 @@ export function hasAiModel(workoutId) {
     return isWorkout(workoutId) && BY_WORKOUT.has(workoutId);
 }
 
-// 這一下的特徵（itemFeatures 或資料表的 features）→ { label（'good' 或錯誤代號）, confidence（投這一種的比例 0～1） }；
-// 沒有這個動作的模型回傳 null
+// 這一下的特徵（itemFeatures 或資料表的 features）→ { label（'good' 或錯誤代號）, confidence（投這一種的比例 0～1）,
+// good（投「做對」的比例 0～1，AI 動作評分用，11/10） }；沒有這個動作的模型回傳 null
 export function aiJudgeFeatures(workoutId, features) {
     if (!hasAiModel(workoutId)) return null;
     const { label, probs } = predictModel(BY_WORKOUT.get(workoutId), features);
-    return { label, confidence: Math.max(...probs) };
+    return { label, confidence: Math.max(...probs), good: probs[0] };
 }
 
 // 一下（tracker 的 item：重播分析、實測報表算的）→ AI 判斷
@@ -89,4 +89,125 @@ export function aiLine(workoutId, reps, judged) {
     return 'AI 判斷（' + (AI_MODEL.synthetic ? '示範：模型是用合成資料訓練的，不是真人' : '模型用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練')
         + '）：' + counts + '；和規則一樣 ' + (judged.length - differ.length) + ' ' + unit
         + (differ.length ? '、不一樣 ' + differ.length + ' ' + unit + '（第 ' + differ.join('、') + ' ' + unit + '）' : '');
+}
+
+// ---------- AI 動作評分（11/10）：每一下 0～100 分，總結寫最好、最差的一下 ----------
+// 分數 = AI 覺得這一下做對的把握（投「做對」的比例）× 和示範動作有多像（相似度，DTW，0～100）
+//   為什麼用乘的：做錯的那一下（AI 覺得做對的把握很低）就算蹲得很像也不該高分；做對的那幾下 AI 的把握都接近 100%，
+//   靠相似度分出高低（蹲得淺、節奏怪的分數低一點）。例：做對（把握 98%）、相似 96% → 94 分；故意上身前傾（做對的把握 3%）→ 3 分
+//   棒式沒有相似度（不是一下一下的角度曲線）：只看 AI 覺得做對的把握；某一下算不出相似度（太短）也一樣
+// 只在畫面上（運動中的提示、總結、重播分析），不存進紀錄、不上傳；同一下在首頁和重播分析是同一個數字（同一個 AI 判斷、同一個相似度）
+export function repScore(rep, ai) {
+    if (!ai || typeof ai.good !== 'number' || !Number.isFinite(ai.good)) return null;
+    const good = Math.min(1, Math.max(0, ai.good));
+    const sim = rep && typeof rep.similarity === 'number' && Number.isFinite(rep.similarity) ? Math.min(100, Math.max(0, rep.similarity)) : null;
+    return Math.round(good * (sim === null ? 100 : sim));
+}
+
+// 一組的評分那一句（不含句號）：平均幾分、最好、最差的是第幾下；一樣高（低）時寫最前面那一下
+// 例：「AI 評分（每一下 0～100 分：AI 覺得做對的把握 × 和示範動作有多像）：平均 72 分；最好第 2 下 96 分、最差第 5 下 3 分」
+// 重播分析和首頁的運動總結共用，同一個錄製檔兩邊一字不差；沒有判斷時回傳 ''
+export function scoreLine(workoutId, reps, judged) {
+    if (!hasAiModel(workoutId) || !Array.isArray(judged) || !judged.length || !Array.isArray(reps) || reps.length !== judged.length) return '';
+    const hold = WORKOUTS[workoutId].kind === 'hold';
+    const unit = hold ? '次' : '下';
+    // 第幾下：每一下自己的編號（和表格、提示一樣）；沒有編號（實測報表的資料）時照順序
+    const scores = judged.map((j, i) => ({ v: repScore(reps[i], j && j.ai), n: reps[i] && Number.isInteger(reps[i].n) ? reps[i].n : i + 1 })).filter(x => x.v !== null);
+    if (!scores.length) return '';
+    const avg = Math.round(scores.reduce((a, x) => a + x.v, 0) / scores.length);
+    const best = scores.reduce((a, x) => (x.v > a.v ? x : a)), worst = scores.reduce((a, x) => (x.v < a.v ? x : a));
+    const head = 'AI 評分（每一' + unit + ' 0～100 分：' + (hold ? 'AI 覺得做對的把握' : 'AI 覺得做對的把握 × 和示範動作有多像') + '）：';
+    if (scores.length === 1) return head + best.v + ' 分';
+    if (best.v === worst.v) return head + '每一' + unit + '都是 ' + best.v + ' 分';
+    return head + '平均 ' + avg + ' 分；最好第 ' + best.n + ' ' + unit + ' ' + best.v + ' 分、最差第 ' + worst.n + ' ' + unit + ' ' + worst.v + ' 分';
+}
+
+// ---------- AI 解釋（11/11）：AI 為什麼這樣判 ----------
+// AI 的界線：這一下其他的數字不動，只把一種錯誤的數字從 0 每次加 0.1，加到多少 AI 改判成那種錯（和規則的門檻同一個單位：
+// 上身前傾幾度、腳跟比站直時高幾 %…，form.js 的 why）；加到規則門檻的 3 倍還不改回傳 null
+// 和 11/3 訓練時算「AI 學到的門檻」同一個做法（那時用做對的那幾下的中位數當起點，這裡用這一下自己）
+// 伏地挺身、棒式的腰往下彎和屁股往上翹是同一個數字的正負（features.js），一起動，不然會試到真人做不出來的姿勢
+// 不用真的試 0.1、0.2、0.3…：森林只在分岔的門檻改變判斷，只要試每個門檻旁邊的那一格（結果和一格一格試一樣，快很多）
+const MIRROR = { sag: 'pike', pike: 'sag' };
+export function aiLimit(workoutId, features, error) {
+    if (!hasAiModel(workoutId)) return null;
+    const rule = errorRule(workoutId, error);
+    if (!rule || !rule.why || !(rule.why.limit > 0)) return null;
+    const model = BY_WORKOUT.get(workoutId);
+    const fi = model.features.indexOf(error), mi = MIRROR[error] ? model.features.indexOf(MIRROR[error]) : -1;
+    if (fi < 0) return null;
+    const top = Math.round(rule.why.limit * 30);   // 0.1 一格：規則門檻的 3 倍
+    const grid = new Set([0]);
+    const near = b => {
+        const g = Math.floor(b * 10 + 1e-9);
+        for (const k of [g, g + 1]) if (k >= 0 && k <= top) grid.add(k);
+    };
+    const walk = node => {
+        if (node.p) return;
+        if (node.f === fi) near(node.t);
+        if (node.f === mi) near(-node.t);
+        walk(node.l);
+        walk(node.r);
+    };
+    model.trees.forEach(walk);
+    const base = features && typeof features === 'object' ? features : {};
+    for (const k of [...grid].sort((a, b) => a - b)) {
+        const f = { ...base, [error]: k / 10 };
+        if (mi >= 0) f[MIRROR[error]] = -k / 10;
+        if (predictModel(model, f).label === error) return k / 10;
+    }
+    return null;
+}
+
+// 這一下 AI 為什麼這樣判（一句，不含句號）；這個動作沒有模型、這一下沒有判斷時 ''
+//   判成某種錯：「腳跟比站直時高 21%，AI 覺得超過約 12% 就算腳跟離地（規則是 14%）」
+//   判成做對：每一種錯誤的數字和 AI 的界線：「上身前傾 32°（AI 覺得超過約 41° 才算上身前傾）、腳跟比站直時高 3%（約 9%）」
+// 數字是 AI 看的（每一下持續 0.4 秒的最大值，features.js），和錯誤那一欄最嚴重的那一瞬間可能差一點；寫法和紅字的原因一樣四捨五入到整數
+export function explainRep(workoutId, rep, ai) {
+    if (!hasAiModel(workoutId) || !ai) return '';
+    const features = itemFeatures(workoutId, rep);
+    const rules = BY_WORKOUT.get(workoutId).classes.slice(1).map(id => errorRule(workoutId, id)).filter(r => r && r.why);
+    const n = (v, rule) => Math.round(v) + rule.why.unit;
+    const value = rule => (typeof features[rule.id] === 'number' && Number.isFinite(features[rule.id]) ? features[rule.id] : null);
+    if (ai.label !== 'good') {
+        const rule = rules.find(r => r.id === ai.label);
+        if (!rule) return '';
+        const v = value(rule), limit = aiLimit(workoutId, features, rule.id);
+        if (v === null) return '看不到' + rule.why.label + '，AI 是看其他數字判成' + rule.short + '的';
+        return rule.why.label + ' ' + n(v, rule) + (limit === null ? '，AI 判成' + rule.short
+            : '，AI 覺得超過約 ' + n(limit, rule) + ' 就算' + rule.short) + '（規則是 ' + n(rule.why.limit, rule) + '）';
+    }
+    return rules.map((rule, i) => {
+        const v = value(rule), limit = aiLimit(workoutId, features, rule.id);
+        if (v === null) return rule.why.label + '看不到';
+        const tail = limit === null ? '' : i === 0 ? '（AI 覺得超過約 ' + n(limit, rule) + ' 才算' + rule.short + '）' : '（約 ' + n(limit, rule) + '）';
+        return rule.why.label + ' ' + n(v, rule) + tail;
+    }).join('、');
+}
+
+// AI 評分最差的那一下是第幾個（0 開始；一樣低時最前面那一下）；沒有分數時 -1
+// AI 解釋（11/11）、你這一下 vs 標準動作（11/12）都畫這一下
+export function worstIndex(reps, judged) {
+    if (!Array.isArray(reps) || !Array.isArray(judged) || reps.length !== judged.length) return -1;
+    let worst = -1, low = Infinity;
+    judged.forEach((j, i) => {
+        const v = repScore(reps[i], j && j.ai);
+        if (v !== null && v < low) { low = v; worst = i; }
+    });
+    return worst;
+}
+
+// 一組的 AI 解釋那一句（不含句號）：AI 評分最差的那一下（一樣低時最前面那一下；只有一下就是那一下）為什麼這樣判
+// 例：「AI 解釋（最差的第 5 下，判成腳跟離地）：腳跟比站直時高 21%，AI 覺得超過約 12% 就算腳跟離地（規則是 14%）」
+// 重播分析和首頁的運動總結共用，同一個錄製檔兩邊一字不差；沒有判斷時 ''
+export function explainLine(workoutId, reps, judged) {
+    if (!hasAiModel(workoutId) || !Array.isArray(judged) || !judged.length || !Array.isArray(reps) || reps.length !== judged.length) return '';
+    const unit = WORKOUTS[workoutId].kind === 'hold' ? '次' : '下';
+    const k = worstIndex(reps, judged);
+    if (k < 0) return '';
+    const j = judged[k], rep = reps[k];
+    const text = explainRep(workoutId, rep, j.ai);
+    if (!text) return '';
+    const n = rep && Number.isInteger(rep.n) ? rep.n : k + 1;
+    return 'AI 解釋（' + (reps.length === 1 ? '第 ' + n + ' ' + unit : '最差的第 ' + n + ' ' + unit) + '，判成' + judgeText(j.ai.label) + '）：' + text;
 }

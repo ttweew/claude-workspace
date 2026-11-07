@@ -76,7 +76,7 @@ claude-workspace/
 | | `form.js` | 動作錯誤判斷：每個動作常見的錯誤（上身前傾、塌腰…），要標紅的部位 |
 | | `session.js` | 運動總結：一次運動做了幾下、品質、錯誤統計，和上一次同一個動作比較；紀錄存在這台裝置上 |
 | | `tracker.js` | 一次運動的計算：次數（計時）＋錯誤，並把做每一下期間的錯誤記到那一下；鏡頭畫面和重播分析共用 |
-| | `ai-judge.js` | AI 判斷（11/4）：網站裡的 AI 模型猜每一下是做對還是哪一種錯（`aiJudge`）、規則的判斷換成同一個說法（`ruleJudge`，`tools/evaluate.mjs` 也用）、判斷的中文、這位受測者訓練時看過沒（看過的不算準確率）；模型檔被改壞的動作就不判斷。11/7：一下、一組的 AI 和規則判斷（`judgeRep`、`judgeReps`）、表格和提示的寫法（`judgeCell`）、那一句（`aiLine`）：重播分析、首頁運動中的提示和運動總結共用，數字才會一樣 |
+| | `ai-judge.js` | AI 判斷（11/4）：網站裡的 AI 模型猜每一下是做對還是哪一種錯（`aiJudge`）、規則的判斷換成同一個說法（`ruleJudge`，`tools/evaluate.mjs` 也用）、判斷的中文、這位受測者訓練時看過沒（看過的不算準確率）；模型檔被改壞的動作就不判斷。11/7：一下、一組的 AI 和規則判斷（`judgeRep`、`judgeReps`）、表格和提示的寫法（`judgeCell`）、那一句（`aiLine`）：重播分析、首頁運動中的提示和運動總結共用，數字才會一樣。11/10：AI 動作評分（`repScore`：每一下 0～100 分 = AI 覺得做對的把握 × 相似度，棒式只看把握；`scoreLine`：平均、最好、最差的一下），三個地方同一個算法。11/11：AI 解釋（`aiLimit`：這一下其他數字不動，一種錯誤的數字加到多少 AI 改判成那種錯，只試森林分岔門檻旁邊那一格，和一格一格試的一樣；`explainRep`：這一下為什麼這樣判；`explainLine`：分數最差的那一下），首頁總結和重播分析同一句 |
 | | `ai-model.js` | 網站用的 AI 模型（11/4，**自動產生，不要手改**：`node tools/train.mjs --synthetic A,B,C,D,E,F,G,H --cv --module js/analysis/ai-model.js`；真人的實測檔來了換成 `node tools/train.mjs 實測檔資料夾 --cv --module js/analysis/ai-model.js`）。現在是合成資料訓練的示範模型（約 79 KB，壓縮後約 8 KB）；`tests/ai-judge.test.mjs` 會重新訓練一次比對，改了特徵或合成資料卻沒重新產生會失敗 |
 | | `activity.js` | AI 自動辨識動作（11/8）：最近 3 秒的骨架 → 特徵（身體斜幾度、膝／髖／手肘角度和變化、左右差、髖部和肩膀上下移動、兩腳前後分開；`frameValues`、`windowFeatures`）→ 模型猜站著、深蹲、伏地挺身、棒式、弓箭步；`ActivityMeter` 每 0.5 秒猜一次（首頁自由模式、重播分析、訓練都用同一個取法）、`ActivityDisplay` 畫面上連續 2 次才換、把握不到 6 成寫還不確定、`activitySummary` 一段錄影各猜了幾秒 |
 | | `activity-model.js` | AI 自動辨識動作的模型（11/8，**自動產生，不要手改**：`node tools/train-activity.mjs --synthetic A,B,C,D,E,F,G,H --test I,J,K --module js/analysis/activity-model.js`）。合成的火柴人訓練的示範；`tests/activity.test.mjs` 會重新訓練一次比對 |
@@ -102,6 +102,7 @@ claude-workspace/
 | `ui/` | `draw.js` | 在畫布上畫骨架；做錯的部位畫成粗紅線；重心的記號（黃黑相間的圓、往下到腳底的虛線，重播分析也用） |
 | | `labels.js` | 關鍵點的編號標籤、點一下看名稱 |
 | | `hud.js` | 站遠也看得到的大字儀表板：左、右兩組照鏡子的方式放在畫面左右兩邊，被擋住的那一組變淡 |
+| | `pose-compare.js` | 你這一下 vs 標準動作（11/12）：你的骨架照示範動畫的大小、方向擺（`userFigure`：面向左邊的翻過來、大腿一樣長、腳踝對齊；照像素算，畫面不是正方形也不會壓扁），和示範動畫的最低點並排畫（`renderCompare`）；首頁的運動總結和重播分析共用 |
 | | `demo.js` | 四個動作的示範動畫（側面火柴人＋角度）和重點字；改重點字只要改這裡 |
 | | `sound.js` | 提示音：離開畫面「逼逼逼」、站位不對「逼逼」、站好了「叮」，只在狀況改變時響；音量四段（關、小、中、大），錄製倒數也共用。語音提示選「完整」時改成用講的（`FramingSound` 把提示文字交給 main.js 決定要講還是嗶） |
 | | `speech-plan.js` | 說話規則（10/20）：一次一句、過時的不講、先講重要的（站位 ＞ 目標的倒數、時間到 ＞ 錯誤 ＞ 次數）、同一種錯誤連續兩下才講（棒式持續 2 秒）、一下做完才講、站位提示唸短句；三種模式（完整、只講錯誤、不講話） |

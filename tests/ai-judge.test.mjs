@@ -4,9 +4,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import MODELS from '../js/analysis/ai-model.js';
-import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine } from '../js/analysis/ai-judge.js';
+import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, aiLimit, explainRep, explainLine } from '../js/analysis/ai-judge.js';
 import { featureColumns, itemFeatures } from '../js/analysis/features.js';
-import { trainModel, modelClasses } from '../js/analysis/forest.js';
+import { trainModel, modelClasses, predictModel } from '../js/analysis/forest.js';
 import { analyzeOne } from '../js/data/report-core.js';
 import { buildDataset } from '../tools/dataset.mjs';
 import { syntheticSet, syntheticSubject } from './synthetic-sets.mjs';
@@ -114,4 +114,85 @@ test('AI 判斷那一句（11/7）：各判成幾下照模型的標記順序、�
     assert.equal(aiLine('squat', reps.slice(0, 2), [j('good', 'good')]), '');
     assert.equal(aiLine('constructor', reps.slice(0, 1), [j('good', 'good')]), '');
     assert.equal(aiLine('free', reps.slice(0, 1), [j('good', 'good')]), '');
+});
+
+test('AI 動作評分（11/10）：每一下 = AI 覺得做對的把握 × 相似度（棒式、算不出相似度只看把握）；一組的那一句；合成受測者 K 做對的高、故意做錯的低', async () => {
+    assert.equal(repScore({ similarity: 96 }, { good: 0.98 }), 94);
+    assert.equal(repScore({ similarity: 90 }, { good: 0.03 }), 3);
+    assert.equal(repScore({}, { good: 0.876 }), 88);
+    assert.equal(repScore({ similarity: null }, { good: 0.5 }), 50);
+    assert.equal(repScore({ similarity: 150 }, { good: 2 }), 100, '被改壞的數字夾在範圍裡');
+    assert.equal(repScore(null, { good: 0.5 }), 50);
+    for (const bad of [null, {}, { good: NaN }, { good: '1' }, { good: Infinity }]) assert.equal(repScore({ similarity: 90 }, bad), null);
+    const reps = [{ n: 1, similarity: 96 }, { n: 2, similarity: 90 }, { n: 3, similarity: 95 }];
+    const judged = [{ ai: { good: 0.98 } }, { ai: { good: 0.03 } }, { ai: { good: 1 } }];
+    assert.equal(scoreLine('squat', reps, judged), 'AI 評分（每一下 0～100 分：AI 覺得做對的把握 × 和示範動作有多像）：平均 64 分；最好第 3 下 95 分、最差第 2 下 3 分');
+    assert.equal(scoreLine('plank', [{ n: 1 }], [{ ai: { good: 0.9 } }]), 'AI 評分（每一次 0～100 分：AI 覺得做對的把握）：90 分');
+    assert.equal(scoreLine('squat', [{ n: 4, similarity: 90 }, { n: 5, similarity: 90 }], [{ ai: { good: 1 } }, { ai: { good: 1 } }]),
+        'AI 評分（每一下 0～100 分：AI 覺得做對的把握 × 和示範動作有多像）：每一下都是 90 分');
+    // 沒有編號的（實測報表的資料）照順序
+    assert.match(scoreLine('squat', [{ similarity: 90 }, { similarity: 50 }], [{ ai: { good: 1 } }, { ai: { good: 1 } }]), /最好第 1 下 90 分、最差第 2 下 50 分$/);
+    // 沒有模型的動作、對不上、空的、不認得的動作
+    for (const [id, r, j] of [['free', reps, judged], ['squat', reps, judged.slice(1)], ['squat', [], []], ['constructor', reps, judged], ['squat', reps, null]]) {
+        assert.equal(scoreLine(id, r, j), '');
+    }
+    // 合成受測者 K（訓練時沒看過）：做對的那組平均比故意腳跟離地的那組高很多
+    const avg = async (id, condition) => {
+        const r = await analyzeOne(syntheticSet('K', id, condition, 1).text);
+        const j = judgeReps(id, r.items);
+        const v = r.items.map((it, i) => repScore(it, j[i].ai));
+        return v.reduce((a, b) => a + b, 0) / v.length;
+    };
+    const good = await avg('squat', 'good'), heel = await avg('squat', 'heel');
+    assert.ok(good >= 60 && heel <= 20, good + ' / ' + heel);
+    assert.ok(await avg('pushup', 'good') >= 90 && await avg('pushup', 'sag') <= 10);
+});
+
+test('AI 解釋（11/11）：AI 的界線和一格一格試的一樣；判成錯誤、做對、看不到的寫法；一組最差的那一下', async () => {
+    // 一格一格試（0.1 一格，最多規則門檻的 3 倍）：和 aiLimit 只試門檻旁邊那一格的結果要一樣
+    const MIRROR = { sag: 'pike', pike: 'sag' };
+    const scan = (id, f, e) => {
+        const model = MODELS.models.find(m => m.workout === id);
+        const limit = { squat: { lean: 50, heel: 14 }, lunge: { lean: 30, knee: 10 } }[id];
+        const top = limit ? Math.round(limit[e] * 30) : 3000;
+        for (let i = 0; i <= top; i++) {
+            const x = { ...f, [e]: i / 10 };
+            if (MIRROR[e]) x[MIRROR[e]] = -i / 10;
+            if (predictModel(model, x).label === e) return i / 10;
+        }
+        return null;
+    };
+    let checked = 0;
+    for (const [id, c] of [['squat', 'good'], ['squat', 'heel'], ['lunge', 'knee'], ['pushup', 'sag'], ['plank', 'pike']]) {
+        const r = await analyzeOne(syntheticSet('K', id, c, 1).text);
+        for (const it of r.items) {
+            const f = itemFeatures(id, it);
+            for (const e of modelClasses(id).slice(1)) {
+                const fast = aiLimit(id, f, e), slow = scan(id, f, e);
+                if (id === 'squat' || id === 'lunge') assert.equal(fast, slow, id + ' ' + e);
+                else assert.ok(fast === slow || (fast === null && slow > 0), id + ' ' + e + ' ' + fast + ' ' + slow);
+                checked++;
+            }
+        }
+    }
+    assert.ok(checked >= 50);
+    assert.equal(aiLimit('free', {}, 'lean'), null);
+    assert.equal(aiLimit('squat', {}, 'constructor'), null);
+    assert.equal(aiLimit('squat', {}, 'knee'), null, '深蹲沒有膝超過腳尖');
+    // 寫法：判成腳跟離地；判成做對（每一種錯誤的數字和界線）；看不到那個數字
+    const heel = { features: { lean: 30, heel: 25 } };
+    const limit = aiLimit('squat', heel.features, 'heel');
+    assert.equal(explainRep('squat', heel, { label: 'heel' }), '腳跟比站直時高 25%，AI 覺得超過約 ' + Math.round(limit) + '% 就算腳跟離地（規則是 14%）');
+    assert.match(explainRep('squat', { features: { lean: 20, heel: 2 } }, { label: 'good' }), /^上身前傾 20°（AI 覺得超過約 \d+° 才算上身前傾）、腳跟比站直時高 2%（約 \d+%）$/);
+    assert.equal(explainRep('squat', { features: { lean: 70, heel: null } }, { label: 'heel' }), '看不到腳跟比站直時高，AI 是看其他數字判成腳跟離地的');
+    assert.match(explainRep('squat', { features: { lean: 20, heel: null } }, { label: 'good' }), /、腳跟比站直時高看不到$/);
+    for (const [id, ai] of [['free', { label: 'good' }], ['squat', null], ['squat', { label: 'knee' }]]) assert.equal(explainRep(id, heel, ai), '');
+    // 一組：分數最差的那一下（合成受測者 K 故意腳跟離地）
+    const r = await analyzeOne(syntheticSet('K', 'squat', 'heel', 1).text);
+    const judged = judgeReps('squat', r.items);
+    const scores = r.items.map((it, i) => repScore(it, judged[i].ai));
+    const worst = scores.indexOf(Math.min(...scores));
+    assert.equal(explainLine('squat', r.items, judged), 'AI 解釋（最差的第 ' + (worst + 1) + ' 下，判成' + judgeText(judged[worst].ai.label) + '）：' + explainRep('squat', r.items[worst], judged[worst].ai));
+    assert.match(explainLine('plank', [{ n: 1, features: { sag: 0, pike: 1 } }], [{ ai: { label: 'good', good: 1 } }]), /^AI 解釋（第 1 次，判成做對）：/);
+    for (const [id, reps, j] of [['free', r.items, judged], ['squat', r.items, judged.slice(1)], ['squat', [], []], ['squat', r.items, null]]) assert.equal(explainLine(id, reps, j), '');
 });

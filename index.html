@@ -114,6 +114,10 @@
                     <p id="stabilityBox" class="fluency" hidden></p>
                     <!-- AI 判斷（11/7，js/analysis/ai-judge.js）：AI 模型判成哪幾種各幾下、和規則一樣幾下；和重播分析那一句一字不差 -->
                     <p id="aiSummaryBox" class="fluency ai-line" hidden></p>
+                    <p id="scoreSummaryBox" class="fluency ai-line" hidden></p>
+                    <p id="explainSummaryBox" class="fluency ai-line" hidden></p>
+                    <!-- 你這一下 vs 標準動作（11/12，js/ui/pose-compare.js）：分數最差的那一下最低點的骨架和示範動畫並排 -->
+                    <div id="poseCompareBox" class="pose-compare" hidden></div>
                     <!-- 每一下的圖表（10/27，js/ui/rep-chart.js）：深度、每下幾秒（棒式：每一次撐幾秒），下面有表格 -->
                     <div id="repChart" class="rep-chart" hidden></div>
                     <!-- 計次準確率（10/20）：填自己數的次數，和網站算的比；只存在這台裝置（實測時用） -->

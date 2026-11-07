@@ -38,7 +38,8 @@ import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
 import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
-import { judgeRep, judgeReps, judgeCell, aiLine } from '../analysis/ai-judge.js';
+import { judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, explainLine, worstIndex } from '../analysis/ai-judge.js';
+import { userFigure, renderCompare } from '../ui/pose-compare.js';
 import { ActivityMeter, ActivityDisplay, ACTIVITY_NAMES, hasActivityModel } from '../analysis/activity.js';
 import { AutoSwitch } from '../analysis/auto-mode.js';
 import { RaiseHand, HOLD_MS, SHOW_AFTER_MS } from '../analysis/gesture.js';
@@ -784,6 +785,7 @@ function showResult(result, now) {
     const rawWorld = result.world;
     // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/skeleton/pipeline.js）；沒有人或是鬼骨架時為 null
     const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
+    keepPose(processed, now);
     if (processed) {
         const { landmarks, angles } = processed;
         lastSeen = now;
@@ -943,6 +945,9 @@ function aiAutoStart(change, now) {
     if (workout.id !== change.workout) return;   // 換不過去（錄製中鎖住）
     let last = null;
     for (const f of change.frames) last = tracker.update(f.processed, f.now);
+    // 重算出來的那幾下也記最低點的骨架（你這一下 vs 標準動作，11/12）
+    const poses = change.frames.filter(f => f.processed).map(f => ({ t: f.now, landmarks: f.processed.landmarks, facing: f.processed.view.facing, width: f.processed.width, height: f.processed.height }));
+    for (const item of tracker.items) attachPose(item, poses);
     // 這次運動從重算的第一格開始算（總結的時間）
     if (change.frames.length) sessionStart = Date.now() - Math.max(0, now - change.frames[0].now);
     if (last && last.count) showCount({ ...last, count: { ...last.count, rep: null, hold: null } });
@@ -1060,6 +1065,23 @@ function showCount(tracked) {
     return result.prompt ? { text: result.prompt, kind: result.promptKind } : null;
 }
 
+// 你這一下 vs 標準動作（11/12，js/ui/pose-compare.js）：最近 8 秒每一格的骨架（一下最多約 8 秒：更久的那一下記不到最低點，就不畫）
+// 每一下做完時找最低點（rep.bottom）那一格記在這一下（rep.pose，只在畫面上用，不存進紀錄、不上傳）
+const POSE_KEEP_MS = 8000;
+const recentPoses = [];
+function keepPose(processed, now) {
+    if (processed) recentPoses.push({ t: now, landmarks: processed.landmarks, facing: processed.view.facing, width: processed.width, height: processed.height });
+    while (recentPoses.length && now - recentPoses[0].t > POSE_KEEP_MS) recentPoses.shift();
+}
+// 最低點前後 0.2 秒內最近的那一格（中間漏掉幾格也找得到；找不到就不記）
+function attachPose(rep, list) {
+    if (!rep || rep.pose || typeof rep.bottom !== 'number') return;
+    const at = rep.bottom * 1000;
+    let best = null;
+    for (const f of list) if (!best || Math.abs(f.t - at) < Math.abs(best.t - at)) best = f;
+    if (best && Math.abs(best.t - at) <= 200) rep.pose = best;
+}
+
 // 完成一下（或一次棒式）：顯示提示（含這一下出現過的錯誤）、講出來
 // 有錯誤時，深度到位也用黃色（提醒還有地方要改）
 function finishRep(rep, depth) {
@@ -1073,8 +1095,12 @@ function finishRep(rep, depth) {
     const stall = rep.stalls > 0 ? ' · 卡了一下' : '';
     // AI 判斷（11/7，js/analysis/ai-judge.js）：提示的第二行寫 AI 模型判成什麼（「AI：做對（97%）」），和規則判的不一樣時藍色
     // 只寫在畫面上、不講話（講話只講要緊的；AI 現在是用合成資料訓練的示範）；這個動作沒有模型就沒有這一行
+    // 你這一下 vs 標準動作（11/12）：記下這一下最低點那一格的骨架，總結畫分數最差的那一下
+    attachPose(rep, recentPoses);
+    // AI 動作評分（11/10）：同一行後面寫這一下幾分（0～100，和重播分析的「AI 評分」一樣）
     const judged = judgeRep(workout.id, rep);
-    const ai = judged ? { text: 'AI：' + judgeCell(judged.ai), differ: judged.ai.label !== judged.rule } : null;
+    const score = judged ? repScore(rep, judged.ai) : null;
+    const ai = judged ? { text: 'AI：' + judgeCell(judged.ai) + (score === null ? '' : ' · ' + score + ' 分'), differ: judged.ai.label !== judged.rule } : null;
     showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + stall + similar, kind, ai);
     sayRep(rep, depth, tired);
 }
@@ -1208,7 +1234,16 @@ function finishSession() {
     // 每一下的圖表（10/27）：紀錄裡只存總結的數字，所以只畫剛做完的這一次；要在下面清掉計次之前算
     const series = s ? repSeries(workout.id, tracker.items) : null;
     // AI 判斷（11/7）：AI 判成哪幾種各幾下、和規則一樣幾下；和重播分析那一句同一個寫法（aiLine）。只在畫面上，不存進紀錄、不上傳
-    const ai = s ? aiLine(workout.id, tracker.items, judgeReps(workout.id, tracker.items)) : '';
+    // AI 動作評分（11/10）：平均幾分、最好、最差的是第幾下（scoreLine，和重播分析那一句一字不差）
+    const judged = s ? judgeReps(workout.id, tracker.items) : null;
+    const ai = s ? aiLine(workout.id, tracker.items, judged) : '';
+    const score = s ? scoreLine(workout.id, tracker.items, judged) : '';
+    // AI 解釋（11/11）：分數最差的那一下 AI 為什麼這樣判（explainLine，和重播分析那一句一字不差）
+    const explain = s ? explainLine(workout.id, tracker.items, judged) : '';
+    // 你這一下 vs 標準動作（11/12）：同一下（分數最差的）最低點的骨架
+    const k = s ? worstIndex(tracker.items, judged) : -1;
+    const posed = k >= 0 ? tracker.items[k].pose : null;
+    const compare = posed ? { pose: userFigure(workout.id, posed.landmarks, posed.width, posed.height, posed.facing), n: tracker.items[k].n } : null;
     // 這次的目標記進總結（「目標 10 下：達成」）；只存在這台裝置，不上傳雲端（js/cloud/sync.js 的白名單沒有）
     const goal = currentGoal();
     if (s && goal !== null) s.goal = goal;
@@ -1217,11 +1252,11 @@ function finishSession() {
     if (!s) return;
     // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
     if (demo) {
-        showSummary(s, null, true, series, goal, ai);
+        showSummary(s, null, true, series, goal, ai, score, explain, compare);
         return;
     }
     const previous = saveSession(s);
-    showSummary(s, previous, false, series, goal, ai);
+    showSummary(s, previous, false, series, goal, ai, score, explain, compare);
     // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
     cloudPanel.afterSession();
 }
@@ -1234,9 +1269,14 @@ const fatigueBox = document.getElementById('fatigueBox');
 const fluencyBox = document.getElementById('fluencyBox');
 const stabilityBox = document.getElementById('stabilityBox');
 const aiSummaryBox = document.getElementById('aiSummaryBox');
+const scoreSummaryBox = document.getElementById('scoreSummaryBox');   // AI 動作評分（11/10）
+const explainSummaryBox = document.getElementById('explainSummaryBox');   // AI 解釋（11/11）
+const poseCompareBox = document.getElementById('poseCompareBox');   // 你這一下 vs 標準動作（11/12）
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 // ai：AI 判斷那一句（js/analysis/ai-judge.js 的 aiLine，不含句號；這個動作沒有模型時 ''）
-function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '') {
+// score：AI 動作評分那一句（11/10，ai-judge.js 的 scoreLine，不含句號；沒有時 ''）；explain：AI 解釋那一句（11/11，explainLine）
+// compare：你這一下 vs 標準動作（11/12）{ pose（userFigure 的結果）, n（第幾下） }，沒有時 null
+function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '', score = '', explain = '', compare = null) {
     shownSummary = { s, previous };
     writeSummary();
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
@@ -1262,6 +1302,11 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null, 
     // AI 判斷（11/7）：AI 模型判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下（和重播分析一字不差）
     aiSummaryBox.hidden = !ai;
     aiSummaryBox.textContent = ai ? ai + '。' : '';
+    scoreSummaryBox.hidden = !score;
+    scoreSummaryBox.textContent = score ? score + '。' : '';
+    explainSummaryBox.hidden = !explain;
+    explainSummaryBox.textContent = explain ? explain + '。' : '';
+    poseCompareBox.hidden = !(compare && compare.pose && renderCompare(poseCompareBox, s.workout, compare.pose, '你（第 ' + compare.n + ' 下）', ''));
     // 教練建議（10/31）：兩三句；AI 教練打開時請 Gemini 寫，不然（或連不上）用固定句子
     coach.show(coachFacts(s, series));
     showHistory();
