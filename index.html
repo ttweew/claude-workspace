@@ -204,6 +204,11 @@
                     <div id="gestureBox" class="set-card">
                         <label class="switch-pick"><input type="checkbox" id="gestureToggle" role="switch" checked> <span>手勢控制錄影<small>站在遠處舉起一隻手過頭 2 秒，開始或結束錄影（AI 看骨架判斷，不用走回手機按）</small></span></label>
                     </div>
+                    <!-- AI 全自動（11/9，js/analysis/auto-mode.js）：不用選動作，AI 自動辨識動作認出你在做什麼就自動開始計次，換動作也跟著換；
+                         AI 認出來之前做的那幾下也算。預設關（AI 是用合成的火柴人訓練的示範，可能認錯）；實測模式不用（每一組由主持人選） -->
+                    <div id="aiAutoBox" class="set-card">
+                        <label class="switch-pick"><input type="checkbox" id="aiAutoToggle" role="switch"> <span>AI 全自動<small>不用選動作：AI 認出你在做深蹲、伏地挺身、棒式或弓箭步，就自動開始數，換動作也跟著換（AI 是用火柴人訓練的示範，可能認錯）</small></span></label>
+                    </div>
                     <!-- 實測模式（10/20，js/data/test-mode.js）：實測那天主持人用。開著時鏡頭畫面上方出現「這組要做的」按鈕，
                          選了就倒數、自動錄製，按「這組做完」存進錄製檔（可以改成也馬上下載；檔名有受測者代號、動作、這組要做的）
                          10/21 從進階設定拿出來（使用者回饋：收在裡面不容易發現）；開著時卡片變黃，代號、下載的選項才出現 -->
@@ -411,7 +416,7 @@
                  換了動作才唸（aria-live 只在猜的動作那段字）；把握幾 % 每 0.5 秒會變，不給螢幕閱讀器唸 -->
             <div id="activity" hidden>
                 <div class="advice-card activity-card">
-                    <p><strong>AI 自動辨識動作</strong><span id="activityText" aria-live="polite"></span><span id="activitySure" aria-hidden="true"></span></p>
+                    <p><strong id="activityTitle">AI 自動辨識動作</strong><span id="activityText" aria-live="polite"></span><span id="activitySure" aria-hidden="true"></span></p>
                     <div class="advice-actions"><button id="activitySwitch" type="button" hidden></button></div>
                 </div>
             </div>

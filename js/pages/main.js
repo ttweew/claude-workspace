@@ -19,7 +19,7 @@ import { updateDataPanel, updateViewInfo } from '../ui/datapanel.js';
 import { Hud } from '../ui/hud.js';
 import { Sound, FramingSound, LEVEL_NAMES } from '../ui/sound.js';
 import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } from '../platform/screen.js';
-import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds, setWorkout, onWorkoutLock, isWorkout } from '../analysis/workouts.js';
+import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds, setWorkout, onWorkoutLock, isWorkout, WORKOUTS } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { BalanceMeter, balanceOf, BALANCE } from '../analysis/balance.js';
 import { errorShort, errorRule, whyText } from '../analysis/form.js';
@@ -40,6 +40,7 @@ import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
 import { judgeRep, judgeReps, judgeCell, aiLine } from '../analysis/ai-judge.js';
 import { ActivityMeter, ActivityDisplay, ACTIVITY_NAMES, hasActivityModel } from '../analysis/activity.js';
+import { AutoSwitch } from '../analysis/auto-mode.js';
 import { RaiseHand, HOLD_MS, SHOW_AFTER_MS } from '../analysis/gesture.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
@@ -859,41 +860,104 @@ function videoResized() {
 }
 
 // ---------- AI 自動辨識動作（11/8，js/analysis/activity.js）：自由模式時 AI 猜你在做哪個動作，一鍵切換過去 ----------
+// AI 全自動（11/9，js/analysis/auto-mode.js）：首頁「AI 全自動」開著時，選了動作也一直猜；認出另一個動作就自動換過去開始計次，
+// AI 認出來之前做的那幾下也算（最近幾秒的骨架交給新的動作重算）；錄製中不換（錄製檔只記一個動作）
 
 const activityBox = document.getElementById('activity');
+const activityTitle = document.getElementById('activityTitle');
 const activityText = document.getElementById('activityText');
 const activitySure = document.getElementById('activitySure');
 const activitySwitch = document.getElementById('activitySwitch');
+const aiAutoToggle = document.getElementById('aiAutoToggle');
 const activityMeter = new ActivityMeter();
 const activityDisplay = new ActivityDisplay();
+const aiAutoSwitch = new AutoSwitch();
+// 首頁「AI 全自動」開關：預設關（AI 是用合成的火柴人訓練的示範，可能認錯），會記住；實測模式不用（每一組由主持人選）
+const AI_AUTO_KEY = 'aiAuto';
+let aiAutoOn = false;
+try { aiAutoOn = localStorage.getItem(AI_AUTO_KEY) === '1'; } catch (err) { /* 不能讀就用預設（關） */ }
+aiAutoToggle.checked = aiAutoOn;
+aiAutoToggle.addEventListener('change', () => {
+    aiAutoOn = aiAutoToggle.checked;
+    try { localStorage.setItem(AI_AUTO_KEY, aiAutoOn ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
+    resetActivity();
+});
+const aiAutoAllowed = () => aiAutoOn && hasActivityModel() && !testMode.on;
+let workoutLocked = false;   // 錄製中（setWorkoutLocked）：不能換動作
+let aiAutoNote = null;         // 剛自動換過去：{ text, until }，卡片上留 3 秒
 
-// 每一格（showResult）：自由模式才猜；選了動作、看不到人、剛開始資料不到 3 秒時收起來
-// 只在字變了的時候改畫面（每一格都寫會一直重新排版）
+// 每一格（showResult）：自由模式（或 AI 全自動開著）才猜；選了動作、看不到人、剛開始資料不到 3 秒時收起來
+// （AI 全自動時一直顯示，寫現在數什麼）；只在字變了的時候改畫面（每一格都寫會一直重新排版）
 function showActivity(processed, now) {
-    const shown = workout.id === 'free' && hasActivityModel() ? activityDisplay.update(activityMeter.update(processed, now)) : null;
+    const auto = aiAutoAllowed();
+    const watching = hasActivityModel() && (workout.id === 'free' || auto);
+    const guess = watching ? activityMeter.update(processed, now) : undefined;
+    const shown = watching ? activityDisplay.update(guess) : null;
+    if (auto) {
+        const change = aiAutoSwitch.update(processed, now, guess, shown, workout.id, !workoutLocked);
+        if (change) aiAutoStart(change, now);
+        setActivityCard('AI 全自動', aiAutoText(shown, now), '', null);
+        return;
+    }
     if (!shown) {
         if (!activityBox.hidden) activityBox.hidden = true;
         return;
     }
     const label = shown.label;
     const text = label === null ? '還在看你在做什麼…' : label === 'stand' ? '你現在站著；開始做動作，AI 會猜是哪一個' : '你在做' + ACTIVITY_NAMES[label];
-    if (activityText.textContent !== text) activityText.textContent = text;
     const sure = label === null ? '' : '（把握 ' + Math.round(shown.confidence * 100) + '%）';
-    if (activitySure.textContent !== sure) activitySure.textContent = sure;
     // 猜到在做動作（不是站著）才有「切換到深蹲」：按了就和首頁選深蹲一樣（開始計次、判斷錯誤）
-    const canSwitch = label !== null && label !== 'stand';
+    setActivityCard('AI 自動辨識動作', text, sure, label !== null && label !== 'stand' ? label : null);
+}
+// 卡片：標題、猜的動作那段字、把握幾 %、「切換到…」的按鈕（null：沒有按鈕）
+function setActivityCard(title, text, sure, switchTo) {
+    if (activityTitle.textContent !== title) activityTitle.textContent = title;
+    if (activityText.textContent !== text) activityText.textContent = text;
+    if (activitySure.textContent !== sure) activitySure.textContent = sure;
+    const canSwitch = switchTo !== null;
     if (activitySwitch.hidden === canSwitch) activitySwitch.hidden = !canSwitch;
     if (canSwitch) {
-        const button = '切換到' + ACTIVITY_NAMES[label];
+        const button = '切換到' + ACTIVITY_NAMES[switchTo];
         if (activitySwitch.textContent !== button) activitySwitch.textContent = button;
-        activitySwitch.dataset.workout = label;
+        activitySwitch.dataset.workout = switchTo;
     }
     if (activityBox.hidden) activityBox.hidden = false;
 }
-// 重新開始猜（換動作、重開鏡頭、畫面轉向）：之前的 3 秒不算
+// 開始數（棒式是開始計時）
+const startWord = w => (w.kind === 'hold' ? '開始計時' : '開始數') + w.name;
+// AI 全自動時卡片上的字：剛換過去寫換成什麼（3 秒）；錄製中寫不換；還在等確定寫「你在做深蹲，馬上開始數」；已經在數寫現在數什麼
+function aiAutoText(shown, now) {
+    if (aiAutoNote && now < aiAutoNote.until) return aiAutoNote.text;
+    const doing = (workout.kind === 'hold' ? '現在計時' : '現在數') + workout.name;
+    if (workoutLocked) return workout.id === 'free' ? '錄製中不自動開始數（先停止錄製）' : doing + '（錄製中不自動換動作）';
+    const pending = aiAutoSwitch.pending;
+    if (pending) return '你在做' + ACTIVITY_NAMES[pending] + '，馬上' + (workout.id === 'free' ? startWord(WORKOUTS[pending]) : '換過去');
+    if (workout.id !== 'free') return doing + '；換別的動作，AI 會跟著換';
+    if (!shown || shown.label === null) return '還在看你在做什麼…';
+    return '你現在站著；開始做動作，AI 認出來就自動開始數';
+}
+// 自動換過去：和按「切換到深蹲」一樣換動作，再把最近幾秒的骨架交給新的動作重算（AI 認出來之前做的那幾下也算）
+// 重算出來的那幾下不一下一下跳提示、不一下一下講（會一下子跳好幾個），卡片上寫一句、講一句「開始數深蹲」
+function aiAutoStart(change, now) {
+    setWorkout(change.workout);
+    if (workout.id !== change.workout) return;   // 換不過去（錄製中鎖住）
+    let last = null;
+    for (const f of change.frames) last = tracker.update(f.processed, f.now);
+    // 這次運動從重算的第一格開始算（總結的時間）
+    if (change.frames.length) sessionStart = Date.now() - Math.max(0, now - change.frames[0].now);
+    if (last && last.count) showCount({ ...last, count: { ...last.count, rep: null, hold: null } });
+    const done = tracker.items.length;
+    const start = startWord(workout);
+    aiAutoNote = { text: start + (done ? '（AI 認出來之前做的 ' + done + (workout.kind === 'hold' ? ' 次' : ' 下') + '也算進去）' : ''), until: now + 3000 };
+    if (canSpeak('setup')) speech.offer('setup', start, performance.now());
+    else sound.play('long');
+}
+// 重新開始猜（換動作、重開鏡頭、畫面轉向、開關 AI 全自動）：之前的 3 秒不算
 function resetActivity() {
     activityMeter.reset();
     activityDisplay.reset();
+    aiAutoSwitch.reset();
+    aiAutoNote = null;
     activityBox.hidden = true;
 }
 activitySwitch.addEventListener('click', () => {
@@ -902,6 +966,7 @@ activitySwitch.addEventListener('click', () => {
     if (isWorkout(id) && id !== 'free') setWorkout(id);
 });
 onWorkoutLock(on => {
+    workoutLocked = on;
     activitySwitch.disabled = on;
     activitySwitch.title = on ? '錄製中不能換動作：先停止錄製' : '';
 });
