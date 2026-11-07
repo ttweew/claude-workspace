@@ -40,6 +40,7 @@ import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
 import { judgeRep, judgeReps, judgeCell, aiLine } from '../analysis/ai-judge.js';
 import { ActivityMeter, ActivityDisplay, ACTIVITY_NAMES, hasActivityModel } from '../analysis/activity.js';
+import { RaiseHand, HOLD_MS, SHOW_AFTER_MS } from '../analysis/gesture.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -834,6 +835,8 @@ function showResult(result, now) {
     }
     // AI 自動辨識動作（11/8）：自由模式才猜（選了動作就不用猜）
     showActivity(processed, now);
+    // 手勢控制（11/8）：舉起一隻手過頭 2 秒，開始（結束）錄影
+    showGesture(processed, now);
     if (now - lastPanelUpdate > 200) {
         lastPanelUpdate = now;
         if (!dataPanel.hidden) updatePanel();
@@ -846,6 +849,7 @@ function showResult(result, now) {
 function videoResized() {
     pipeline.reset();
     resetActivity();
+    resetGesture();
     worldStabilizer.reset();
     framing.reset();
     if (recorder.recording) {
@@ -901,6 +905,66 @@ onWorkoutLock(on => {
     activitySwitch.disabled = on;
     activitySwitch.title = on ? '錄製中不能換動作：先停止錄製' : '';
 });
+
+// ---------- 手勢控制（11/8，js/analysis/gesture.js）：站遠舉起一隻手過頭 2 秒，開始（結束）錄影 ----------
+// 首頁「手勢控制錄影」開關（預設打開，會記住）；實測模式不用（每一組由主持人按、自動錄製）
+const GESTURE_KEY = 'gestureControl';
+const gestureToggle = document.getElementById('gestureToggle');
+const gestureNote = document.getElementById('gestureNote');
+const raiseHand = new RaiseHand();
+let gestureOn = true;
+let gestureNoteTimer = null;
+try { gestureOn = localStorage.getItem(GESTURE_KEY) !== '0'; } catch (err) { /* 不能讀就用預設（打開） */ }
+gestureToggle.checked = gestureOn;
+gestureToggle.addEventListener('change', () => {
+    gestureOn = gestureToggle.checked;
+    try { localStorage.setItem(GESTURE_KEY, gestureOn ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
+    resetGesture();
+});
+const gestureAllowed = () => gestureOn && !testSet && !(testMode.on && conditionsFor(workout.id).length > 0);
+
+// 每一格（showResult）：舉著 0.5 秒以上寫「✋ 再舉 1.2 秒開始錄影」，舉滿 2 秒就和錄影控制列的大圓鈕一樣
+// （還沒錄就開始、倒數中取消、錄製中結束），講出來（或嗶一聲），畫面上寫 2.5 秒
+function showGesture(processed, now) {
+    if (!gestureAllowed()) {
+        if (!gestureNoteTimer && !gestureNote.hidden) gestureNote.hidden = true;
+        return;
+    }
+    const r = raiseHand.update(processed, now);
+    const what = recorder.recording ? '結束錄影' : recCountdown.counting ? '取消倒數' : '開始錄影';
+    if (r.fired) {
+        gestureRecord();
+        cueRecording(what, true);
+        flashGesture('✋ 手勢：' + what);
+        return;
+    }
+    if (gestureNoteTimer) return;   // 剛觸發的說明還在顯示
+    const show = r.holding >= SHOW_AFTER_MS;
+    const text = show ? '✋ 再舉 ' + (Math.ceil((HOLD_MS - r.holding) / 100) / 10).toFixed(1) + ' 秒' + what : '';
+    if (gestureNote.textContent !== text) gestureNote.textContent = text;
+    if (gestureNote.hidden === show) gestureNote.hidden = !show;
+}
+function gestureRecord() {
+    if (recorder.recording) stopRecording();
+    else if (recCountdown.counting) cancelCountdown();
+    else startCountdown();
+}
+function flashGesture(text) {
+    gestureNote.textContent = text;
+    gestureNote.hidden = false;
+    clearTimeout(gestureNoteTimer);
+    gestureNoteTimer = setTimeout(() => {
+        gestureNoteTimer = null;
+        gestureNote.hidden = true;
+    }, 2500);
+}
+// 重新開始（重開鏡頭、畫面轉向、開關手勢）：之前舉的不算
+function resetGesture() {
+    raiseHand.reset();
+    clearTimeout(gestureNoteTimer);
+    gestureNoteTimer = null;
+    gestureNote.hidden = true;
+}
 
 // ---------- 運動模式：次數、計時（js/analysis/workouts.js） ----------
 
@@ -1404,6 +1468,7 @@ function stopStream() {
     resetLight();
     pipeline.reset();
     resetActivity();
+    resetGesture();
     worldStabilizer.reset();
     framing.reset();
     framingSound.reset();
