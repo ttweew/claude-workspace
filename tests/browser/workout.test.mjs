@@ -1,7 +1,7 @@
 // 首頁開鏡頭運動、關鏡頭看總結（瀏覽器端到端，假的 AI，合成資料）
 //   深蹲 6 下（後 3 下整個人前後晃）：次數、總結、動作流暢度、動作穩定度、每一下的表格
 //   棒式 26 秒（後半髖部上下晃）：秒數、動作穩定度
-//   伏地挺身 3 下：沒有穩定度；320 寬的手機：總結不超出畫面
+//   伏地挺身 3 下：沒有穩定度；320 寬的手機：總結不超出畫面；每一下的提示多一行 AI 判斷（11/7）也不超出
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { launch, serve, open, script, rep, workout, summary, usedFrames } from './harness.mjs';
@@ -91,7 +91,7 @@ test('棒式 26 秒：前段撐得穩、後段髖部上下晃', async () => {
     await context.close();
 });
 
-test('伏地挺身 3 下：沒有穩定度；320 寬的手機：總結、表格不超出畫面', async () => {
+test('伏地挺身 3 下：沒有穩定度；320 寬的手機：總結、表格、每一下的提示（多一行 AI 判斷）不超出畫面', async () => {
     const { context, page } = await open(browser, PUSHUP, { width: 320, height: 640, mobile: true });
     await workout(page, site.base, 'pushup', () => document.getElementById('hudReps').textContent === '3');
     const s = await summary(page);
@@ -101,6 +101,14 @@ test('伏地挺身 3 下：沒有穩定度；320 寬的手機：總結、表格�
     await page.click('#repChart details.rep-table summary');
     const width = await page.evaluate(() => document.documentElement.scrollWidth);
     assert.ok(width <= 320, '整頁寬 ' + width);
+    // 即時 AI 判斷（11/7）：每一下的提示第二行是 AI 判斷（「AI：做對（97%）」）；總結多一句 AI 判成哪幾種各幾下
+    const toasts = await page.evaluate(() => window.__toasts);
+    assert.equal(toasts.length, 3, JSON.stringify(toasts));
+    for (const t of toasts) {
+        assert.match(t.ai, /^AI：(做對|塌腰|屁股太高)（\d+%）$/);
+        assert.ok(t.left >= 0 && t.right <= 320, '提示在畫面裡：' + t.left + '～' + t.right);
+    }
+    assert.match(s.ai, /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：.+；和規則一樣 \d 下/);
     assert.deepEqual(page.errors, []);
     await context.close();
 });

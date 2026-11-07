@@ -2797,6 +2797,14 @@ code {
 #repToast.good { color: var(--accent); }
 #repToast.close { color: #FFC857; }
 #repToast.shallow { color: var(--danger); }
+/* AI 判斷（11/7）：提示的第二行，字小一點、白字（上面一行的顏色是規則判的深度）；和規則判的不一樣時藍色（和重播分析的表格一樣） */
+#repToast .ai-toast {
+    display: block;
+    color: var(--text);
+    font-size: 0.6em;
+    font-weight: 700;
+}
+#repToast .ai-toast.ai-differ { color: var(--info); }
 /* 多了次數（或棒式秒數），直式手機下方要排三格（左組、次數、右組）：字跟著螢幕寬度縮小（360 寬的手機數字約 40 像素高，站遠仍看得到）
    棒式的「0:23」比次數寬，數字再小一點，三格才不會擠在一起 */
 @media (orientation: portrait) {

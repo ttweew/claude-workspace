@@ -24,8 +24,7 @@ import { balanceLine, BALANCE } from '../analysis/balance.js';
 import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
-import { hasAiModel, aiJudge, ruleJudge, judgeText, AI_MODEL, seenInTraining } from '../analysis/ai-judge.js';
-import { itemFeatures } from '../analysis/features.js';
+import { judgeReps, aiLine, judgeCell, seenInTraining } from '../analysis/ai-judge.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
 
 const $ = id => document.getElementById(id);
@@ -51,13 +50,9 @@ function showAnalysis(series, workoutId) {
     stabilityBox.hidden = !stability;
     stabilityBox.textContent = stabilityLine(stability);
 }
-// AI 判斷（11/4，js/analysis/ai-judge.js）：每一下 AI 模型和規則各判成什麼（做對，或哪一種錯）；這個動作沒有模型時 null
-function judgeReps(id, reps) {
-    if (!hasAiModel(id)) return null;
-    return reps.map(r => ({ ai: aiJudge(id, r), rule: ruleJudge(id, r.errors, itemFeatures(id, r)) }));
-}
-// 表格上面一句：和規則一樣幾下、不一樣的是第幾下；實測模式錄的（知道這組要做的）再寫 AI、規則各猜對幾下
-// 這位受測者的資料訓練時看過，猜對的不算數（先看過考題，見 tools/split.mjs）
+// AI 判斷（11/4，js/analysis/ai-judge.js）：每一下 AI 模型和規則各判成什麼（judgeReps，首頁的運動總結也用同一個）
+// 表格上面一句：AI 判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下（aiLine，和首頁的運動總結一字不差）；
+// 實測模式錄的（知道這組要做的）再寫 AI、規則各猜對幾下；這位受測者的資料訓練時看過，猜對的不算數（先看過考題，見 tools/split.mjs）
 function showAi(id, reps, judged) {
     aiBox.hidden = !judged || !judged.length;
     if (aiBox.hidden) {
@@ -65,10 +60,7 @@ function showAi(id, reps, judged) {
         return;
     }
     const unit = WORKOUTS[id].kind === 'hold' ? '次' : '下';
-    const differ = judged.map((j, i) => (j.ai.label !== j.rule ? reps[i].n : null)).filter(n => n !== null);
-    let text = 'AI 判斷（' + (AI_MODEL.synthetic ? '示範：模型是用合成資料訓練的，不是真人' : '模型用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練')
-        + '）：和規則一樣 ' + (judged.length - differ.length) + ' ' + unit
-        + (differ.length ? '、不一樣 ' + differ.length + ' ' + unit + '（第 ' + differ.join('、') + ' ' + unit + '）' : '');
+    let text = aiLine(id, reps, judged);
     const test = data ? testInfo(data.meta) : null;
     if (test && test.workout === id) {
         const hit = pick => judged.filter(j => pick(j) === test.condition).length;
@@ -399,7 +391,7 @@ function showSquats() {
             : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),
                 r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', ...(balanced ? [lowestBalance(r.bottom)] : []), errors];
         const errorsAt = cells.length - 1;
-        if (judged) cells.push(judgeText(judged[k].ai.label) + '（' + Math.round(judged[k].ai.confidence * 100) + '%）');
+        if (judged) cells.push(judgeCell(judged[k].ai));
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;

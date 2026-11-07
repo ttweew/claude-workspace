@@ -38,6 +38,7 @@ import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
 import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
+import { judgeRep, judgeReps, judgeCell, aiLine } from '../analysis/ai-judge.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
 import { setupVoicePick } from '../ui/voice-pick.js';
@@ -889,7 +890,11 @@ function finishRep(rep, depth) {
     const tired = workout.kind === 'reps' && !shorts.length ? fatigueWatch.check(workout.id, tracker.items) : null;
     // 動作流暢度（10/29，js/analysis/fluency.js）：這一下中途卡住，提示寫出來（不講話：說話規則只講要緊的）
     const stall = rep.stalls > 0 ? ' · 卡了一下' : '';
-    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + stall + similar, kind);
+    // AI 判斷（11/7，js/analysis/ai-judge.js）：提示的第二行寫 AI 模型判成什麼（「AI：做對（97%）」），和規則判的不一樣時藍色
+    // 只寫在畫面上、不講話（講話只講要緊的；AI 現在是用合成資料訓練的示範）；這個動作沒有模型就沒有這一行
+    const judged = judgeRep(workout.id, rep);
+    const ai = judged ? { text: 'AI：' + judgeCell(judged.ai), differ: judged.ai.label !== judged.rule } : null;
+    showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + stall + similar, kind, ai);
     sayRep(rep, depth, tired);
 }
 
@@ -961,12 +966,19 @@ function showForm(formResult) {
     if (formTip.hidden !== hidden) formTip.hidden = hidden;
 }
 
-// kind：'good' 綠、'close' 黃、'shallow' 紅
-function showRepToast(text, kind) {
+// kind：'good' 綠、'close' 黃、'shallow' 紅；ai：AI 判斷那一行 { text, differ }（11/7），沒有時 null
+function showRepToast(text, kind, ai = null) {
     // 數據面板打開時，大字儀表板也是收起來的（近距離看數字用），提示也不顯示，避免疊在面板上
     if (!dataPanel.hidden) return;
     formTip.hidden = true;
     repToast.textContent = text;
+    if (ai) {
+        const line = document.createElement('span');
+        line.className = 'ai-toast' + (ai.differ ? ' ai-differ' : '');
+        line.textContent = ai.text;
+        // 前面空一格：畫面上換行看不出來，螢幕閱讀器念的時候「相似 96%」和「AI」才不會連在一起
+        repToast.append(' ', line);
+    }
     repToast.className = kind;
     repToast.hidden = false;
     clearTimeout(toastTimer);
@@ -1014,6 +1026,8 @@ function finishSession() {
     const s = summarize(workout.id, tracker.items, sessionStart, Date.now());
     // 每一下的圖表（10/27）：紀錄裡只存總結的數字，所以只畫剛做完的這一次；要在下面清掉計次之前算
     const series = s ? repSeries(workout.id, tracker.items) : null;
+    // AI 判斷（11/7）：AI 判成哪幾種各幾下、和規則一樣幾下；和重播分析那一句同一個寫法（aiLine）。只在畫面上，不存進紀錄、不上傳
+    const ai = s ? aiLine(workout.id, tracker.items, judgeReps(workout.id, tracker.items)) : '';
     // 這次的目標記進總結（「目標 10 下：達成」）；只存在這台裝置，不上傳雲端（js/cloud/sync.js 的白名單沒有）
     const goal = currentGoal();
     if (s && goal !== null) s.goal = goal;
@@ -1022,11 +1036,11 @@ function finishSession() {
     if (!s) return;
     // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
     if (demo) {
-        showSummary(s, null, true, series, goal);
+        showSummary(s, null, true, series, goal, ai);
         return;
     }
     const previous = saveSession(s);
-    showSummary(s, previous, false, series, goal);
+    showSummary(s, previous, false, series, goal, ai);
     // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
     cloudPanel.afterSession();
 }
@@ -1038,8 +1052,10 @@ const repChart = document.getElementById('repChart');
 const fatigueBox = document.getElementById('fatigueBox');
 const fluencyBox = document.getElementById('fluencyBox');
 const stabilityBox = document.getElementById('stabilityBox');
+const aiSummaryBox = document.getElementById('aiSummaryBox');
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
-function showSummary(s, previous, fromDemo = false, series = null, goal = null) {
+// ai：AI 判斷那一句（js/analysis/ai-judge.js 的 aiLine，不含句號；這個動作沒有模型時 ''）
+function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '') {
     shownSummary = { s, previous };
     writeSummary();
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
@@ -1062,6 +1078,9 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null) 
     const stability = stabilityOf(series, s.workout);
     stabilityBox.hidden = !stability;
     stabilityBox.textContent = stabilityLine(stability);
+    // AI 判斷（11/7）：AI 模型判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下（和重播分析一字不差）
+    aiSummaryBox.hidden = !ai;
+    aiSummaryBox.textContent = ai ? ai + '。' : '';
     // 教練建議（10/31）：兩三句；AI 教練打開時請 Gemini 寫，不然（或連不上）用固定句子
     coach.show(coachFacts(s, series));
     showHistory();
