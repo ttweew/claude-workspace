@@ -363,6 +363,19 @@
 .has-errors { color: #FFC857; }
 /* AI 判斷和規則不一樣的那一下（11/4）：藍色粗體，和錯誤的黃色分開 */
 .ai-differ { color: var(--info); font-weight: 700; }
+/* AI 自動辨識動作（11/8）：一句話＋按鈕（和分析的動作不一樣時才有）；窄的手機上按鈕換到下一行 */
+.activity-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin: 0 0 10px;
+}
+.activity-row[hidden] { display: none; }
+.activity-row .activity-line {
+    flex: 1 1 240px;
+    margin: 0;
+}
 .jump-row {
     cursor: pointer;
 }

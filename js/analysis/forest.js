@@ -126,6 +126,16 @@ export function trainModel(workout, rows, options = {}) {
     return { type: 'random-forest', version: 1, workout, features, classes, trees };
 }
 
+// 一般的分類模型（11/8，AI 自動辨識動作）：rows 是 [{ features: { key: 數字或 null }, label }]，只用 classes 裡的標記
+// 回傳 { type, version, task, features, classes, trees }：predictModel 一樣能用
+export function trainClassifier(task, features, classes, rows, options = {}) {
+    const used = rows.filter(r => classes.includes(r.label));
+    const X = used.map(r => features.map(key => r.features[key]));
+    const y = used.map(r => classes.indexOf(r.label));
+    const trees = trainForest(X, y, classes.length, options).map(compact);
+    return { type: 'random-forest', version: 1, task, features, classes, trees };
+}
+
 // 模型最常看哪幾個數字：每個特徵在所有樹裡分岔了幾次、門檻的中位數（報告時說得出模型在看什麼、學到的門檻和規則差多少）
 // 回傳 [{ key, splits, threshold }]，分岔多的在前面；沒用到的不列
 export function featureUse(model) {

@@ -122,6 +122,11 @@
                         <option value="lunge">弓箭步</option>
                     </select>
                 </label>
+                <!-- AI 自動辨識動作（11/8，js/analysis/activity.js）：AI 猜這段錄影在做什麼（各猜了幾秒）；和分析的動作不一樣時一鍵改用 AI 猜的 -->
+                <div id="activityRow" class="activity-row" hidden>
+                    <p id="activityBox" class="fluency activity-line"></p>
+                    <button id="activityUse" type="button" hidden></button>
+                </div>
                 <p id="squatSummary" class="squat-summary"></p>
                 <!-- 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套（js/ui/fatigue-view.js、js/analysis/fluency.js、stability.js），
                      同一個錄製檔兩邊寫的一樣 -->

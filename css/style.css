@@ -2231,8 +2231,8 @@ code {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* 速度建議：自己一行（排在狀態、運算標籤下面），圓角卡片 */
-#infobar > #advice {
+/* 速度建議：自己一行（排在狀態、運算標籤下面），圓角卡片；AI 自動辨識動作（11/8）也是同一種卡片 */
+#infobar > #advice, #infobar > #activity {
     flex: 0 0 100%;
     padding: 0;
     border: 0;
@@ -2273,7 +2273,19 @@ code {
 .advice-actions button[hidden] {
     display: none;
 }
-#adviceYes {
+/* AI 自動辨識動作（11/8）：藍框、藍標題（和 AI 判斷的藍色一樣）；猜的把握小一點、淡一點 */
+.activity-card {
+    border-color: rgba(76, 195, 255, 0.6);
+}
+.activity-card strong {
+    color: var(--info);
+}
+#activitySure {
+    margin-left: 4px;
+    color: var(--muted-2);
+    font-size: 0.9em;
+}
+#adviceYes, #activitySwitch {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--accent-ink);
@@ -2291,8 +2303,16 @@ code {
     }
 }
 /* 入鏡提示、錄製倒數、錄製提醒出現時先藏起來，不蓋住更重要的大字（提示消失後再出現） */
-#stage:has(#banner:not([hidden]), #countdown:not([hidden]), #recNotice:not([hidden])) #advice {
+#stage:has(#banner:not([hidden]), #countdown:not([hidden]), #recNotice:not([hidden])) :is(#advice, #activity) {
     display: none;
+}
+/* 速度建議出現時（只出現一次，按了就收起來）先藏 AI 自動辨識：橫拿時兩張卡片都放在下方中間，會疊在一起 */
+#stage:has(#advice:not([hidden])) #activity {
+    display: none;
+}
+#activitySwitch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 /* ---------- 錄影控制列（10/20，js/ui/rec-bar.js）：像手機相機，下方中間 ----------
    中間紅色大圓鈕（錄的時候變方塊）、右邊暫停（還沒錄時放倒數設定）、左邊「錄製檔」像相簿縮圖、上面錄了多久 */
@@ -2470,7 +2490,7 @@ code {
 }
 /* 橫拿：速度建議也放在下方中間，錄影時先不跳 */
 @media (orientation: landscape) {
-    #stage.rec-open #advice {
+    #stage.rec-open :is(#advice, #activity) {
         display: none;
     }
 }

@@ -213,6 +213,20 @@ MediaPipe 另外推估一組以**公尺**為單位的 3D 座標，原點是**髖
 - 現在的模型是合成資料（8 位火柴人受測者）訓練的示範：真人的實測檔來了，換成 `node tools/train.mjs 實測檔資料夾 --cv --module js/analysis/ai-model.js`，畫面上的「示範」字樣會跟著拿掉（看 `synthetic`）。
 - 訓練時用過的受測者（`subjects`）不算進實測報表的「AI 模型猜對幾列」，重播分析也會寫「訓練時看過，猜對的不能算數」。
 
+## AI 自動辨識動作的模型（11/8，`js/analysis/activity-model.js`）
+
+看最近 3 秒的骨架猜在做哪個動作的模型（首頁自由模式、重播分析；`js/analysis/activity.js`）。**自動產生，不要手改**：`node tools/train-activity.mjs --synthetic A,B,C,D,E,F,G,H --test I,J,K --module js/analysis/activity-model.js`（開頭三行註解寫產生的指令、訓練的受測者、沒看過的受測者猜對幾段）。
+
+```
+{ type: 'random-forest', version: 1, task: 'activity',
+  features: ['tilt', 'tiltRange', 'knee', …]（一段 3 秒的特徵，順序照 activity.js 的 ACTIVITY_FEATURES）,
+  classes: ['stand', 'squat', 'pushup', 'plank', 'lunge'],
+  trees: [和上面的 AI 模型一樣], synthetic: true, subjects: ['A', …] }
+```
+
+- 訓練資料：每位合成受測者四個動作的每一組，加上站著、弓箭步的站姿、手撐的棒式各撐一段；每 0.5 秒取一段（最近 3 秒），標記是那一段每一格都在做的（`tests/synthetic-sets.mjs` 的 `activity`：開始前、結束後站著是 `stand`，做動作的那段是動作的名字）；一段裡換了動作的不用。
+- 特徵、標記和網站猜的時候用同一個 `ActivityMeter` 取，訓練和使用不會不一樣。
+
 ## 為什麼這樣設計（給後端 AI 的考量）
 
 1. **只傳關鍵點，不傳影片**：每格約 1.9 KB，一分鐘約 2～3 MB（每秒 20～30 格），同長度的影片通常要數十 MB；也不會把使用者的臉傳出去，隱私比較好

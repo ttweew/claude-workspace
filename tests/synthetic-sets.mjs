@@ -110,32 +110,44 @@ function place(lm, style, gauss) {
     }));
 }
 
-// 一組：回傳 { name（檔名）, text（錄製檔 JSON）, amounts（每一下的程度，檢查用） }
+// 一組：回傳 { name（檔名）, text（錄製檔 JSON）, amounts（每一下的程度，檢查用）, activity（每一格在做什麼，11/8 AI 自動辨識動作的標記） }
+// activity：開始前、結束後站著是 'stand'，做動作的那段（包括兩下之間站直休息）是動作的名字；
+// 伏地挺身開始前、結束後撐著不動的那段是 null（不是站著、也還沒開始做，不拿來訓練）。只多記一個陣列，亂數不變（之前的資料、模型都一樣）
 // subject：代號；workout：squat、pushup、lunge、plank；condition：good 或錯誤代號；seed：亂數
 export function syntheticSet(subject, workout, condition, seed = 1) {
     const style = subjectStyle(subject);
     const r = random(seedOf([subject, workout, condition, seed].join('|')));
     const uniform = () => r();
     const gauss = () => Math.sqrt(-2 * Math.log(uniform() + 1e-12)) * Math.cos(2 * Math.PI * uniform());
-    const frames = [];
+    const frames = [], activity = [];
     const good = condition === 'good';
     const amountOf = () => (good ? uniform() * 0.35 : 0.5 + uniform() * 1.1);
     const amounts = [];
     // 本來的樣子每一下是平常的 0.6～1.4 倍（10/20 實測 A 正常蹲的腳跟 5～20%：同一個人每一下也不一樣）
     let natural = 1;
-    const push = (id, depth, amount) => frames.push(place(pose(id, depth, condition, amount, { ...style, natural }), style, gauss));
+    let doing = null;   // 這一格在做什麼（activity）
+    const push = (id, depth, amount) => {
+        frames.push(place(pose(id, depth, condition, amount, { ...style, natural }), style, gauss));
+        activity.push(doing);
+    };
     if (workout === 'plank') {
         // 先站 2 秒（開始錄製後才趴下），撐 30 秒（做對）或 10 秒（故意做錯），起身站 4 秒（起身 3 秒才算結束）
+        doing = 'stand';
         for (let i = 0; i < 60; i++) push('squat', 0, 0);
         const seconds = good ? 30 : 10;
         const amount = amountOf();
         amounts.push(amount);
         natural = 0.6 + uniform() * 0.8;
+        doing = 'plank';
         for (let i = 0; i < seconds * 30; i++) push('plank', 0, amount);
+        doing = 'stand';
         for (let i = 0; i < 120; i++) push('squat', 0, 0);
     } else {
         // 先站 2.5 秒（個人校正要站直不動約 2 秒），每一下：下去、底部停、起來、站直；最後站 2 秒
+        const idle = workout === 'pushup' ? null : 'stand';
+        doing = idle;
         for (let i = 0; i < 75; i++) push(workout, 0, 0);
+        doing = workout;
         const reps = good ? 10 : 5;
         for (let n = 0; n < reps; n++) {
             const amount = amountOf();
@@ -147,6 +159,8 @@ export function syntheticSet(subject, workout, condition, seed = 1) {
             for (let i = 0; i <= style.half; i++) push(workout, depth * (1 - i / style.half), amount);
             for (let i = 0; i < style.rest; i++) push(workout, 0, 0);
         }
+        // 最後一下做完的休息（style.rest）也還算在做；之後站 2 秒才是結束
+        doing = idle;
         for (let i = 0; i < 60; i++) push(workout, 0, 0);
     }
     // 用網站的錄製程式存：每格約 33.3 毫秒、有一點時間抖動（像瀏覽器）
@@ -161,7 +175,35 @@ export function syntheticSet(subject, workout, condition, seed = 1) {
     recorder.stop();
     // 開始錄的時間：seed 越大越晚（同一組錄了好幾次時，實測報表以最後一次為準；測試用小的 seed 做「重錄前的那一次」）
     recorder.meta.startedAt = new Date(Date.UTC(2026, 10, 2, 1, 0) + seed * 60000).toISOString();
-    return { name: 'synthetic_' + subject + '_' + workout + '_' + condition + '_' + seed + '.json', text: recorder.toJSON(), amounts };
+    return { name: 'synthetic_' + subject + '_' + workout + '_' + condition + '_' + seed + '.json', text: recorder.toJSON(), amounts, activity };
+}
+
+// 撐著不動的一段（11/8，AI 自動辨識動作的訓練資料）：站著（深蹲、弓箭步的起始姿勢）、手撐著的棒式（伏地挺身的起始姿勢）
+// 合成的組裡站著的時間太短（開始前 2.5 秒、結束後 2 秒，不到 AI 看的 3 秒），只靠那些分不出「站著」；手撐的棒式也是
+// 整個人慢慢前後晃（每個人、每一段不一樣：最多約 2% 的畫面寬），不是完全不動
+// 回傳 { name, text（錄製檔 JSON）, activity（每一格都是 label） }；pose：'squat'、'lunge'、'pushup'（depth 0 的姿勢）
+export function syntheticHold(subject, pose, label, seconds = 12, seed = 1) {
+    const style = subjectStyle(subject);
+    const r = random(seedOf([subject, 'hold', pose, label, seed].join('|')));
+    const uniform = () => r();
+    const gauss = () => Math.sqrt(-2 * Math.log(uniform() + 1e-12)) * Math.cos(2 * Math.PI * uniform());
+    const sway = uniform() * 0.02, period = 2 + uniform() * 3;
+    const id = ['squat', 'lunge', 'pushup'].includes(pose) ? pose : 'squat';
+    const frames = [];
+    for (let i = 0; i < seconds * 30; i++) frames.push(place(demoPose(id, sway * Math.sin(i / 30 / period * 2 * Math.PI)), style, gauss));
+    const recorder = new PoseRecorder();
+    recorder.start({ videoWidth: W, videoHeight: H, workout: 'free', synthetic: true, description: '合成的錄製檔（不是真人）：' + subject + ' ' + label });
+    let t = 1000;
+    for (const lm of frames) {
+        recorder.add(t, lm, null);
+        t += 1000 / 30 + (uniform() - 0.5) * 4;
+    }
+    recorder.stop();
+    return { name: 'synthetic_' + subject + '_hold_' + id + '_' + seed + '.json', text: recorder.toJSON(), activity: frames.map(() => label) };
+}
+// 示範動畫起始姿勢整個人往旁邊移 dx（畫面寬的比例）
+function demoPose(id, dx) {
+    return demoLandmarks(id, 0).map(p => ({ ...p, x: p.x + dx }));
 }
 
 // 一位受測者四個動作的每一組（做對＋每種錯誤）

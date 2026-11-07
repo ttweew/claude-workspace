@@ -25,6 +25,7 @@ import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
 import { judgeReps, aiLine, judgeCell, seenInTraining } from '../analysis/ai-judge.js';
+import { ACTIVITY_NAMES, ACTIVITY_MODEL } from '../analysis/activity.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
 
 const $ = id => document.getElementById(id);
@@ -39,6 +40,7 @@ const LATE_START_S = 0.5;   // 棒式第 1 次離檔案開頭（最後一次離�
 // 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套
 const fatigueBox = $('fatigueBox'), fluencyBox = $('fluencyBox'), stabilityBox = $('stabilityBox');
 const aiBox = $('aiBox');   // AI 判斷（11/4）
+const activityRow = $('activityRow'), activityBox = $('activityBox'), activityUse = $('activityUse');   // AI 自動辨識動作（11/8）
 
 // 疲勞分析、流暢度、穩定度：series 是 repSeries() 的結果（null：收起來）；寫法和首頁 main.js 的 showSummary 一樣
 function showAnalysis(series, workoutId) {
@@ -53,6 +55,33 @@ function showAnalysis(series, workoutId) {
 // AI 判斷（11/4，js/analysis/ai-judge.js）：每一下 AI 模型和規則各判成什麼（judgeReps，首頁的運動總結也用同一個）
 // 表格上面一句：AI 判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下（aiLine，和首頁的運動總結一字不差）；
 // 實測模式錄的（知道這組要做的）再寫 AI、規則各猜對幾下；這位受測者的資料訓練時看過，猜對的不算數（先看過考題，見 tools/split.mjs）
+// AI 自動辨識動作（11/8，js/analysis/activity.js）：這段錄影 AI 每 0.5 秒猜一次在做什麼，寫各猜了幾秒（秒數無條件捨去）、大部分在做的；
+// 不到 1 秒的不寫（捨去之後是「0 秒」，看起來像沒有）；和現在分析的動作不一樣（或錄製時沒有選動作）時，按鈕一按就改用 AI 猜的動作分析
+function showActivity(id) {
+    const sum = analysis && analysis.activity;
+    const list = sum ? sum.list.filter(x => x.seconds >= 1) : [];
+    activityRow.hidden = !list.length;
+    activityUse.hidden = true;
+    if (activityRow.hidden) return;
+    const name = label => ACTIVITY_NAMES[label];
+    const top = list.some(x => x.label === sum.top) ? sum.top : null;
+    activityBox.textContent = 'AI 自動辨識動作（' + (ACTIVITY_MODEL.synthetic ? '示範：模型是用合成資料訓練的，不是真人' : '模型用實測資料訓練') + '）：'
+        + list.map(x => name(x.label) + ' ' + Math.floor(x.seconds) + ' 秒').join('、')
+        + (top ? '；大部分在做' + name(top) + (id ? (top === id ? '，和現在分析的動作一樣' : '，和現在分析的「' + WORKOUTS[id].name + '」不一樣') : '') : '；沒有看到在做動作')
+        + '。';
+    if (top && top !== id) {
+        activityUse.hidden = false;
+        activityUse.textContent = '用' + name(top) + '分析';
+        activityUse.dataset.workout = top;
+    }
+}
+activityUse.addEventListener('click', () => {
+    const id = activityUse.dataset.workout;
+    if (!data || !isWorkout(id) || id === 'free') return;
+    workoutPick.value = id;
+    analyze();
+});
+
 function showAi(id, reps, judged) {
     aiBox.hidden = !judged || !judged.length;
     if (aiBox.hidden) {
@@ -274,7 +303,8 @@ async function analyze() {
         return;
     }
     if (id !== requestId) return;
-    analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps, workout: r.workout || null };
+    analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps, workout: r.workout || null,
+        activity: r.activity || null };
     const rows = analysis.rows;
     // 一開始選在第一個有角度的格子（最前面幾格點還沒穩定，角度都是「—」）
     cursor = Math.max(0, rows.findIndex(row => row.present && Object.values(row.angles).some(a => a !== null)));
@@ -344,6 +374,7 @@ function showSquats() {
     const w = id ? WORKOUTS[id] : null;
     const reps = analysis.reps || [];
     const hold = w && w.kind === 'hold';
+    showActivity(w ? id : null);
     if (!w) {
         squatSummary.textContent = '這個檔案錄製時沒有選動作（或選了「自由」）：在上面選一個動作，就能算次數、深度和錯誤';
         squatTable.replaceChildren();
