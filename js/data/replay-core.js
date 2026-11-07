@@ -10,6 +10,7 @@ import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 import { BalanceMeter, BALANCE } from '../analysis/balance.js';
+import { ActivityMeter, activitySummary } from '../analysis/activity.js';
 
 export const ANGLE_KEYS = ANGLES.map(([key]) => key);
 export const SIGNED_KEYS = ANGLE_KEYS.filter(k => /_(KNEE|HIP)$/.test(k));
@@ -160,11 +161,16 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
     // 錄製時已經校正好（meta.calibration）就沿用；沒有的話從錄影裡站直不動的那段自己校正
     if (tracker && parsed.meta) tracker.useBaseline(parsed.meta.calibration);
     const balance = !workout || BALANCE.workouts.includes(workout) ? new BalanceMeter() : null;
+    // AI 自動辨識動作（11/8，js/analysis/activity.js）：每 0.5 秒猜一次這段在做什麼（和首頁自由模式同一套），最後統計各猜了幾秒
+    const activity = new ActivityMeter();
+    const guesses = [];
     for (let i = 0; i < n; i++) {
         const f = frames[i];
         out.t[i] = f.t / 1000;
         const p = pipeline.process(f.raw, f.t, width, height);
         if (tracker) tracker.update(p, f.t);
+        const guess = activity.update(p, f.t);
+        if (guess !== undefined) guesses.push(guess && { label: guess.label, confidence: guess.confidence });
         const b = balance ? balance.update(p, f.t) : null;
         if (b) BALANCE_FIELDS.forEach((k, j) => { if (b[k] !== null) out.balance[i * BALANCE_FIELDS.length + j] = b[k]; });
         if (f.raw) {
@@ -208,6 +214,7 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
         out.reps = tracker.items;
         out.workout = tracker.workout.id;
     }
+    out.activity = activitySummary(guesses);
     if (onProgress) onProgress(1);
     return out;
 }

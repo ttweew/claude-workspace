@@ -399,6 +399,14 @@
                     </div>
                 </div>
             </div>
+            <!-- AI 自動辨識動作（11/8，js/analysis/activity.js）：自由模式時 AI 看最近 3 秒的骨架猜你在做哪個動作，一鍵切換過去
+                 換了動作才唸（aria-live 只在猜的動作那段字）；把握幾 % 每 0.5 秒會變，不給螢幕閱讀器唸 -->
+            <div id="activity" hidden>
+                <div class="advice-card activity-card">
+                    <p><strong>AI 自動辨識動作</strong><span id="activityText" aria-live="polite"></span><span id="activitySure" aria-hidden="true"></span></p>
+                    <div class="advice-actions"><button id="activitySwitch" type="button" hidden></button></div>
+                </div>
+            </div>
             <!-- 實測模式（js/ui/test-bar.js）：主持人每一組選「這組要做的」，選了就倒數、自動錄製；做完按「這組做完」自動下載 JSON
                  已錄多久每秒在變，不給螢幕閱讀器唸（aria-hidden） -->
             <div id="testBar" hidden>
