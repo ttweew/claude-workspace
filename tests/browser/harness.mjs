@@ -139,6 +139,7 @@ export async function usedFrames(page) {
 }
 
 // 假鏡頭（640×480）、假的講話（記下講了什麼，在 window.__said）；錄製前不倒數
+// 每一下的提示（#repToast，2.5 秒就收起來）：出現時記下 AI 判斷那一行（11/7）、和規則不一樣（藍色）、提示的左右邊，在 window.__toasts
 const INIT = `(() => {
   try { localStorage.setItem('recordCountdown', '0'); } catch (e) {}
   navigator.mediaDevices.getUserMedia = async () => {
@@ -153,6 +154,16 @@ const INIT = `(() => {
     speak(u) { said.push(u.text); setTimeout(() => { if (u.onend) u.onend({}); }, 200); }, cancel() {} };
   Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
   window.SpeechSynthesisUtterance = function (text) { this.text = text; this.volume = 1; this.lang = ''; this.voice = null; this.rate = 1; };
+  const toasts = window.__toasts = [];
+  document.addEventListener('DOMContentLoaded', () => {
+    const toast = document.getElementById('repToast');
+    if (!toast) return;
+    new MutationObserver(() => {
+      if (toast.hidden) return;
+      const line = toast.querySelector('.ai-toast'), box = toast.getBoundingClientRect();
+      toasts.push({ ai: line ? line.textContent : null, differ: !!line && line.classList.contains('ai-differ'), left: box.left, right: box.right });
+    }).observe(toast, { childList: true });
+  });
 })();`;
 
 // 假的 Firebase（10/31，AI 教練）：網站向 gstatic 要 firebase-app.js、firebase-ai.js 時給假的；
@@ -242,7 +253,7 @@ export async function workout(page, base, id, done, { settle = 1500, beforeStop 
     await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
 }
 
-// 「這次運動」的內容：總結每一行、流暢度、穩定度、每一下的表格
+// 「這次運動」的內容：總結每一行、流暢度、穩定度、AI 判斷（11/7）、每一下的表格
 export function summary(page) {
     return page.evaluate(() => {
         const text = id => { const el = document.getElementById(id); return el && !el.hidden ? el.textContent : ''; };
@@ -250,6 +261,7 @@ export function summary(page) {
             lines: [...document.querySelectorAll('#summaryLines li')].map(li => li.textContent),
             fluency: text('fluencyBox'),
             stability: text('stabilityBox'),
+            ai: text('aiSummaryBox'),
             head: [...document.querySelectorAll('#repChart .rep-table thead th')].map(th => th.textContent),
             rows: [...document.querySelectorAll('#repChart .rep-table tbody tr')].map(tr => [...tr.children].map(td => td.textContent))
         };

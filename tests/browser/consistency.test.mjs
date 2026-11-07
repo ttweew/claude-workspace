@@ -1,8 +1,9 @@
 // 資料一致性（11/1 保養，瀏覽器端到端）：同一次運動，手機上、雲端、重播三個地方的數字一樣
 //   首頁：開鏡頭做 8 下深蹲（假的 AI；後 3 下比較淺、整個人前後晃）、棒式 26 秒（後半髖部上下晃），同時錄製、下載錄製檔；雲端同步打開（假的 Firebase）
-//   手機上：總結、「每一下」的圖、疲勞分析、流暢度、穩定度、這台裝置的紀錄、運動紀錄的 CSV、成長曲線今天那一點
+//   手機上：總結、「每一下」的圖、疲勞分析、流暢度、穩定度、AI 判斷（11/7）、這台裝置的紀錄、運動紀錄的 CSV、成長曲線今天那一點
 //   雲端：上傳的那一筆（js/cloud/sync.js 的白名單）
-//   重播：同一個錄製檔拿到重播分析，總結、每一下的圖、疲勞分析、流暢度、穩定度、每一下的角度和深度
+//   重播：同一個錄製檔拿到重播分析，總結、每一下的圖、疲勞分析、流暢度、穩定度、AI 判斷、每一下的角度和深度
+//   即時 AI 判斷（11/7）：運動中每一下提示的 AI 那一行，和重播分析每一下的 AI 判斷一樣
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -68,6 +69,8 @@ async function homeSession(frames, workoutId, done, settle = 1500) {
         fatigue: document.querySelector('#fatigueBox .fatigue-line') ? document.querySelector('#fatigueBox .fatigue-line').textContent : '',
         fluency: document.getElementById('fluencyBox').textContent,
         stability: document.getElementById('stabilityBox').textContent,
+        ai: document.getElementById('aiSummaryBox').hidden ? '' : document.getElementById('aiSummaryBox').textContent,
+        toasts: window.__toasts,
         record: JSON.parse(localStorage.getItem('workoutHistory')).pop(),
         cloud: window.__cloudWrites
     }));
@@ -108,18 +111,22 @@ async function replayOf(page, recording, prefix) {
         charts: [...document.querySelectorAll('#repChart svg[role=img]')].map(svg => svg.getAttribute('aria-label')),
         fatigue: document.querySelector('#fatigueBox .fatigue-line') ? document.querySelector('#fatigueBox .fatigue-line').textContent : '',
         fluency: document.getElementById('fluencyBox').textContent,
-        stability: document.getElementById('stabilityBox').textContent
+        stability: document.getElementById('stabilityBox').textContent,
+        ai: document.getElementById('aiBox').hidden ? '' : document.getElementById('aiBox').textContent,
+        aiDiffer: [...document.querySelectorAll('#squatTable tbody tr')].map(tr => tr.lastElementChild.classList.contains('ai-differ'))
     }));
     replay.reps = await rows(page, '#squatTable tbody tr');
     return replay;
 }
-// 重播和首頁：總結每一行（重播沒有目標、沒有和上一次比）、每一下的圖、疲勞分析、流暢度、穩定度
+// 重播和首頁：總結每一行（重播沒有目標、沒有和上一次比）、每一下的圖、疲勞分析、流暢度、穩定度、AI 判斷那一句（11/7）
 function sameAnalysis(home, replay) {
     for (const line of replay.summary) assert.ok(home.lines.includes(line), '重播的「' + line + '」首頁也有：' + home.lines.join('｜'));
     assert.deepEqual(replay.charts, home.charts, '每一下的圖');
     assert.equal(replay.fatigue, home.fatigue, '疲勞分析');
     assert.equal(replay.fluency, home.fluency, '動作流暢度');
     assert.equal(replay.stability, home.stability, '動作穩定度');
+    assert.match(home.ai, /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：.+；和規則一樣 \d+ [下次]/);
+    assert.equal(replay.ai, home.ai, 'AI 判斷');
 }
 
 test('深蹲 8 下：手機上（總結、圖、CSV、成長曲線）、雲端、重播的數字一樣', async () => {
@@ -150,6 +157,8 @@ test('深蹲 8 下：手機上（總結、圖、CSV、成長曲線）、雲端�
     const parsed = parseRecording(recording);
     const node = await analyzeRecording(parsed, parsed.meta.videoWidth, parsed.meta.videoHeight, { workout: 'squat' });
     assert.deepEqual(replay.reps.map(r => r[r.length - 1]), node.reps.map(it => { const j = aiJudge('squat', it); return judgeText(j.label) + '（' + Math.round(j.confidence * 100) + '%）'; }));
+    // 即時 AI 判斷（11/7）：運動中每一下提示的 AI 那一行（「AI：做對（97%）」），和重播分析每一下一樣；和規則不一樣的兩邊都標藍色
+    assert.deepEqual(home.toasts.map(t => [t.ai, t.differ]), replay.reps.map((r, i) => ['AI：' + r[r.length - 1], replay.aiDiffer[i]]));
     assert.deepEqual(page.errors, []);
     await context.close();
 });

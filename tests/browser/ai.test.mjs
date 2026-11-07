@@ -41,14 +41,17 @@ test('重播分析：每一下的 AI 判斷和 node 算的一樣、和規則不�
     assert.deepEqual(cells, judged.map(j => ({ text: judgeText(j.ai.label) + '（' + Math.round(j.ai.confidence * 100) + '%）', differ: j.ai.label !== j.rule })));
     const differ = judged.map((j, i) => (j.ai.label !== j.rule ? i + 1 : null)).filter(n => n !== null);
     const hit = pick => judged.filter(j => pick(j) === 'heel').length;
-    assert.equal(await page.textContent('#aiBox'), 'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：和規則一樣 ' + (5 - differ.length) + ' 下'
+    // AI 判成哪幾種各幾下（11/7 加的，照模型的標記順序：做對、上身前傾、腳跟離地；0 下的不寫）
+    const counts = ['good', 'lean', 'heel'].map(l => [l, judged.filter(j => j.ai.label === l).length]).filter(([, n]) => n > 0)
+        .map(([l, n]) => judgeText(l) + ' ' + n + ' 下').join('、');
+    assert.equal(await page.textContent('#aiBox'), 'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：' + counts + '；和規則一樣 ' + (5 - differ.length) + ' 下'
         + (differ.length ? '、不一樣 ' + differ.length + ' 下（第 ' + differ.join('、') + ' 下）' : '')
         + '。這組要做的是「故意腳跟離地」：AI 猜對 ' + hit(j => j.ai.label) + '／5 下、規則 ' + hit(j => j.rule) + '／5 下。');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     assert.deepEqual(await violations(page, '#squatCard'), []);
     // 訓練時看過的受測者（A）：猜對的不能算數；棒式（一次一列）也有 AI 判斷
     await replay(page, syntheticSet('A', 'plank', 'sag', 1));
-    assert.match(await page.textContent('#aiBox'), /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：和規則一樣 \d 次.*這組要做的是「故意塌腰」：AI 猜對 \d／1 次、規則 \d／1 次（受測者 A 的資料訓練時看過，AI 猜對的不能算數）。$/);
+    assert.match(await page.textContent('#aiBox'), /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：(做對|塌腰|屁股太高) 1 次；和規則一樣 \d 次.*這組要做的是「故意塌腰」：AI 猜對 \d／1 次、規則 \d／1 次（受測者 A 的資料訓練時看過，AI 猜對的不能算數）。$/);
     assert.equal((await page.$$eval('#squatTable thead th', ths => ths.map(th => th.textContent))).pop(), 'AI 判斷（把握）');
     assert.deepEqual(page.errors, []);
     await context.close();

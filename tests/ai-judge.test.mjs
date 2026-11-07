@@ -4,12 +4,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import MODELS from '../js/analysis/ai-model.js';
-import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining } from '../js/analysis/ai-judge.js';
-import { featureColumns } from '../js/analysis/features.js';
+import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine } from '../js/analysis/ai-judge.js';
+import { featureColumns, itemFeatures } from '../js/analysis/features.js';
 import { trainModel, modelClasses } from '../js/analysis/forest.js';
 import { analyzeOne } from '../js/data/report-core.js';
 import { buildDataset } from '../tools/dataset.mjs';
-import { syntheticSubject } from './synthetic-sets.mjs';
+import { syntheticSet, syntheticSubject } from './synthetic-sets.mjs';
 
 test('模型檔：四個動作各一個，特徵、標記照 features.js、form.js；寫明是合成資料訓練的', () => {
     assert.equal(MODELS.version, 1);
@@ -73,4 +73,45 @@ test('訓練時看過的受測者：同一個代號、同樣是合成的才算',
     assert.equal(seenInTraining('A', false), false);
     assert.equal(seenInTraining('K', true), false);
     assert.equal(seenInTraining('constructor', true), false);
+});
+
+test('一組的 AI 判斷（11/7：重播分析、運動中的提示、運動總結共用）：每一下 AI 和規則各判成什麼', async () => {
+    const r = await analyzeOne(syntheticSet('K', 'squat', 'heel', 1).text);
+    const judged = judgeReps('squat', r.items);
+    assert.equal(judged.length, 5);
+    judged.forEach((j, i) => {
+        const it = r.items[i];
+        // 運動中每一下的提示（judgeRep）和一組一起算（judgeReps）一樣；和分開算 AI、規則也一樣
+        assert.deepEqual(judgeRep('squat', it), j);
+        assert.deepEqual(j.ai, aiJudge('squat', it));
+        assert.equal(j.rule, ruleJudge('squat', it.errors, itemFeatures('squat', it)));
+    });
+    // 沒有模型的動作、不認得的動作、不是陣列：null
+    assert.equal(judgeRep('free', r.items[0]), null);
+    assert.equal(judgeRep('constructor', r.items[0]), null);
+    assert.equal(judgeReps('constructor', r.items), null);
+    assert.equal(judgeReps('squat', 'x'), null);
+    // 被改壞的一下也有判斷（規則沒報錯就是做對）
+    assert.equal(judgeRep('squat', null).rule, 'good');
+    // 一下的寫法：判斷（把握，四捨五入的 %）
+    assert.equal(judgeCell({ label: 'heel', confidence: 0.934 }), '腳跟離地（93%）');
+    assert.equal(judgeCell({ label: 'good', confidence: 1 }), '做對（100%）');
+});
+
+test('AI 判斷那一句（11/7）：各判成幾下照模型的標記順序、和規則不一樣的寫第幾下；棒式的單位是「次」', () => {
+    const reps = [1, 2, 3, 4, 5].map(n => ({ n }));
+    const j = (ai, rule) => ({ ai: { label: ai, confidence: 0.9 }, rule });
+    assert.equal(aiLine('squat', reps, [j('heel', 'heel'), j('good', 'good'), j('heel', 'good'), j('good', 'good'), j('lean', 'lean')]),
+        'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：做對 2 下、上身前傾 1 下、腳跟離地 2 下；和規則一樣 4 下、不一樣 1 下（第 3 下）');
+    assert.equal(aiLine('plank', reps.slice(0, 2), [j('sag', 'sag'), j('sag', 'pike')]),
+        'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：塌腰 2 次；和規則一樣 1 次、不一樣 1 次（第 2 次）');
+    // 第幾下用每一下自己的編號（重播只錄到後面幾下時，從錄到的那一下開始數）
+    assert.equal(aiLine('pushup', [{ n: 7 }, { n: 8 }], [j('pike', 'good'), j('good', 'good')]),
+        'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：做對 1 下、屁股太高 1 下；和規則一樣 1 下、不一樣 1 下（第 7 下）');
+    // 沒有判斷、對不上、不認得的動作：空字串（畫面上收起來）
+    assert.equal(aiLine('squat', [], []), '');
+    assert.equal(aiLine('squat', reps, null), '');
+    assert.equal(aiLine('squat', reps.slice(0, 2), [j('good', 'good')]), '');
+    assert.equal(aiLine('constructor', reps.slice(0, 1), [j('good', 'good')]), '');
+    assert.equal(aiLine('free', reps.slice(0, 1), [j('good', 'good')]), '');
 });
