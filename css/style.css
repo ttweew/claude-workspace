@@ -2223,6 +2223,13 @@ code {
 #autoNote {
     border-color: rgba(46, 230, 166, 0.6);
 }
+/* 手勢控制（11/8）：藍框（AI 看骨架判斷的，和 AI 自動辨識動作同一個顏色）；站遠要看得到，字大一點 */
+#gestureNote {
+    border-color: rgba(76, 195, 255, 0.8);
+    color: var(--info);
+    font-size: 1.15em;
+    font-weight: 700;
+}
 /* 示範模式（10/26）：藍框寫出影片的檔名；檔名很長時只顯示前面，不撐開標籤列 */
 #clipTag {
     max-width: 100%;
