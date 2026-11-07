@@ -658,7 +658,9 @@ function measureSecond() {
     // 選了自動的那一項（每秒格數、模型）不用問，只建議其他的
     const advice = list.find(item => !skipped.includes(item.key)
         && !(isAutoFps() && item.action && item.action.fps) && !(autoModel && item.action && item.action.model));
-    if (advice) showAdvice(advice);
+    // AI 全自動（11/13 整合測試找到）：人站在 2～3 公尺外不碰手機，按不到「不用了」；建議出現時會藏起 AI 全自動的卡片
+    // （橫拿時兩張卡片疊在同一個地方），卡片寫的「現在數什麼」就一直看不到。所以 AI 全自動開著時不跳建議（選「自動」的照樣自己調）
+    if (advice && !aiAutoAllowed()) showAdvice(advice);
 }
 
 // 自動調每秒格數：直接換鏡頭的格數（不用重開鏡頭），瀏覽器不支援才重開；換完重新暖機、重新累積秒數
