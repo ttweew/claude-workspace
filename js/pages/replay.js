@@ -10,7 +10,7 @@ import { makeDemoRecording } from '../data/synth.js';
 import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
 import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
-import { summarize, describe } from '../analysis/session.js';
+import { summarize, describe, shortLine } from '../analysis/session.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
 import { fatigueOf } from '../analysis/fatigue.js';
@@ -24,7 +24,7 @@ import { balanceLine, BALANCE } from '../analysis/balance.js';
 import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
-import { judgeReps, aiLine, judgeCell, seenInTraining, repScore, scoreLine, explainLine, explainRep, judgeText, worstIndex } from '../analysis/ai-judge.js';
+import { judgeReps, aiLine, judgeCell, seenInTraining, repScore, scoreLine, scoreAverage, explainLine, explainRep, judgeText, worstIndex } from '../analysis/ai-judge.js';
 import { userFigure, renderCompare } from '../ui/pose-compare.js';
 import { ACTIVITY_NAMES, ACTIVITY_MODEL } from '../analysis/activity.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
@@ -45,6 +45,7 @@ const scoreBox = $('scoreBox');   // AI 動作評分（11/10）
 const explainBox = $('explainBox'), explainMore = $('explainMore'), explainList = $('explainList');   // AI 解釋（11/11）
 const poseCompareBox = $('poseCompareBox');   // 你這一下 vs 標準動作（11/12）
 const activityRow = $('activityRow'), activityBox = $('activityBox'), activityUse = $('activityUse');   // AI 自動辨識動作（11/8）
+const autoSegBox = $('autoSegBox');   // AI 全自動分段（11/8 追加 3）
 
 // 疲勞分析、流暢度、穩定度：series 是 repSeries() 的結果（null：收起來）；寫法和首頁 main.js 的 showSummary 一樣
 function showAnalysis(series, workoutId) {
@@ -78,6 +79,18 @@ function showActivity(id) {
         activityUse.textContent = '用' + name(top) + '分析';
         activityUse.dataset.workout = top;
     }
+}
+// AI 全自動分段（11/8 追加 3，js/analysis/auto-segments.js）：自由模式錄的影片做了兩個以上的動作時，照首頁 AI 全自動的做法切成幾段，
+// 寫每一段的動作、幾下、AI 評分平均（和首頁 AI 全自動結束時的總結、換動作時講的同一個寫法）；只有一段時上面「用深蹲分析」就夠了
+function showAutoSegments() {
+    const all = analysis && Array.isArray(analysis.autoSegments) ? analysis.autoSegments : [];
+    const segs = all.filter(x => x && isWorkout(x.workout) && x.workout !== 'free' && Array.isArray(x.items) && x.items.length);
+    autoSegBox.hidden = segs.length < 2;
+    if (autoSegBox.hidden) return;
+    autoSegBox.textContent = 'AI 全自動分段（和首頁 AI 全自動同一套做法）：' + segs.map(x => {
+        const avg = scoreAverage(x.workout, x.items, judgeReps(x.workout, x.items));
+        return shortLine(summarize(x.workout, x.items, 0, 0)) + (avg === null ? '' : '（AI 評分平均 ' + avg + ' 分）');
+    }).join(' → ') + '。';
 }
 activityUse.addEventListener('click', () => {
     const id = activityUse.dataset.workout;
@@ -340,7 +353,7 @@ async function analyze() {
     }
     if (id !== requestId) return;
     analysis = { id: ++analysisCount, data: r, rows: buildRows(r), width, height, times: Array.from(r.t), reps: r.reps, workout: r.workout || null,
-        activity: r.activity || null };
+        activity: r.activity || null, autoSegments: r.autoSegments || [] };
     const rows = analysis.rows;
     // 一開始選在第一個有角度的格子（最前面幾格點還沒穩定，角度都是「—」）
     cursor = Math.max(0, rows.findIndex(row => row.present && Object.values(row.angles).some(a => a !== null)));
@@ -411,6 +424,7 @@ function showSquats() {
     const reps = analysis.reps || [];
     const hold = w && w.kind === 'hold';
     showActivity(w ? id : null);
+    showAutoSegments();
     if (!w) {
         squatSummary.textContent = '這個檔案錄製時沒有選動作（或選了「自由」）：在上面選一個動作，就能算次數、深度和錯誤';
         squatTable.replaceChildren();

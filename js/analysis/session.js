@@ -80,6 +80,12 @@ export function compare(s, previous) {
 }
 
 // 總結寫成幾行字（首頁「這次運動」用）
+// 一次運動的一句話（11/8 追加）：「深蹲 8 下」、棒式「棒式 2 次（最久 0:26）」；AI 全自動的總結、重播分析的分段共用
+export function shortLine(s) {
+    const w = WORKOUTS[s.workout];
+    return w.name + ' ' + s.count + (w.kind === 'hold' ? ' 次（最久 ' + formatSeconds(s.best) + '）' : ' 下');
+}
+
 export function describe(s) {
     const w = WORKOUTS[s.workout];
     const lines = [];

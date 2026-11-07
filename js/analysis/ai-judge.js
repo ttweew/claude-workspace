@@ -107,14 +107,25 @@ export function repScore(rep, ai) {
 // 一組的評分那一句（不含句號）：平均幾分、最好、最差的是第幾下；一樣高（低）時寫最前面那一下
 // 例：「AI 評分（每一下 0～100 分：AI 覺得做對的把握 × 和示範動作有多像）：平均 72 分；最好第 2 下 96 分、最差第 5 下 3 分」
 // 重播分析和首頁的運動總結共用，同一個錄製檔兩邊一字不差；沒有判斷時回傳 ''
+// 一組每一下的分數 { v（0～100）, n（第幾下）}，算不出來的不算（scoreLine、scoreAverage 共用）
+// 第幾下：每一下自己的編號（和表格、提示一樣）；沒有編號（實測報表的資料）時照順序
+function repScores(workoutId, reps, judged) {
+    if (!hasAiModel(workoutId) || !Array.isArray(judged) || !judged.length || !Array.isArray(reps) || reps.length !== judged.length) return [];
+    return judged.map((j, i) => ({ v: repScore(reps[i], j && j.ai), n: reps[i] && Number.isInteger(reps[i].n) ? reps[i].n : i + 1 })).filter(x => x.v !== null);
+}
+const average = scores => Math.round(scores.reduce((a, x) => a + x.v, 0) / scores.length);
+// 一組的平均分數（11/8 追加 2：AI 全自動換動作時講出上一個動作的結果）；沒有模型、對不上、算不出來時 null
+export function scoreAverage(workoutId, reps, judged) {
+    const scores = repScores(workoutId, reps, judged);
+    return scores.length ? average(scores) : null;
+}
+
 export function scoreLine(workoutId, reps, judged) {
-    if (!hasAiModel(workoutId) || !Array.isArray(judged) || !judged.length || !Array.isArray(reps) || reps.length !== judged.length) return '';
+    const scores = repScores(workoutId, reps, judged);
+    if (!scores.length) return '';
     const hold = WORKOUTS[workoutId].kind === 'hold';
     const unit = hold ? '次' : '下';
-    // 第幾下：每一下自己的編號（和表格、提示一樣）；沒有編號（實測報表的資料）時照順序
-    const scores = judged.map((j, i) => ({ v: repScore(reps[i], j && j.ai), n: reps[i] && Number.isInteger(reps[i].n) ? reps[i].n : i + 1 })).filter(x => x.v !== null);
-    if (!scores.length) return '';
-    const avg = Math.round(scores.reduce((a, x) => a + x.v, 0) / scores.length);
+    const avg = average(scores);
     const best = scores.reduce((a, x) => (x.v > a.v ? x : a)), worst = scores.reduce((a, x) => (x.v < a.v ? x : a));
     const head = 'AI 評分（每一' + unit + ' 0～100 分：' + (hold ? 'AI 覺得做對的把握' : 'AI 覺得做對的把握 × 和示範動作有多像') + '）：';
     if (scores.length === 1) return head + best.v + ' 分';

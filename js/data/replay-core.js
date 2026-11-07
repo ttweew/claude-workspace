@@ -11,6 +11,7 @@ import { WorkoutTracker } from '../analysis/tracker.js';
 import { WorldStabilizer } from '../skeleton/world.js';
 import { BalanceMeter, BALANCE } from '../analysis/balance.js';
 import { ActivityMeter, activitySummary } from '../analysis/activity.js';
+import { AutoSegmenter } from '../analysis/auto-segments.js';
 
 export const ANGLE_KEYS = ANGLES.map(([key]) => key);
 export const SIGNED_KEYS = ANGLE_KEYS.filter(k => /_(KNEE|HIP)$/.test(k));
@@ -164,12 +165,17 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
     // AI 自動辨識動作（11/8，js/analysis/activity.js）：每 0.5 秒猜一次這段在做什麼（和首頁自由模式同一套），最後統計各猜了幾秒
     const activity = new ActivityMeter();
     const guesses = [];
+    // AI 全自動分段（11/8 追加 3，js/analysis/auto-segments.js）：自由模式錄的（或檔案沒記動作的）才分段，
+    // 照首頁 AI 全自動的做法切成幾段、每一段用 AI 認出的動作數；選了動作錄的檔案就是那個動作，不用分（也不多花時間）
+    const recorded = parsed.meta && parsed.meta.workout;
+    const segmenter = !recorded || recorded === 'free' ? new AutoSegmenter() : null;
     for (let i = 0; i < n; i++) {
         const f = frames[i];
         out.t[i] = f.t / 1000;
         const p = pipeline.process(f.raw, f.t, width, height);
         if (tracker) tracker.update(p, f.t);
         const guess = activity.update(p, f.t);
+        if (segmenter) segmenter.update(p, f.t);
         if (guess !== undefined) guesses.push(guess && { label: guess.label, confidence: guess.confidence });
         const b = balance ? balance.update(p, f.t) : null;
         if (b) BALANCE_FIELDS.forEach((k, j) => { if (b[k] !== null) out.balance[i * BALANCE_FIELDS.length + j] = b[k]; });
@@ -215,6 +221,7 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
         out.workout = tracker.workout.id;
     }
     out.activity = activitySummary(guesses);
+    out.autoSegments = segmenter ? segmenter.done() : [];
     if (onProgress) onProgress(1);
     return out;
 }
