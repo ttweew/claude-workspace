@@ -99,6 +99,8 @@
                 <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄存在這台裝置上 -->
                 <div id="summary" class="summary" aria-live="polite" hidden>
                     <h2 id="summaryTitle">這次運動</h2>
+                    <!-- AI 全自動（11/8 追加）：這次換過動作時，列出做了哪些動作、各幾下（每個動作各存成一次運動，下面是最後一個） -->
+                    <p id="autoSummaryBox" class="fluency" hidden></p>
                     <ul id="summaryLines"></ul>
                     <!-- 教練建議（10/31，js/analysis/coach.js、js/ui/coach-view.js）：兩三句；AI 教練打開時請 Gemini 寫，不然用固定句子 -->
                     <div id="coachAdvice" class="coach-advice" hidden>

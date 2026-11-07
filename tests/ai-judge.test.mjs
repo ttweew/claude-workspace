@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import MODELS from '../js/analysis/ai-model.js';
-import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, aiLimit, explainRep, explainLine } from '../js/analysis/ai-judge.js';
+import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, scoreAverage, aiLimit, explainRep, explainLine } from '../js/analysis/ai-judge.js';
 import { featureColumns, itemFeatures } from '../js/analysis/features.js';
 import { trainModel, modelClasses, predictModel } from '../js/analysis/forest.js';
 import { analyzeOne } from '../js/data/report-core.js';
@@ -135,7 +135,13 @@ test('AI 動作評分（11/10）：每一下 = AI 覺得做對的把握 × 相�
     // 沒有模型的動作、對不上、空的、不認得的動作
     for (const [id, r, j] of [['free', reps, judged], ['squat', reps, judged.slice(1)], ['squat', [], []], ['constructor', reps, judged], ['squat', reps, null]]) {
         assert.equal(scoreLine(id, r, j), '');
+        assert.equal(scoreAverage(id, r, j), null);
     }
+    // 平均幾分（11/8 追加 2：AI 全自動換動作時講出來）：和那一句的平均一樣；算不出分數的那一下不算
+    assert.equal(scoreAverage('squat', reps, judged), 64);
+    assert.equal(scoreAverage('plank', [{ n: 1 }], [{ ai: { good: 0.9 } }]), 90);
+    assert.equal(scoreAverage('squat', [{ similarity: 90 }, { similarity: 50 }], [{ ai: { good: 1 } }, { ai: null }]), 90);
+    assert.equal(scoreAverage('squat', [{ similarity: 90 }], [{ ai: { good: NaN } }]), null);
     // 合成受測者 K（訓練時沒看過）：做對的那組平均比故意腳跟離地的那組高很多
     const avg = async (id, condition) => {
         const r = await analyzeOne(syntheticSet('K', id, condition, 1).text);

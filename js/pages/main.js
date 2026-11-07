@@ -30,7 +30,7 @@ import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
-import { summarize, compare, describe, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
+import { summarize, compare, describe, shortLine, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
@@ -38,7 +38,7 @@ import { fatigueOf, FatigueWatch, TIRED_WORDS } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
 import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
-import { judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, explainLine, worstIndex } from '../analysis/ai-judge.js';
+import { judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, scoreAverage, explainLine, worstIndex } from '../analysis/ai-judge.js';
 import { userFigure, renderCompare } from '../ui/pose-compare.js';
 import { ActivityMeter, ActivityDisplay, ACTIVITY_NAMES, hasActivityModel } from '../analysis/activity.js';
 import { AutoSwitch } from '../analysis/auto-mode.js';
@@ -889,6 +889,12 @@ aiAutoToggle.addEventListener('change', () => {
 const aiAutoAllowed = () => aiAutoOn && hasActivityModel() && !testMode.on;
 let workoutLocked = false;   // 錄製中（setWorkoutLocked）：不能換動作
 let aiAutoNote = null;         // 剛自動換過去：{ text, until }，卡片上留 3 秒
+// 這次開鏡頭做過的動作（11/8 追加）：AI 全自動換一次動作，前一個就存成一次運動，總結只剩最後一個；
+// 每存一個記一句（「深蹲 8 下」），結束時「這次運動」最上面列出這次做了哪些（按「開啟鏡頭」時清掉）
+let aiAutoDone = [];
+// 剛存好的上一個動作（11/8 追加 2）：AI 全自動換過去時先講結果（「深蹲做完 8 下，AI 評分平均 72 分」），再講「開始數伏地挺身」；
+// 人站在 2～3 公尺外不用看手機，也知道剛剛做得怎樣
+let aiAutoLast = null;
 
 // 每一格（showResult）：自由模式（或 AI 全自動開著）才猜；選了動作、看不到人、剛開始資料不到 3 秒時收起來
 // （AI 全自動時一直顯示，寫現在數什麼）；只在字變了的時候改畫面（每一格都寫會一直重新排版）
@@ -943,7 +949,8 @@ function aiAutoText(shown, now) {
 // 自動換過去：和按「切換到深蹲」一樣換動作，再把最近幾秒的骨架交給新的動作重算（AI 認出來之前做的那幾下也算）
 // 重算出來的那幾下不一下一下跳提示、不一下一下講（會一下子跳好幾個），卡片上寫一句、講一句「開始數深蹲」
 function aiAutoStart(change, now) {
-    setWorkout(change.workout);
+    aiAutoLast = null;
+    setWorkout(change.workout);   // 先存好上一個動作（finishSession 記下 aiAutoLast；從自由模式換過來的沒有）
     if (workout.id !== change.workout) return;   // 換不過去（錄製中鎖住）
     let last = null;
     for (const f of change.frames) last = tracker.update(f.processed, f.now);
@@ -955,8 +962,11 @@ function aiAutoStart(change, now) {
     if (last && last.count) showCount({ ...last, count: { ...last.count, rep: null, hold: null } });
     const done = tracker.items.length;
     const start = startWord(workout);
-    aiAutoNote = { text: start + (done ? '（AI 認出來之前做的 ' + done + (workout.kind === 'hold' ? ' 次' : ' 下') + '也算進去）' : ''), until: now + 3000 };
-    if (canSpeak('setup')) speech.offer('setup', start, performance.now());
+    // 上一個動作的結果（11/8 追加 2）：先講「深蹲做完 8 下，AI 評分平均 72 分」再講「開始數伏地挺身」，卡片也寫
+    const before = aiAutoLast ? aiAutoLast + '；' : '';
+    aiAutoLast = null;
+    aiAutoNote = { text: before + start + (done ? '（AI 認出來之前做的 ' + done + (workout.kind === 'hold' ? ' 次' : ' 下') + '也算進去）' : ''), until: now + (before ? 5000 : 3000) };
+    if (canSpeak('setup')) speech.offer('setup', before + start, performance.now());
     else sound.play('long');
 }
 // 重新開始猜（換動作、重開鏡頭、畫面轉向、開關 AI 全自動）：之前的 3 秒不算
@@ -1240,6 +1250,7 @@ function finishSession() {
     const judged = s ? judgeReps(workout.id, tracker.items) : null;
     const ai = s ? aiLine(workout.id, tracker.items, judged) : '';
     const score = s ? scoreLine(workout.id, tracker.items, judged) : '';
+    const average = s ? scoreAverage(workout.id, tracker.items, judged) : null;   // AI 全自動換動作時講（11/8 追加 2）
     // AI 解釋（11/11）：分數最差的那一下 AI 為什麼這樣判（explainLine，和重播分析那一句一字不差）
     const explain = s ? explainLine(workout.id, tracker.items, judged) : '';
     // 你這一下 vs 標準動作（11/12）：同一下（分數最差的）最低點的骨架
@@ -1252,6 +1263,10 @@ function finishSession() {
     sessionStart = Date.now();
     resetCounter();
     if (!s) return;
+    if (aiAutoAllowed()) {
+        aiAutoDone.push(shortLine(s));
+        aiAutoLast = WORKOUTS[s.workout].name + '做完 ' + s.count + (WORKOUTS[s.workout].kind === 'hold' ? ' 次，最久 ' + Math.floor(s.best) + ' 秒' : ' 下') + (average === null ? '' : '，AI 評分平均 ' + average + ' 分');
+    }
     // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
     if (demo) {
         showSummary(s, null, true, series, goal, ai, score, explain, compare);
@@ -1274,6 +1289,7 @@ const aiSummaryBox = document.getElementById('aiSummaryBox');
 const scoreSummaryBox = document.getElementById('scoreSummaryBox');   // AI 動作評分（11/10）
 const explainSummaryBox = document.getElementById('explainSummaryBox');   // AI 解釋（11/11）
 const poseCompareBox = document.getElementById('poseCompareBox');   // 你這一下 vs 標準動作（11/12）
+const autoSummaryBox = document.getElementById('autoSummaryBox');   // AI 全自動這次做了哪些動作（11/8 追加）
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 // ai：AI 判斷那一句（js/analysis/ai-judge.js 的 aiLine，不含句號；這個動作沒有模型時 ''）
 // score：AI 動作評分那一句（11/10，ai-judge.js 的 scoreLine，不含句號；沒有時 ''）；explain：AI 解釋那一句（11/11，explainLine）
@@ -1281,6 +1297,10 @@ const poseCompareBox = document.getElementById('poseCompareBox');   // 你這一
 function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '', score = '', explain = '', compare = null) {
     shownSummary = { s, previous };
     writeSummary();
+    // AI 全自動做了兩個以上的動作：最上面一句列出來（每個動作各存成一次運動，下面是最後一個的總結）
+    const many = aiAutoDone.length >= 2;
+    autoSummaryBox.hidden = !many;
+    autoSummaryBox.textContent = many ? '這次做了 ' + aiAutoDone.length + ' 個動作（AI 全自動）：' + aiAutoDone.join(' → ') + '（每個動作各存成一次運動，下面是最後一個）' : '';
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
     // 填「實際做了幾下」會改到存起來的最後一筆，示範影片沒有存，不能填；雲端同步的詢問也收起來
     if (fromDemo) document.getElementById('cloudAsk').hidden = true;
@@ -2190,6 +2210,7 @@ function updateLabelBtn() {
 startBtn.addEventListener('click', () => {
     sound.unlock();
     voice.unlock();
+    aiAutoDone = [];
     startCamera(cameraSelect.value);
 });
 stopBtn.addEventListener('click', closeCamera);

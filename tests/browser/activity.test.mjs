@@ -7,6 +7,9 @@ import { syntheticSet } from '../synthetic-sets.mjs';
 import { parseRecording, analyzeRecording } from '../../js/data/replay-core.js';
 import { ACTIVITY_NAMES } from '../../js/analysis/activity.js';
 import { WORKOUTS } from '../../js/analysis/workouts.js';
+import { PoseRecorder } from '../../js/data/recorder.js';
+import { judgeReps, scoreAverage } from '../../js/analysis/ai-judge.js';
+import { summarize, shortLine } from '../../js/analysis/session.js';
 
 const stand = (id, frames) => ({ id, depth: 0, frames });
 // 站 4 秒，再深蹲 8 下（每下約 2.7 秒）：AI 先猜站著、開始蹲之後猜深蹲；切換過去之後還有幾下可以數
@@ -86,6 +89,7 @@ test('重播分析：錄製時沒選動作的檔案寫 AI 猜的（和 node 算�
         assert.equal(await page.textContent('#activityBox'), await expectedLine(text, null));
         assert.equal(await page.textContent('#activityUse'), '用弓箭步分析');
         assert.match(await page.textContent('#squatSummary'), /^這個檔案錄製時沒有選動作/);
+        assert.equal(await page.evaluate(() => document.getElementById('autoSegBox').hidden), true, '只做一個動作：不寫 AI 全自動分段');
         await page.click('#activityUse');
         await page.waitForFunction(() => document.getElementById('squatSummary').textContent.startsWith('弓箭步'), null, { timeout: 60000 });
         assert.equal(await page.inputValue('#workoutPick'), 'lunge');
@@ -101,4 +105,43 @@ test('重播分析：錄製時沒選動作的檔案寫 AI 猜的（和 node 算�
         assert.deepEqual(page.errors, []);
         await context.close();
     }
+});
+
+// AI 全自動分段（11/8 追加 3，js/analysis/auto-segments.js）：自由模式錄的影片做了兩個動作（合成受測者 K 深蹲 10 下 → 伏地挺身 10 下，
+// 用網站的錄製程式接成一個檔），重播分析照首頁 AI 全自動的做法分段：每一段幾下、AI 評分平均和 node 用同一套程式算的一樣
+function mixedRecording(sets) {
+    const recorder = new PoseRecorder();
+    recorder.start({ videoWidth: 640, videoHeight: 480, workout: 'free', synthetic: true, description: '合成的（不是真人）：幾組接在一起' });
+    let offset = 1000;
+    for (const set of sets) {
+        const frames = parseRecording(set.text).frames;
+        const t0 = frames[0].t;
+        for (const f of frames) recorder.add(offset + f.t - t0, f.raw, null);
+        offset += frames[frames.length - 1].t - t0 + 33;
+    }
+    recorder.stop();
+    return recorder.toJSON();
+}
+
+test('重播分析：自由模式錄的影片做了兩個動作，AI 全自動分段（每一段幾下、AI 評分平均，和 node 算的一樣）；換分析的動作也還在', async () => {
+    const text = mixedRecording([syntheticSet('K', 'squat', 'good', 1), syntheticSet('K', 'pushup', 'good', 1)]);
+    const node = await analyzeRecording(parseRecording(text), 640, 480, {});
+    const expected = 'AI 全自動分段（和首頁 AI 全自動同一套做法）：' + node.autoSegments.map(x => {
+        const avg = scoreAverage(x.workout, x.items, judgeReps(x.workout, x.items));
+        return shortLine(summarize(x.workout, x.items, 0, 0)) + (avg === null ? '' : '（AI 評分平均 ' + avg + ' 分）');
+    }).join(' → ') + '。';
+    assert.match(expected, /^AI 全自動分段（和首頁 AI 全自動同一套做法）：深蹲 10 下（AI 評分平均 \d+ 分） → 伏地挺身 10 下（AI 評分平均 \d+ 分）。$/);
+    const { context, page } = await open(browser, [], { width: 390, height: 844, mobile: true });
+    await page.goto(site.base + 'replay.html');
+    await page.setInputFiles('#fileInput', { name: 'free_mixed.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await page.waitForFunction(() => !document.getElementById('squatCard').hidden && !document.getElementById('autoSegBox').hidden, null, { timeout: 60000 });
+    assert.equal(await page.textContent('#autoSegBox'), expected);
+    // 選深蹲重新分析：分段看的是錄製時的動作（自由模式），還在、一樣
+    await page.selectOption('#workoutPick', 'squat');
+    await page.waitForFunction(() => document.getElementById('squatSummary').textContent.startsWith('深蹲'), null, { timeout: 60000 });
+    assert.equal(await page.textContent('#autoSegBox'), expected);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    assert.deepEqual(await violations(page, '#squatCard'), []);
+    assert.deepEqual(page.errors, []);
+    await context.close();
 });

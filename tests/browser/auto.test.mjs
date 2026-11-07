@@ -99,3 +99,45 @@ test('錄製中不自動換（卡片寫原因），停止錄製後才換過去�
     assert.deepEqual(page.errors, []);
     await context.close();
 });
+
+// AI 全自動的總結（11/8 追加）：換了動作，前一個存成一次運動、總結只剩最後一個；
+// 結束時「這次運動」最上面一句列出這次做了哪些動作、各幾下
+const MIXED = script([stand('squat', 120), ...[1, 2, 3, 4].flatMap(() => rep('squat', { hold: 10, rest: 20 })), stand('squat', 60),
+    ...[1, 2, 3, 4, 5, 6].flatMap(() => rep('pushup', { hold: 10, rest: 20 })), { id: 'pushup', depth: 0, frames: 30 }]);
+
+test('AI 全自動換了動作（深蹲 → 伏地挺身）：換過去時講上一個動作的結果；結束時總結最上面列出這次做的每個動作；只做一個動作時不寫', async () => {
+    const { context, page } = await open(browser, MIXED);
+    await context.addInitScript(() => { try { localStorage.setItem('aiAuto', '1'); } catch (e) {} });
+    await page.goto(site.base + 'index.html?workout=free');
+    await ready(page);
+    await page.click('#startBtn');
+    await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('hudRepsName').textContent === '伏地挺身', null, { timeout: 60000 });
+    await page.waitForFunction(() => document.getElementById('hudReps').textContent === '6', null, { timeout: 60000 });
+    await page.waitForTimeout(1500);
+    await page.click('#stopBtn');
+    await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
+    const read = await page.evaluate(() => ({
+        auto: document.getElementById('autoSummaryBox').hidden ? null : document.getElementById('autoSummaryBox').textContent,
+        history: JSON.parse(localStorage.getItem('workoutHistory')).map(r => [r.workout, r.count])
+    }));
+    assert.equal(read.auto, '這次做了 2 個動作（AI 全自動）：深蹲 4 下 → 伏地挺身 6 下（每個動作各存成一次運動，下面是最後一個）');
+    assert.deepEqual(read.history, [['squat', 4], ['pushup', 6]]);
+    // 換過去時先講上一個動作的結果（11/8 追加 2），再講開始數；從自由模式換過來的只講開始數
+    const said = await page.evaluate(() => window.__said);
+    assert.ok(said.includes('開始數深蹲'), said.join('／'));
+    assert.ok(said.some(t => /^深蹲做完 4 下，AI 評分平均 \d+ 分；開始數伏地挺身$/.test(t)), said.join('／'));
+    assert.match((await summary(page)).lines[0], /^伏地挺身 6 下/);
+    assert.deepEqual(await violations(page, '#summary'), []);
+    // 重新打開網頁（假的 AI 從頭播）、只做深蹲就結束：只有一個動作，不寫
+    await page.reload();
+    await ready(page);
+    await page.click('#startBtn');
+    await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
+    await page.waitForFunction(() => !document.getElementById('hudRepsBox').hidden && Number(document.getElementById('hudReps').textContent) >= 2, null, { timeout: 60000 });
+    await page.click('#stopBtn');
+    await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
+    assert.equal(await page.evaluate(() => document.getElementById('autoSummaryBox').hidden), true);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
