@@ -24,7 +24,8 @@ import { balanceLine, BALANCE } from '../analysis/balance.js';
 import { drawBalance } from '../ui/draw.js';
 import { setupOffline } from '../platform/offline.js';
 import { testInfo } from '../data/test-mode.js';
-import { judgeReps, aiLine, judgeCell, seenInTraining } from '../analysis/ai-judge.js';
+import { judgeReps, aiLine, judgeCell, seenInTraining, repScore, scoreLine, explainLine, explainRep, judgeText, worstIndex } from '../analysis/ai-judge.js';
+import { userFigure, renderCompare } from '../ui/pose-compare.js';
 import { ACTIVITY_NAMES, ACTIVITY_MODEL } from '../analysis/activity.js';
 import { listRecordings, getRecordingFile, itemTitle, itemDetail } from '../data/library.js';
 
@@ -40,6 +41,9 @@ const LATE_START_S = 0.5;   // 棒式第 1 次離檔案開頭（最後一次離�
 // 疲勞分析、動作流暢度、動作穩定度（11/1）：和首頁的運動總結同一套
 const fatigueBox = $('fatigueBox'), fluencyBox = $('fluencyBox'), stabilityBox = $('stabilityBox');
 const aiBox = $('aiBox');   // AI 判斷（11/4）
+const scoreBox = $('scoreBox');   // AI 動作評分（11/10）
+const explainBox = $('explainBox'), explainMore = $('explainMore'), explainList = $('explainList');   // AI 解釋（11/11）
+const poseCompareBox = $('poseCompareBox');   // 你這一下 vs 標準動作（11/12）
 const activityRow = $('activityRow'), activityBox = $('activityBox'), activityUse = $('activityUse');   // AI 自動辨識動作（11/8）
 
 // 疲勞分析、流暢度、穩定度：series 是 repSeries() 的結果（null：收起來）；寫法和首頁 main.js 的 showSummary 一樣
@@ -82,7 +86,39 @@ activityUse.addEventListener('click', () => {
     analyze();
 });
 
+// 這一下最低點（rep.bottom，秒）前後 0.2 秒內最近的那一格平滑後的骨架 → 你這一下 vs 標準動作的圖（js/ui/pose-compare.js）
+// （重算的結果在 analysis.data：每一格的時間 t（秒）、平滑後的點 smooth、看不看得到 smoothVis、面向 facing）
+function replayPose(id, rep) {
+    const r = analysis && analysis.data;
+    if (!r || !rep || typeof rep.bottom !== 'number' || !r.t || !r.t.length) return null;
+    let i = 0;
+    for (let k = 1; k < r.t.length; k++) if (Math.abs(r.t[k] - rep.bottom) < Math.abs(r.t[i] - rep.bottom)) i = k;
+    if (Math.abs(r.t[i] - rep.bottom) > 0.2 || !r.present[i]) return null;
+    const POINTS = 33;
+    const points = Array.from({ length: POINTS }, (_, j) => ({
+        x: r.smooth[(i * POINTS + j) * 2], y: r.smooth[(i * POINTS + j) * 2 + 1], visibility: r.smoothVis[i * POINTS + j] ? 1 : 0
+    }));
+    return userFigure(id, points, analysis.width, analysis.height, r.facing[i]);
+}
+
 function showAi(id, reps, judged) {
+    // AI 動作評分（11/10）：平均幾分、最好、最差的是第幾下（和首頁的運動總結那一句一字不差）
+    const score = judged && judged.length ? scoreLine(id, reps, judged) : '';
+    scoreBox.hidden = !score;
+    scoreBox.textContent = score ? score + '。' : '';
+    // AI 解釋（11/11）：分數最差的那一下為什麼這樣判（和首頁的運動總結那一句一字不差），下面可以打開看每一下的
+    const explain = judged && judged.length ? explainLine(id, reps, judged) : '';
+    explainBox.hidden = explainMore.hidden = !explain;
+    explainBox.textContent = explain ? explain + '。' : '';
+    const each = explain && WORKOUTS[id].kind === 'hold' ? '次' : '下';
+    explainList.replaceChildren(...(explain ? reps.map((r, k) => {
+        const li = document.createElement('li');
+        li.textContent = '第 ' + r.n + ' ' + each + ' ' + judgeText(judged[k].ai.label) + '：' + (explainRep(id, r, judged[k].ai) || '—');
+        return li;
+    }) : []));
+    // 你這一下 vs 標準動作（11/12）：分數最差的那一下最低點那一格的骨架（和首頁的運動總結同一下）
+    const k = explain ? worstIndex(reps, judged) : -1;
+    poseCompareBox.hidden = !(k >= 0 && renderCompare(poseCompareBox, id, replayPose(id, reps[k]), '你（第 ' + reps[k].n + ' ' + each + '）', ''));
     aiBox.hidden = !judged || !judged.length;
     if (aiBox.hidden) {
         aiBox.textContent = '';
@@ -404,10 +440,11 @@ function showSquats() {
     showAnalysis(series, id);
     const judged = judgeReps(id, reps);
     showAi(id, reps, judged);
-    // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面；有 AI 模型的動作最後多一欄「AI 判斷（把握）」（11/4）
+    // 深蹲（重心算的動作）多一欄「重心（最低時）」，放在錯誤前面；有 AI 模型的動作最後多一欄「AI 判斷（把握）」（11/4），
+    // 前面一欄「AI 評分」（11/10，0～100 分，和首頁運動中提示的分數一樣）
     const balanced = BALANCE.workouts.includes(id);
     const head = (hold ? ['第幾次', '時間', '撐了幾秒', '錯誤']
-        : ['第幾下', '時間', '最小角度', '判斷', '相似度', ...(balanced ? ['重心（最低時）'] : []), '錯誤']).concat(judged ? ['AI 判斷（把握）'] : []);
+        : ['第幾下', '時間', '最小角度', '判斷', '相似度', ...(balanced ? ['重心（最低時）'] : []), '錯誤']).concat(judged ? ['AI 評分', 'AI 判斷（把握）'] : []);
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
     head.forEach(h => { const th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
@@ -422,14 +459,17 @@ function showSquats() {
             : [r.n, r.start.toFixed(1) + '～' + r.end.toFixed(1) + ' 秒', Math.round(r.min) + '°', depthText[r.depth] + (r.oblique ? '（斜側面）' : ''),
                 r.similarity === null || r.similarity === undefined ? '—' : r.similarity + '%', ...(balanced ? [lowestBalance(r.bottom)] : []), errors];
         const errorsAt = cells.length - 1;
-        if (judged) cells.push(judgeCell(judged[k].ai));
+        if (judged) {
+            const score = repScore(r, judged[k].ai);
+            cells.push(score === null ? '—' : score + ' 分', judgeCell(judged[k].ai));
+        }
         cells.forEach((c, i) => {
             const td = document.createElement(i ? 'td' : 'th');
             td.textContent = c;
             if (!hold && i === 3) td.className = 'depth-' + r.depth;
             if (c !== '—' && i === errorsAt) td.className = 'has-errors';
             // AI 判斷和規則不一樣的那幾下標出來
-            if (judged && i === errorsAt + 1 && judged[k].ai.label !== judged[k].rule) td.className = 'ai-differ';
+            if (judged && i === errorsAt + 2 && judged[k].ai.label !== judged[k].rule) td.className = 'ai-differ';
             tr.appendChild(td);
         });
         // 點一列（或用鍵盤選到後按 Enter）跳到那一下最低的時間（棒式跳到開始）

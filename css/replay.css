@@ -435,3 +435,23 @@
         padding: 6px 2px;
     }
 }
+/* AI 解釋（11/11）：每一下 AI 為什麼這樣判，平常收起來（表格旁邊放不下這麼長的字） */
+.explain-more {
+    margin: 6px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+.explain-more summary {
+    cursor: pointer;
+    color: var(--info);
+}
+.explain-more summary:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+}
+.explain-more ol {
+    margin: 6px 0 0;
+    padding-left: 1.4em;
+    display: grid;
+    gap: 4px;
+}

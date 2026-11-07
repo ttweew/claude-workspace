@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { launch, serve, open, violations } from './harness.mjs';
 import { syntheticSet, syntheticSubject } from '../synthetic-sets.mjs';
 import { analyzeOne } from '../../js/data/report-core.js';
-import { aiJudge, aiJudgeFeatures, ruleJudge, judgeText } from '../../js/analysis/ai-judge.js';
+import { aiJudge, aiJudgeFeatures, ruleJudge, judgeText, repScore, scoreLine, explainLine, explainRep } from '../../js/analysis/ai-judge.js';
 import { itemFeatures } from '../../js/analysis/features.js';
 import { buildDataset } from '../../tools/dataset.mjs';
 import { ratioText } from '../../js/data/test-report.js';
@@ -36,7 +36,17 @@ test('重播分析：每一下的 AI 判斷和 node 算的一樣、和規則不�
     assert.equal(judged.length, 5);
     const head = await page.$$eval('#squatTable thead th', ths => ths.map(th => th.textContent));
     assert.equal(head[head.length - 1], 'AI 判斷（把握）');
-    assert.equal(head[head.length - 2], '錯誤');
+    assert.equal(head[head.length - 2], 'AI 評分');
+    assert.equal(head[head.length - 3], '錯誤');
+    // AI 動作評分（11/10）：每一下的分數、上面一句（平均、最好、最差）和 node 算的一樣
+    const scores = await page.$$eval('#squatTable tbody tr', trs => trs.map(tr => tr.children[tr.children.length - 2].textContent));
+    assert.deepEqual(scores, expected.items.map((it, i) => repScore(it, judged[i].ai) + ' 分'));
+    assert.equal(await page.textContent('#scoreBox'), scoreLine('squat', expected.items, judged) + '。');
+    // AI 解釋（11/11）：最差的那一下那一句、打開「每一下 AI 為什麼這樣判」每一下的，和 node 算的一樣
+    assert.equal(await page.textContent('#explainBox'), explainLine('squat', expected.items, judged) + '。');
+    await page.click('#explainMore summary');
+    assert.deepEqual(await page.$$eval('#explainList li', lis => lis.map(li => li.textContent)),
+        expected.items.map((it, i) => '第 ' + (i + 1) + ' 下 ' + judgeText(judged[i].ai.label) + '：' + explainRep('squat', it, judged[i].ai)));
     const cells = await page.$$eval('#squatTable tbody tr', trs => trs.map(tr => ({ text: tr.lastElementChild.textContent, differ: tr.lastElementChild.classList.contains('ai-differ') })));
     assert.deepEqual(cells, judged.map(j => ({ text: judgeText(j.ai.label) + '（' + Math.round(j.ai.confidence * 100) + '%）', differ: j.ai.label !== j.rule })));
     const differ = judged.map((j, i) => (j.ai.label !== j.rule ? i + 1 : null)).filter(n => n !== null);
@@ -53,6 +63,7 @@ test('重播分析：每一下的 AI 判斷和 node 算的一樣、和規則不�
     await replay(page, syntheticSet('A', 'plank', 'sag', 1));
     assert.match(await page.textContent('#aiBox'), /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：(做對|塌腰|屁股太高) 1 次；和規則一樣 \d 次.*這組要做的是「故意塌腰」：AI 猜對 \d／1 次、規則 \d／1 次（受測者 A 的資料訓練時看過，AI 猜對的不能算數）。$/);
     assert.equal((await page.$$eval('#squatTable thead th', ths => ths.map(th => th.textContent))).pop(), 'AI 判斷（把握）');
+    assert.match(await page.textContent('#scoreBox'), /^AI 評分（每一次 0～100 分：AI 覺得做對的把握）：\d+ 分。$/);
     assert.deepEqual(page.errors, []);
     await context.close();
 });

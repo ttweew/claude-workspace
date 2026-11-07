@@ -3260,3 +3260,32 @@ code {
         justify-self: center;
     }
 }
+
+/* 你這一下 vs 標準動作（11/12，js/ui/pose-compare.js）：左邊你的骨架（黃色）、右邊標準動作（綠色，和示範動畫一樣） */
+.pose-compare {
+    margin: 8px 0 0;
+}
+.pose-compare[hidden] {
+    display: none;
+}
+.pose-compare-art {
+    display: block;
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    border-radius: 10px;
+    background: var(--surface-2);
+}
+.pose-you .demo-bones, .pose-you .demo-head {
+    stroke: var(--attn);
+}
+.pose-compare-label {
+    fill: var(--muted);
+    font-size: 15px;
+    text-anchor: middle;
+}
+.pose-compare-note {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}

@@ -105,7 +105,8 @@ test('伏地挺身 3 下：沒有穩定度；320 寬的手機：總結、表格�
     const toasts = await page.evaluate(() => window.__toasts);
     assert.equal(toasts.length, 3, JSON.stringify(toasts));
     for (const t of toasts) {
-        assert.match(t.ai, /^AI：(做對|塌腰|屁股太高)（\d+%）$/);
+        // AI 動作評分（11/10）：同一行後面寫這一下幾分
+        assert.match(t.ai, /^AI：(做對|塌腰|屁股太高)（\d+%） · \d+ 分$/);
         assert.ok(t.left >= 0 && t.right <= 320, '提示在畫面裡：' + t.left + '～' + t.right);
     }
     assert.match(s.ai, /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：.+；和規則一樣 \d 下/);
