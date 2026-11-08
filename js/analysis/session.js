@@ -86,6 +86,27 @@ export function shortLine(s) {
     return w.name + ' ' + s.count + (w.kind === 'hold' ? ' 次（最久 ' + formatSeconds(s.best) + '）' : ' 下');
 }
 
+// AI 全自動做了哪幾段（首頁結束時的總結、重播分析的分段共用）：list 每一段 { workout, count, best }（summarize 的結果）
+//   6 段以內照順序接起來：「深蹲 8 下 → 伏地挺身 6 下」；note(i)：第 i 段後面加的字（重播分析的 AI 評分平均）
+//   超過 6 段每種加起來：「深蹲 17 段共 204 下、伏地挺身 17 段共 136 下」（棒式「棒式 2 段共 3 次（最久 0:26）」），不加 note
+//   （11/8 保養：AI 全自動運動 30 分鐘、換了 51 次動作，照順序接起來有 574 個字）
+export const AUTO_LIST_MAX = 6;
+export function autoList(list, note = () => '') {
+    if (list.length <= AUTO_LIST_MAX) return list.map((s, i) => shortLine(s) + note(i)).join(' → ');
+    const groups = [];
+    for (const s of list) {
+        let g = groups.find(x => x.workout === s.workout);
+        if (!g) groups.push(g = { workout: s.workout, n: 0, count: 0, best: 0 });
+        g.n++;
+        g.count += s.count;
+        if (s.best > g.best) g.best = s.best;
+    }
+    return groups.map(g => {
+        const w = WORKOUTS[g.workout];
+        return w.name + ' ' + g.n + ' 段共 ' + g.count + (w.kind === 'hold' ? ' 次（最久 ' + formatSeconds(g.best) + '）' : ' 下');
+    }).join('、');
+}
+
 export function describe(s) {
     const w = WORKOUTS[s.workout];
     const lines = [];

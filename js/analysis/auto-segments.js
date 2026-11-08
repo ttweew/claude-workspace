@@ -2,10 +2,11 @@
 // 因為錄製檔只記一個動作），重播分析時照首頁 AI 全自動的做法一格一格跑，切成幾段，每一段用 AI 認出的動作數
 // 做法和首頁一樣（auto-mode.js 的 AutoSwitch 決定什麼時候換、從哪一格重算；main.js 換動作、把最近幾秒的骨架交給新的動作重算）：
 //   每一格先給現在的動作算 → AI 自動辨識動作猜（ActivityMeter，每 0.5 秒）→ 畫面上的動作（ActivityDisplay）→ 要不要換
-//   換的時候：棒式撐到現在的算一次、這一段結束；新的動作從 AutoSwitch 給的那幾格開始重算
+//   換的時候：原本的動作拿掉新的動作會重算到的那幾下（dropRecounted，同一下不能兩個動作都算）、棒式撐到現在的算一次、這一段結束；
+//   新的動作從 AutoSwitch 給的那幾格開始重算
 // 自己一套 ActivityMeter（換動作時要清掉），不動重播分析原本「AI 猜了什麼、各幾秒」的統計
 // tests/auto-mode.test.mjs 的 run() 照 main.js 的做法跑，同一批骨架這裡分出來的每一段、每一段幾下要和它一樣
-import { AutoSwitch } from './auto-mode.js';
+import { AutoSwitch, dropRecounted } from './auto-mode.js';
 import { ActivityMeter, ActivityDisplay } from './activity.js';
 import { WorkoutTracker } from './tracker.js';
 
@@ -26,9 +27,9 @@ export class AutoSegmenter {
         this.tracker.update(processed, now);
         const guess = this.meter.update(processed, now);
         const shown = this.display.update(guess);
-        const keep = this.tracker.items.length > 0 || !!(this.tracker.counter && this.tracker.counter.current);
-        const change = this.auto.update(processed, now, guess, shown, this.current, true, keep);
+        const change = this.auto.update(processed, now, shown, this.current, true);
         if (!change) return;
+        dropRecounted(this.tracker, change);
         this.finish();
         this.current = change.workout;
         this.tracker = new WorkoutTracker(this.current);
