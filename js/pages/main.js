@@ -30,7 +30,7 @@ import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
 import { clearerSide } from '../skeleton/landmarks.js';
-import { summarize, compare, describe, shortLine, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
+import { summarize, compare, describe, autoList, AUTO_LIST_MAX, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
@@ -41,7 +41,7 @@ import { stabilityOf, stabilityLine } from '../analysis/stability.js';
 import { judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, scoreAverage, explainLine, worstIndex } from '../analysis/ai-judge.js';
 import { userFigure, renderCompare } from '../ui/pose-compare.js';
 import { ActivityMeter, ActivityDisplay, ACTIVITY_NAMES, hasActivityModel } from '../analysis/activity.js';
-import { AutoSwitch } from '../analysis/auto-mode.js';
+import { AutoSwitch, dropRecounted } from '../analysis/auto-mode.js';
 import { RaiseHand, HOLD_MS, SHOW_AFTER_MS } from '../analysis/gesture.js';
 import { Voice, loadVoiceMode } from '../ui/voice.js';
 import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine } from '../ui/speech-plan.js';
@@ -904,7 +904,7 @@ function showActivity(processed, now) {
     const guess = watching ? activityMeter.update(processed, now) : undefined;
     const shown = watching ? activityDisplay.update(guess) : null;
     if (auto) {
-        const change = aiAutoSwitch.update(processed, now, guess, shown, workout.id, !workoutLocked);
+        const change = aiAutoSwitch.update(processed, now, shown, workout.id, !workoutLocked);
         if (change) aiAutoStart(change, now);
         setActivityCard('AI 全自動', aiAutoText(shown, now), '', null);
         return;
@@ -950,6 +950,8 @@ function aiAutoText(shown, now) {
 // 重算出來的那幾下不一下一下跳提示、不一下一下講（會一下子跳好幾個），卡片上寫一句、講一句「開始數深蹲」
 function aiAutoStart(change, now) {
     aiAutoLast = null;
+    // 上一個動作在 AI 認出換了動作之前多數到的那幾下（其實是新的動作）拿掉，新的動作會重算（11/8 保養，auto-mode.js）
+    dropRecounted(tracker, change);
     setWorkout(change.workout);   // 先存好上一個動作（finishSession 記下 aiAutoLast；從自由模式換過來的沒有）
     if (workout.id !== change.workout) return;   // 換不過去（錄製中鎖住）
     let last = null;
@@ -1264,7 +1266,7 @@ function finishSession() {
     resetCounter();
     if (!s) return;
     if (aiAutoAllowed()) {
-        aiAutoDone.push(shortLine(s));
+        aiAutoDone.push({ workout: s.workout, count: s.count, best: s.best });
         aiAutoLast = WORKOUTS[s.workout].name + '做完 ' + s.count + (WORKOUTS[s.workout].kind === 'hold' ? ' 次，最久 ' + Math.floor(s.best) + ' 秒' : ' 下') + (average === null ? '' : '，AI 評分平均 ' + average + ' 分');
     }
     // 示範影片（10/26）：不是自己運動，不存進運動紀錄、不上傳雲端、不和上一次比；總結照樣顯示
@@ -1297,10 +1299,10 @@ const autoSummaryBox = document.getElementById('autoSummaryBox');   // AI 全自
 function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '', score = '', explain = '', compare = null) {
     shownSummary = { s, previous };
     writeSummary();
-    // AI 全自動做了兩個以上的動作：最上面一句列出來（每個動作各存成一次運動，下面是最後一個的總結）
-    const many = aiAutoDone.length >= 2;
-    autoSummaryBox.hidden = !many;
-    autoSummaryBox.textContent = many ? '這次做了 ' + aiAutoDone.length + ' 個動作（AI 全自動）：' + aiAutoDone.join(' → ') + '（每個動作各存成一次運動，下面是最後一個）' : '';
+    // AI 全自動做了兩個以上的動作：最上面一句列出來（每個動作各存成一次運動，下面是最後一個的總結）；超過 6 段每種加起來（session.js 的 autoList）
+    const n = aiAutoDone.length;
+    autoSummaryBox.hidden = n < 2;
+    autoSummaryBox.textContent = n < 2 ? '' : '這次做了 ' + n + ' 個動作（AI 全自動）' + (n > AUTO_LIST_MAX ? '，每種加起來：' : '：') + autoList(aiAutoDone) + '（每個動作各存成一次運動，下面是最後一個）';
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
     // 填「實際做了幾下」會改到存起來的最後一筆，示範影片沒有存，不能填；雲端同步的詢問也收起來
     if (fromDemo) document.getElementById('cloudAsk').hidden = true;

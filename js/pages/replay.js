@@ -10,7 +10,7 @@ import { makeDemoRecording } from '../data/synth.js';
 import { downloadText } from '../data/recorder.js';
 import { DEPTH_TEXT } from '../analysis/squat.js';
 import { WORKOUTS, isWorkout, formatSeconds } from '../analysis/workouts.js';
-import { summarize, describe, shortLine } from '../analysis/session.js';
+import { summarize, describe, autoList, AUTO_LIST_MAX } from '../analysis/session.js';
 import { repSeries } from '../analysis/rep-series.js';
 import { renderRepChart } from '../ui/rep-chart.js';
 import { fatigueOf } from '../analysis/fatigue.js';
@@ -82,15 +82,15 @@ function showActivity(id) {
 }
 // AI 全自動分段（11/8 追加 3，js/analysis/auto-segments.js）：自由模式錄的影片做了兩個以上的動作時，照首頁 AI 全自動的做法切成幾段，
 // 寫每一段的動作、幾下、AI 評分平均（和首頁 AI 全自動結束時的總結、換動作時講的同一個寫法）；只有一段時上面「用深蹲分析」就夠了
+// 超過 6 段每種加起來（session.js 的 autoList，11/8 保養）
 function showAutoSegments() {
     const all = analysis && Array.isArray(analysis.autoSegments) ? analysis.autoSegments : [];
     const segs = all.filter(x => x && isWorkout(x.workout) && x.workout !== 'free' && Array.isArray(x.items) && x.items.length);
     autoSegBox.hidden = segs.length < 2;
     if (autoSegBox.hidden) return;
-    autoSegBox.textContent = 'AI 全自動分段（和首頁 AI 全自動同一套做法）：' + segs.map(x => {
-        const avg = scoreAverage(x.workout, x.items, judgeReps(x.workout, x.items));
-        return shortLine(summarize(x.workout, x.items, 0, 0)) + (avg === null ? '' : '（AI 評分平均 ' + avg + ' 分）');
-    }).join(' → ') + '。';
+    const avgs = segs.map(x => scoreAverage(x.workout, x.items, judgeReps(x.workout, x.items)));
+    const list = autoList(segs.map(x => summarize(x.workout, x.items, 0, 0)), i => (avgs[i] === null ? '' : '（AI 評分平均 ' + avgs[i] + ' 分）'));
+    autoSegBox.textContent = 'AI 全自動分段（和首頁 AI 全自動同一套做法）' + (segs.length > AUTO_LIST_MAX ? '：分成 ' + segs.length + ' 段，每種加起來：' : '：') + list + '。';
 }
 activityUse.addEventListener('click', () => {
     const id = activityUse.dataset.workout;

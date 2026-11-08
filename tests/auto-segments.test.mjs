@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AutoSegmenter } from '../js/analysis/auto-segments.js';
-import { AutoSwitch } from '../js/analysis/auto-mode.js';
+import { AutoSwitch, dropRecounted } from '../js/analysis/auto-mode.js';
 import { ActivityMeter, ActivityDisplay } from '../js/analysis/activity.js';
 import { WorkoutTracker } from '../js/analysis/tracker.js';
 import { PosePipeline } from '../js/skeleton/pipeline.js';
@@ -37,9 +37,9 @@ function mainWay(frames) {
         tracker.update(p, f.t);
         const guess = meter.update(p, f.t);
         const shown = display.update(guess);
-        const keep = tracker.items.length > 0 || !!(tracker.counter && tracker.counter.current);
-        const change = auto.update(p, f.t, guess, shown, current, true, keep);
+        const change = auto.update(p, f.t, shown, current, true);
         if (!change) continue;
+        dropRecounted(tracker, change);
         finish();
         current = change.workout;
         tracker = new WorkoutTracker(current);
@@ -60,16 +60,15 @@ function recordingOf(frames, workout) {
     return recorder.toJSON();
 }
 
-test('合成受測者 K：深蹲 10 下 → 伏地挺身 10 下 → 弓箭步 10 下，分段和首頁 AI 全自動的做法一樣（瞬間換成弓箭步時少算第 1 下，兩邊一樣）', () => {
+test('合成受測者 K：深蹲 10 下 → 伏地挺身 10 下 → 弓箭步 10 下，分段和首頁 AI 全自動的做法一樣，每一段都數到', () => {
     const frames = framesOf([syntheticSet('K', 'squat', 'good', 1), syntheticSet('K', 'pushup', 'good', 1), syntheticSet('K', 'lunge', 'good', 1)]);
     const seg = new AutoSegmenter();
     const pipeline = new PosePipeline();
     for (const f of frames) seg.update(pipeline.process(f.raw, f.t, 640, 480), f.t);
     const got = seg.done().map(s => [s.workout, s.items.length]);
     assert.deepEqual(got, mainWay(frames));
-    // 弓箭步少 1 下：接在一起的合成資料是一瞬間從趴著變站著（真人起身要幾秒）；AI 看的 3 秒裡還有伏地挺身，
-    // 弓箭步那組開始 2.8 秒後才不再猜伏地挺身，重算從那裡開始，第 1 下（最低點在 3.5 秒）只剩一半，不算（首頁 AI 全自動一樣）
-    assert.deepEqual(got, [['squat', 10], ['pushup', 10], ['lunge', 9]]);
+    // 弓箭步也 10 下（11/8 保養以前分段時少算第 1 下：重算不早於 AI 最後一次猜成伏地挺身，首頁沒有照做，拿掉了，見 auto-mode.js）
+    assert.deepEqual(got, [['squat', 10], ['pushup', 10], ['lunge', 10]]);
     // done() 之後再呼叫：不會重複算最後一段
     assert.deepEqual(seg.done().map(s => s.workout), ['squat', 'pushup', 'lunge']);
 });

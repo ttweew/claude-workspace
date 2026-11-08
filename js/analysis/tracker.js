@@ -82,6 +82,15 @@ export class WorkoutTracker {
         return hold;
     }
 
+    // AI 全自動換動作（auto-mode.js 的 dropRecounted）：timeMs 之後才開始的那幾下拿掉，回傳拿掉幾下
+    // 只拿掉計次的動作（棒式一次撐好幾秒，不拆開；撐到換動作時的照樣算一次）
+    dropFrom(timeMs) {
+        if (this.workout.kind !== 'reps' || !this.counter) return 0;
+        const reps = this.counter.reps;
+        const i = reps.findIndex(r => r.start * 1000 >= timeMs);
+        return i < 0 ? 0 : reps.splice(i).length;
+    }
+
     // 每一格：回傳 { form（這一格的錯誤，見 form.js）, count（計次／計時的結果，自由模式是 null）, done（剛完成的一下或一次，已經記上 errors），
     //   calibrated（這一格剛校正好時是校正結果） }
     update(pose, timeMs) {

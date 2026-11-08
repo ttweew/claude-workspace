@@ -141,3 +141,32 @@ test('AI 全自動換了動作（深蹲 → 伏地挺身）：換過去時講上
     assert.deepEqual(page.errors, []);
     await context.close();
 });
+
+// 換動作的那幾秒同一下不能兩個動作都算（11/8 保養，auto-mode.js 的 dropRecounted）：深蹲 5 下、站 1 秒、弓箭步 6 下
+// 以前 AI 還沒認出弓箭步的那幾秒，弓箭步的前 2 下也被數成深蹲（存成深蹲 7 下），換過去又重算成弓箭步
+const SQUAT_LUNGE = script([stand('squat', 120), ...[1, 2, 3, 4, 5].flatMap(() => rep('squat', { hold: 10, rest: 20 })), stand('squat', 30),
+    ...[1, 2, 3, 4, 5, 6].flatMap(() => rep('lunge', { hold: 10, rest: 20 })), stand('lunge', 60)]);
+
+test('AI 全自動深蹲接弓箭步（11/8 保養）：換動作的那幾秒不會兩個動作都算，存成深蹲 5 下、弓箭步 6 下', async () => {
+    const { context, page } = await open(browser, SQUAT_LUNGE);
+    await context.addInitScript(() => { try { localStorage.setItem('aiAuto', '1'); } catch (e) {} });
+    await page.goto(site.base + 'index.html?workout=free');
+    await ready(page);
+    await page.click('#startBtn');
+    await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('hudRepsName').textContent === '弓箭步', null, { timeout: 60000 });
+    await page.waitForFunction(() => document.getElementById('hudReps').textContent === '6', null, { timeout: 60000 });
+    await page.waitForTimeout(1500);
+    await page.click('#stopBtn');
+    await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
+    const read = await page.evaluate(() => ({
+        auto: document.getElementById('autoSummaryBox').textContent,
+        history: JSON.parse(localStorage.getItem('workoutHistory')).map(r => [r.workout, r.count])
+    }));
+    assert.deepEqual(read.history, [['squat', 5], ['lunge', 6]]);
+    assert.equal(read.auto, '這次做了 2 個動作（AI 全自動）：深蹲 5 下 → 弓箭步 6 下（每個動作各存成一次運動，下面是最後一個）');
+    const said = await page.evaluate(() => window.__said);
+    assert.ok(said.some(t => /^深蹲做完 5 下，AI 評分平均 \d+ 分；開始數弓箭步$/.test(t)), said.join('／'));
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
