@@ -151,3 +151,13 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
     - `shot_slide.mjs <輸出資料夾>`：第 29 頁的截圖（合成受測者 K 故意屁股太高的伏地挺身，seed 112＝實測報表的那一組），也照 PR 的「怎麼試」走一次。`kpick.mjs`：K 的 9 組每一下 AI 和規則的判斷、哪幾組不一樣、K 全部各猜對幾下。
     - `record_demo.mjs <輸出資料夾>`：錄示範影片（Playwright 的 recordVideo，1280×720：首頁深蹲 6 下、總結、重播分析的 AI 判斷、研究成果頁），再用 `ffmpeg -c:v libx264 -pix_fmt yuv420p` 轉成 mp4。
   - 10/18 第一次備份時順手放進來的簡報、進度地圖（`artifact-files/`），和裡面有這兩頁文字的腳本（`main1102/map/map_edit.py` 等），11/3 刪掉了：不是測試工具，這兩頁只有使用者看得到；最新的版本在線上，要改先用 Artifact 的 `read` 讀。
+- 11/7～11/8（更多 AI：即時 AI 判斷、AI 自動辨識動作、手勢控制、AI 全自動、AI 評分、AI 解釋、對照圖、整合測試、追加 3 項）：
+  - `main1107*/chain.sh`、`main1108a/chain.sh`、`main1113/chain.sh`：每一項合併前在主要資料夾依序跑（自動測試 → 專案的瀏覽器測試 → report21 → maint27 → 完整回歸），一次一個。
+  - `n2dev/`：AI 評分、AI 解釋設計時的試算（`scores.mjs` 合成受測者每一下的分數、`explain.mjs` AI 的界線、`explore.mjs` 特徵的範圍）。
+- 11/8 保養（全部 AI 一起開 30 分鐘）：
+  - `maint1108/make_fake_ai.mjs <網站資料夾>`（在 maint1108 裡跑）：做出一直重複的假 AI（fake_ai.mjs／.js，一輪 104 秒：深蹲 8 下 → 舉手開始錄影 → 深蹲 4 下 → 舉手結束 → 伏地挺身 8 下 → 弓箭步 8 下）。
+  - `maint1108/soak_ai.py <網站資料夾> <port> [分鐘] [off]`：AI 全自動、手勢錄影、每一下的 AI 判斷一起開，每 2 分鐘量記憶體、畫面元素、事件監聽、長計時器、每秒格數、忙碌比例、換了幾次動作、錄了幾段（`off`：都關、只選深蹲，比較用）。事件監聽、畫面元素會跟著錄製檔清單變多（每錄一段 4 個、約 22 個），看的時候要扣掉；結果在 `soak30_ai.txt`（30 分鐘）、`soak6_final.txt`（最後的程式 6.5 分鐘）。
+  - `maint1108/keep_probe.mjs`、`trim_probe.mjs`、`trim_probe_new.mjs`、`grid2.mjs`、`debug_ls.mjs <網站資料夾>`：AI 全自動換動作時的次數（示範動畫三個動作兩兩互換、中間停 0～6 秒，合成受測者 K、I、J；幾種做法比較，找到同一下兩個動作都算到）。
+  - `maint1108/record_ai_demo.mjs <輸出資料夾>`：錄「這週的 AI」合成示範影片（兩段，再用 ffmpeg 接起來轉 mp4）。
+  - `maint1108/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對摘要行、PASS 數、md5）。
+

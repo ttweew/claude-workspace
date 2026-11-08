@@ -1,0 +1,29 @@
+    AI 模型已就緒（載入 0.3 秒） ｜ AI 全自動 True ｜ 手勢 True
+    {"min": 0.5, "workout": "squat", "reps": "8", "heap": 5.85, "nodes": 2013, "listeners": 137, "fps": 30, "long": 1, "timers": 0, "said": 10, "start": 1, "done": 0, "recOn": 0, "recOff": 0, "toasts": 7, "aiToasts": 7, "recs": 0, "hist": 0}
+    {"min": 1.0, "workout": "pushup", "reps": "2", "heap": 6.39, "nodes": 2573, "listeners": 141, "fps": 30, "long": 1, "timers": 0, "said": 19, "start": 2, "done": 1, "recOn": 1, "recOff": 1, "toasts": 12, "aiToasts": 12, "recs": 1, "hist": 1, "busy": 10.9}
+    {"min": 1.5, "workout": "lunge", "reps": "4", "heap": 6.51, "nodes": 2451, "listeners": 141, "fps": 29, "long": 1, "timers": 0, "said": 29, "start": 3, "done": 2, "recOn": 1, "recOff": 1, "toasts": 20, "aiToasts": 20, "recs": 1, "hist": 2, "busy": 11.2}
+    {"min": 2.0, "workout": "squat", "reps": "4", "heap": 6.63, "nodes": 2459, "listeners": 141, "fps": 30, "long": 1, "timers": 0, "said": 39, "start": 4, "done": 3, "recOn": 1, "recOff": 1, "toasts": 28, "aiToasts": 28, "recs": 1, "hist": 3, "busy": 11.0}
+    {"min": 2.5, "workout": "squat", "reps": "12", "heap": 6.7, "nodes": 2459, "listeners": 141, "fps": 30, "long": 1, "timers": 1, "said": 48, "start": 4, "done": 3, "recOn": 2, "recOff": 1, "toasts": 36, "aiToasts": 36, "recs": 1, "hist": 3, "busy": 11.2}
+    {"min": 3.0, "workout": "pushup", "reps": "8", "heap": 6.7, "nodes": 2615, "listeners": 145, "fps": 30, "long": 2, "timers": 0, "said": 58, "start": 5, "done": 4, "recOn": 2, "recOff": 2, "toasts": 43, "aiToasts": 43, "recs": 2, "hist": 4, "busy": 11.2}
+    {"min": 3.5, "workout": "lunge", "reps": "8", "heap": 6.75, "nodes": 2484, "listeners": 145, "fps": 30, "long": 2, "timers": 1, "said": 66, "start": 6, "done": 5, "recOn": 2, "recOff": 2, "toasts": 49, "aiToasts": 49, "recs": 2, "hist": 5, "busy": 10.9}
+    {"min": 4.0, "workout": "squat", "reps": "8", "heap": 6.53, "nodes": 2492, "listeners": 145, "fps": 30, "long": 2, "timers": 0, "said": 77, "start": 7, "done": 6, "recOn": 3, "recOff": 2, "toasts": 57, "aiToasts": 57, "recs": 2, "hist": 6, "busy": 11.0}
+    {"min": 4.5, "workout": "pushup", "reps": "3", "heap": 6.67, "nodes": 2641, "listeners": 149, "fps": 30, "long": 2, "timers": 0, "said": 86, "start": 8, "done": 7, "recOn": 3, "recOff": 3, "toasts": 63, "aiToasts": 63, "recs": 3, "hist": 7, "busy": 10.7}
+    {"min": 5.0, "workout": "lunge", "reps": "5", "heap": 6.75, "nodes": 2511, "listeners": 149, "fps": 30, "long": 2, "timers": 0, "said": 96, "start": 9, "done": 8, "recOn": 3, "recOff": 3, "toasts": 71, "aiToasts": 71, "recs": 3, "hist": 8, "busy": 11.5}
+    {"min": 5.5, "workout": "squat", "reps": "4", "heap": 6.85, "nodes": 2517, "listeners": 149, "fps": 30, "long": 2, "timers": 0, "said": 105, "start": 10, "done": 9, "recOn": 3, "recOff": 3, "toasts": 78, "aiToasts": 78, "recs": 3, "hist": 9, "busy": 11.0}
+    {"min": 6.0, "workout": "squat", "reps": "12", "heap": 6.92, "nodes": 2518, "listeners": 149, "fps": 30, "long": 2, "timers": 0, "said": 114, "start": 10, "done": 9, "recOn": 4, "recOff": 3, "toasts": 86, "aiToasts": 86, "recs": 3, "hist": 9, "busy": 11.0}
+    {"min": 6.5, "workout": "pushup", "reps": "8", "heap": 6.88, "nodes": 2667, "listeners": 153, "fps": 30, "long": 2, "timers": 0, "said": 124, "start": 11, "done": 10, "recOn": 4, "recOff": 4, "toasts": 93, "aiToasts": 93, "recs": 4, "hist": 10, "busy": 10.8}
+    最後幾次換動作講的： ['伏地挺身做完 8 下，AI 評分平均 93 分；開始數弓箭步', '弓箭步做完 8 下，AI 評分平均 85 分；開始數深蹲', '深蹲做完 12 下，AI 評分平均 93 分；開始數伏地挺身', '伏地挺身做完 8 下，AI 評分平均 93 分；開始數弓箭步', '弓箭步做完 8 下，AI 評分平均 85 分；開始數深蹲', '深蹲做完 12 下，AI 評分平均 91 分；開始數伏地挺身']
+    總結： ['伏地挺身 8 下：到位 8、再低一點 0、太淺 0', '最低 89°、平均 89°，每下約 2.2 秒；和示範動作相似 95%']
+    AI 全自動那一句（88 個字，框 {'h': 67, 'w': 372}）：這次做了 11 個動作（AI 全自動），每種加起來：深蹲 4 段共 48 下、伏地挺身 4 段共 32 下、弓箭步 3 段共 24 下（每個動作各存成一次運動，下面是最後一個）
+PASS 記憶體不會一直漲：第 1.0 分 6.39 MB → 第 6.5 分 6.88 MB
+FAIL 畫面元素數不變：2451～2667
+PASS 排著沒用的長計時器：0～1 個
+PASS 事件監聽數不變：141～153
+PASS AI 每秒格數沒有變少：前面 [30, 30, 29]、最後 [30, 30, 30]
+PASS 主畫面忙碌的比例沒有變高：前面 [10.9, 11.2, 11.0]%、最後 [11.0, 11.0, 10.8]%
+PASS 6.5 分鐘（約 3.8 輪）換了 10 次動作（每輪 3 次）
+PASS 手勢錄了 4 段（開始 4、結束 4 次）
+PASS 每一下的提示 93 次，有 AI 判斷的 93 次
+PASS 整段沒有程式錯誤 []
+    關鏡頭後記憶體 6.5 MB
+SOME FAIL 1 ['畫面元素數不變：2451～2667']

@@ -1,0 +1,31 @@
+    AI 模型已就緒（載入 0.3 秒） ｜ AI 全自動 True ｜ 手勢 True
+    {"min": 2.0, "workout": "squat", "reps": "4", "heap": 6.56, "nodes": 2455, "listeners": 141, "fps": 29, "long": 1, "timers": 0, "said": 39, "start": 4, "done": 3, "recOn": 1, "recOff": 1, "toasts": 28, "aiToasts": 28, "recs": 1, "hist": 3}
+    {"min": 4.0, "workout": "squat", "reps": "8", "heap": 6.4, "nodes": 2492, "listeners": 145, "fps": 30, "long": 2, "timers": 0, "said": 77, "start": 7, "done": 6, "recOn": 3, "recOff": 2, "toasts": 57, "aiToasts": 57, "recs": 2, "hist": 6, "busy": 10.8}
+    {"min": 6.0, "workout": "squat", "reps": "12", "heap": 6.85, "nodes": 2519, "listeners": 149, "fps": 30, "long": 2, "timers": 0, "said": 114, "start": 10, "done": 9, "recOn": 4, "recOff": 3, "toasts": 86, "aiToasts": 86, "recs": 3, "hist": 9, "busy": 11.2}
+    {"min": 8.0, "workout": "pushup", "reps": "4", "heap": 6.84, "nodes": 2691, "listeners": 157, "fps": 30, "long": 2, "timers": 0, "said": 152, "start": 15, "done": 13, "recOn": 5, "recOff": 5, "toasts": 112, "aiToasts": 112, "recs": 5, "hist": 13, "busy": 10.7}
+    {"min": 10.0, "workout": "pushup", "reps": "8", "heap": 6.92, "nodes": 2707, "listeners": 161, "fps": 30, "long": 2, "timers": 0, "said": 189, "start": 18, "done": 16, "recOn": 6, "recOff": 6, "toasts": 141, "aiToasts": 141, "recs": 6, "hist": 16, "busy": 12.6}
+    {"min": 12.0, "workout": "lunge", "reps": "6", "heap": 6.95, "nodes": 2595, "listeners": 165, "fps": 30, "long": 3, "timers": 0, "said": 227, "start": 23, "done": 20, "recOn": 7, "recOff": 7, "toasts": 168, "aiToasts": 168, "recs": 7, "hist": 20, "busy": 11.0}
+    {"min": 14.0, "workout": "lunge", "reps": "9", "heap": 6.99, "nodes": 2625, "listeners": 169, "fps": 30, "long": 3, "timers": 0, "said": 263, "start": 26, "done": 23, "recOn": 8, "recOff": 8, "toasts": 196, "aiToasts": 196, "recs": 8, "hist": 23, "busy": 10.3}
+    {"min": 16.0, "workout": "squat", "reps": "7", "heap": 7.04, "nodes": 2644, "listeners": 173, "fps": 30, "long": 3, "timers": 0, "said": 303, "start": 31, "done": 27, "recOn": 9, "recOff": 9, "toasts": 225, "aiToasts": 225, "recs": 9, "hist": 27, "busy": 10.1}
+    {"min": 18.0, "workout": "squat", "reps": "10", "heap": 6.99, "nodes": 2660, "listeners": 177, "fps": 29, "long": 3, "timers": 0, "said": 340, "start": 34, "done": 30, "recOn": 11, "recOff": 10, "toasts": 253, "aiToasts": 253, "recs": 10, "hist": 30, "busy": 10.0}
+    {"min": 20.0, "workout": "pushup", "reps": "1", "heap": 6.98, "nodes": 2874, "listeners": 185, "fps": 30, "long": 3, "timers": 0, "said": 378, "start": 38, "done": 34, "recOn": 12, "recOff": 12, "toasts": 280, "aiToasts": 280, "recs": 12, "hist": 34, "busy": 10.3}
+    {"min": 22.0, "workout": "pushup", "reps": "7", "heap": 7.1, "nodes": 2848, "listeners": 189, "fps": 30, "long": 3, "timers": 0, "said": 417, "start": 41, "done": 37, "recOn": 13, "recOff": 13, "toasts": 311, "aiToasts": 311, "recs": 13, "hist": 37, "busy": 10.6}
+    {"min": 24.0, "workout": "lunge", "reps": "4", "heap": 7.09, "nodes": 2737, "listeners": 193, "fps": 29, "long": 3, "timers": 0, "said": 454, "start": 46, "done": 41, "recOn": 14, "recOff": 14, "toasts": 337, "aiToasts": 337, "recs": 14, "hist": 41, "busy": 11.0}
+    {"min": 26.0, "workout": "lunge", "reps": "8", "heap": 7.14, "nodes": 2755, "listeners": 197, "fps": 30, "long": 3, "timers": 0, "said": 490, "start": 50, "done": 44, "recOn": 15, "recOff": 15, "toasts": 364, "aiToasts": 364, "recs": 15, "hist": 44, "busy": 11.6}
+    {"min": 28.0, "workout": "squat", "reps": "4", "heap": 7.2, "nodes": 2781, "listeners": 201, "fps": 30, "long": 3, "timers": 0, "said": 528, "start": 55, "done": 48, "recOn": 16, "recOff": 16, "toasts": 391, "aiToasts": 391, "recs": 16, "hist": 48, "busy": 11.4}
+    {"min": 30.0, "workout": "squat", "reps": "8", "heap": 7.05, "nodes": 2801, "listeners": 205, "fps": 29, "long": 3, "timers": 0, "said": 566, "start": 58, "done": 51, "recOn": 18, "recOff": 17, "toasts": 420, "aiToasts": 420, "recs": 17, "hist": 50, "busy": 10.3}
+    最後幾次換動作講的： ['深蹲做完 12 下，AI 評分平均 86 分；開始數伏地挺身', '伏地挺身做完 8 下，AI 評分平均 93 分；開始數弓箭步', '弓箭步做完 8 下，AI 評分平均 85 分；開始數深蹲', '深蹲做完 12 下，AI 評分平均 92 分；開始數伏地挺身', '伏地挺身做完 8 下，AI 評分平均 93 分；開始數弓箭步', '弓箭步做完 8 下，AI 評分平均 85 分；開始數深蹲']
+    總結： ['深蹲 8 下：到位 8、再低一點 0、太淺 0', '最低 85°、平均 85°，每下約 2.1 秒；和示範動作相似 96%']
+    AI 全自動那一句（574 個字，框 {'h': 336, 'w': 372}）：這次做了 52 個動作（AI 全自動）：深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 … 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 12 下 → 伏地挺身 8 下 → 弓箭步 8 下 → 深蹲 8 下（每個動作各存成一次運動，下面是最後一個）
+PASS 記憶體不會一直漲：第 4.0 分 6.4 MB → 第 30.0 分 7.05 MB
+FAIL 畫面元素數不變：2492～2874
+PASS 排著沒用的長計時器：0～0 個
+FAIL 事件監聽數不變：145～205
+PASS AI 每秒格數沒有變少：前面 [29, 30, 30]、最後 [30, 30, 29]
+PASS 主畫面忙碌的比例沒有變高：前面 [10.8, 11.2, 10.7]%、最後 [11.6, 11.4, 10.3]%
+PASS 30.0 分鐘（約 17.3 輪）換了 51 次動作（每輪 3 次）
+PASS 手勢錄了 17 段（開始 18、結束 17 次）
+PASS 每一下的提示 420 次，有 AI 判斷的 420 次
+PASS 整段沒有程式錯誤 []
+    關鏡頭後記憶體 6.4 MB
+SOME FAIL 2 ['畫面元素數不變：2492～2874', '事件監聽數不變：145～205']
