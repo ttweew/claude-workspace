@@ -895,6 +895,8 @@ let aiAutoDone = [];
 // 剛存好的上一個動作（11/8 追加 2）：AI 全自動換過去時先講結果（「深蹲做完 8 下，AI 評分平均 72 分」），再講「開始數伏地挺身」；
 // 人站在 2～3 公尺外不用看手機，也知道剛剛做得怎樣
 let aiAutoLast = null;
+// 正在因為 AI 全自動換動作而存上一個動作（11/9 保養）：教練建議只寫、不唸、不問 Gemini（js/ui/coach-view.js 的 quiet）
+let aiAutoSwitching = false;
 
 // 每一格（showResult）：自由模式（或 AI 全自動開著）才猜；選了動作、看不到人、剛開始資料不到 3 秒時收起來
 // （AI 全自動時一直顯示，寫現在數什麼）；只在字變了的時候改畫面（每一格都寫會一直重新排版）
@@ -952,7 +954,12 @@ function aiAutoStart(change, now) {
     aiAutoLast = null;
     // 上一個動作在 AI 認出換了動作之前多數到的那幾下（其實是新的動作）拿掉，新的動作會重算（11/8 保養，auto-mode.js）
     dropRecounted(tracker, change);
-    setWorkout(change.workout);   // 先存好上一個動作（finishSession 記下 aiAutoLast；從自由模式換過來的沒有）
+    aiAutoSwitching = true;
+    try {
+        setWorkout(change.workout);   // 先存好上一個動作（finishSession 記下 aiAutoLast；從自由模式換過來的沒有）
+    } finally {
+        aiAutoSwitching = false;
+    }
     if (workout.id !== change.workout) return;   // 換不過去（錄製中鎖住）
     let last = null;
     for (const f of change.frames) last = tracker.update(f.processed, f.now);
@@ -1332,7 +1339,8 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null, 
     explainSummaryBox.textContent = explain ? explain + '。' : '';
     poseCompareBox.hidden = !(compare && compare.pose && renderCompare(poseCompareBox, s.workout, compare.pose, '你（第 ' + compare.n + ' 下）', ''));
     // 教練建議（10/31）：兩三句；AI 教練打開時請 Gemini 寫，不然（或連不上）用固定句子
-    coach.show(coachFacts(s, series));
+    // AI 全自動換動作時（還在運動）只寫固定句子，不唸、不問 Gemini（11/9 保養）
+    coach.show(coachFacts(s, series), { quiet: aiAutoSwitching });
     showHistory();
 }
 

@@ -142,6 +142,40 @@ test('AI 全自動換了動作（深蹲 → 伏地挺身）：換過去時講上
     await context.close();
 });
 
+// AI 全自動＋AI 教練（11/9 保養，js/ui/coach-view.js 的 quiet）：換動作時（還在運動）教練建議只寫、不唸、不問 Gemini
+// 以前每換一次就問一次 Gemini，回答時把正在講的「深蹲做完 4 下…開始數伏地挺身」切斷，在做伏地挺身時唸建議
+test('AI 全自動換動作時，AI 教練不唸、不問 Gemini；按「結束」時才問一次、唸一次（11/9 保養）', async () => {
+    const { context, page } = await open(browser, MIXED);
+    await context.addInitScript(() => {
+        try { localStorage.setItem('aiAuto', '1'); localStorage.setItem('aiCoach', '1'); } catch (e) {}
+        window.__fakeAI = { reply: '每一下都蹲到位，節奏很穩，下次可以試著多做兩下。' };
+    });
+    await page.goto(site.base + 'index.html?workout=free');
+    await ready(page);
+    await page.click('#startBtn');
+    await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('hudRepsName').textContent === '伏地挺身', null, { timeout: 60000 });
+    // 換過去了：還沒問 Gemini、沒有唸教練建議
+    await page.waitForTimeout(1500);
+    assert.equal(await page.evaluate(() => (window.__aiPrompts || []).length), 0);
+    assert.equal((await page.evaluate(() => window.__said)).filter(t => t.startsWith('教練建議')).length, 0);
+    await page.waitForFunction(() => document.getElementById('hudReps').textContent === '6', null, { timeout: 60000 });
+    await page.waitForTimeout(1500);
+    await page.click('#stopBtn');
+    await page.waitForFunction(() => !document.getElementById('summary').hidden, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('coachSource').textContent === '（AI 教練，Gemini）', null, { timeout: 15000 });
+    // 結束時：問一次 Gemini（最後的伏地挺身）、唸一次，在換動作那一句後面
+    assert.equal(await page.evaluate(() => window.__aiPrompts.length), 1);
+    const said = await page.evaluate(() => window.__said);
+    const coachAt = said.map((t, i) => (t.startsWith('教練建議') ? i : -1)).filter(i => i >= 0);
+    const switchAt = said.findIndex(t => /^深蹲做完 4 下，AI 評分平均 \d+ 分；開始數伏地挺身$/.test(t));
+    assert.ok(switchAt >= 0, said.join('／'));
+    assert.deepEqual(coachAt, [said.length - 1], said.join('／'));
+    assert.equal(said[said.length - 1], '教練建議：每一下都蹲到位，節奏很穩，下次可以試著多做兩下。');
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
+
 // 換動作的那幾秒同一下不能兩個動作都算（11/8 保養，auto-mode.js 的 dropRecounted）：深蹲 5 下、站 1 秒、弓箭步 6 下
 // 以前 AI 還沒認出弓箭步的那幾秒，弓箭步的前 2 下也被數成深蹲（存成深蹲 7 下），換過去又重算成弓箭步
 const SQUAT_LUNGE = script([stand('squat', 120), ...[1, 2, 3, 4, 5].flatMap(() => rep('squat', { hold: 10, rest: 20 })), stand('squat', 30),

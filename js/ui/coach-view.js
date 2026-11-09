@@ -2,6 +2,9 @@
 //   一定有：網站內建的固定句子（js/analysis/coach.js 的 fixedAdvice）
 //   AI 教練打開時：先寫「AI 教練想一下…」，Gemini 回答了就換成它寫的；失敗時用固定句子，並寫出原因
 //   speak(text)：唸出來（main.js 決定要不要唸：完整語音、有中文的聲音才唸）
+//   quiet（11/9 保養）：AI 全自動換動作時（鏡頭還開著、人還在運動）只寫固定句子，不唸、不問 Gemini：
+//     以前每換一次就問一次 Gemini，約 3 秒後回答時把正在講的「深蹲做完 4 下…開始數伏地挺身」切斷，
+//     接著在做下一個動作時唸 5～6 秒，那幾下都沒報數；按「結束」時的最後一個動作照常唸、照常問 Gemini
 import { aiCoach, failureOf, FAILURE_TEXT } from '../cloud/ai-coach.js';
 import { fixedAdvice } from '../analysis/coach.js';
 
@@ -39,11 +42,16 @@ export function setupCoach({ speak }) {
     let round = 0;
     return {
         // facts：js/analysis/coach.js 的 coachFacts（null：這次不是計次、計時的動作，收起來）
-        async show(facts) {
+        // quiet：只寫固定句子，不唸、不問 Gemini（AI 全自動換動作時）
+        async show(facts, { quiet = false } = {}) {
             const my = ++round;
             advice.hidden = !facts;
             if (!facts) return;
             const fixed = fixedAdvice(facts);
+            if (quiet) {
+                render(fixed, '（固定建議）');
+                return;
+            }
             if (!aiCoach.enabled) {
                 render(fixed, '（固定建議）');
                 speak(fixed.join(''));
