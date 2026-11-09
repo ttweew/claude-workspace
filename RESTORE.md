@@ -164,4 +164,5 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `maint1109/speech_probe.mjs <網站資料夾> [coach]`：AI 全自動換動作時講了什麼、什麼時候被打斷（假的講話每個字 180 毫秒才講完，記下開始、講完、取消；`coach`：打開 AI 教練、假的 Gemini 3 秒才回答）。11/9 用它找到換動作時 Gemini 的回答切斷「開始數伏地挺身」、蓋掉報數。
   - `maint1109/fuzz_replay.mjs <網站資料夾>`：56 個被改壞的錄製檔（動作名稱、實測資訊、座標、時間、3D 座標、meta 放 HTML）× 5 種分析的動作丟進重播分析，看程式錯誤、alert、NaN、undefined；`fuzz_check_base.mjs`：原本的檔案 AI 的幾段真的有寫。`fuzz_home.mjs`：首頁運動中假的 AI 偶爾給壞掉的座標。其中 8 個檔案放進專案的 `tests/browser/ai-safety.test.mjs`。
   - `maint1109/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對）。
+  - `worker/robust.py` 修正（11/9）：要讓下載卡住的情境（`hang`，例如 `restarthang`）開新分頁時不用 Service Worker。網站的 Service Worker 有時在測試動手之前就把 AI 檔案存起來，重新啟動直接用存好的、不經過網路（Playwright 的 page.route 也攔不到 Service Worker 發的請求），「網路卡住」就沒發生、等不到「AI 無法使用」的提示，完整回歸只有 36 個 PASS（11/9 連兩次）。
 

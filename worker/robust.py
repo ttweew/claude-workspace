@@ -9,7 +9,9 @@ FAKE_GPU = """for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
 LOG = """window.__st = []; setInterval(() => { const s = document.getElementById('poseStatus'); const b = document.getElementById('banner'); const v = (b && !b.hidden ? b.textContent : s ? s.textContent : '');
   if (window.__st[window.__st.length - 1] !== v) window.__st.push(v); }, 100);"""
 def page(b, gpu=False, hang=None):
-    pg = b.new_page(viewport={"width": 390, "height": 844}); errs = []
+    # 要讓下載卡住的情境（hang）不用 Service Worker（11/9）：網站的 Service Worker 有時在測試動手之前就把 AI 檔案存進手機，
+    # 重新啟動直接用存好的、不經過網路，卡不住（page.route 也攔不到 Service Worker 發的請求），測不到「網路卡住」
+    pg = b.new_page(viewport={"width": 390, "height": 844}, service_workers='block' if hang else 'allow'); errs = []
     global logs; logs = []
     pg.on("console", lambda m: logs.append(m.type + ':' + m.text[:120]) if m.type in ('error', 'warning') and 'W1002' not in m.text else None)
     pg.on("pageerror", lambda e: errs.append(str(e)[:150]))
