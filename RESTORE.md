@@ -160,4 +160,8 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `maint1108/keep_probe.mjs`、`trim_probe.mjs`、`trim_probe_new.mjs`、`grid2.mjs`、`debug_ls.mjs <網站資料夾>`：AI 全自動換動作時的次數（示範動畫三個動作兩兩互換、中間停 0～6 秒，合成受測者 K、I、J；幾種做法比較，找到同一下兩個動作都算到）。
   - `maint1108/record_ai_demo.mjs <輸出資料夾>`：錄「這週的 AI」合成示範影片（兩段，再用 ffmpeg 接起來轉 mp4）。
   - `maint1108/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對摘要行、PASS 數、md5）。
+- 11/9 保養（AI 全自動和 AI 教練一起用、安全複查）：
+  - `maint1109/speech_probe.mjs <網站資料夾> [coach]`：AI 全自動換動作時講了什麼、什麼時候被打斷（假的講話每個字 180 毫秒才講完，記下開始、講完、取消；`coach`：打開 AI 教練、假的 Gemini 3 秒才回答）。11/9 用它找到換動作時 Gemini 的回答切斷「開始數伏地挺身」、蓋掉報數。
+  - `maint1109/fuzz_replay.mjs <網站資料夾>`：56 個被改壞的錄製檔（動作名稱、實測資訊、座標、時間、3D 座標、meta 放 HTML）× 5 種分析的動作丟進重播分析，看程式錯誤、alert、NaN、undefined；`fuzz_check_base.mjs`：原本的檔案 AI 的幾段真的有寫。`fuzz_home.mjs`：首頁運動中假的 AI 偶爾給壞掉的座標。其中 8 個檔案放進專案的 `tests/browser/ai-safety.test.mjs`。
+  - `maint1109/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對）。
 
