@@ -41,7 +41,7 @@ Python 的 Playwright（10/30 還原時沒有）：環境裡的 `python3` 是 3.
 python3 -m pip install --break-system-packages playwright==1.63.0
 ```
 
-無障礙的測試要 axe-core：`mkdir -p $S/a11y && cd $S/a11y && npm init -y >/dev/null && npm install axe-core@4.10.3`。實測報表的測試先 `mkdir -p $S/report21/files && node $S/report21/make_files.mjs /home/user/claude-workspace $S/report21/files`。
+無障礙的測試要 axe-core：`mkdir -p $S/a11y && cd $S/a11y && npm init -y >/dev/null && npm install axe-core@4.14.0`。實測報表的測試先 `mkdir -p $S/report21/files && node $S/report21/make_files.mjs /home/user/claude-workspace $S/report21/files`。
 
 10/30 起專案裡也有 `tests/browser/`（合成資料、不用連網路）：`PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium AXE_CORE=$S/a11y/node_modules/axe-core/axe.min.js npm run test:browser`。
 
@@ -61,7 +61,7 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - 擋鬼點評估那一段（`awk '/^5,6c5,6/,/擋鬼點評估差異如上/'`）的 md5 要是 `f2f5250e138b2bf6ea05b7e5d62db9da`。
 - 各功能的測試：`prBcheck`～`prHcheck`、`pr9check`～`pr11check`、`audit2/`（惡意輸入、亂按、畫面停住、長時間運行）、`fbcheck/`（雲端同步，要先開 Firebase 模擬器）。
 - 首頁（10/19 改版）：`home19/home_check.py`（四個大按鈕、雲端同步的詢問、實測任務卡、手機版面；要先開 Firebase 模擬器）。
-- 無障礙（10/19）：`a11y/maint19.py`、`a11y/axe_more.py`（要先 `cd a11y && npm init -y && npm install axe-core@4.10.3`，maint19 要開 Firebase 模擬器）。錯誤說出原因：`why19/why_check.py <網站資料夾>`。
+- 無障礙（10/19）：`a11y/maint19.py`、`a11y/axe_more.py`（要先 `cd a11y && npm init -y && npm install axe-core@4.14.0`，maint19 要開 Firebase 模擬器）。錯誤說出原因：`why19/why_check.py <網站資料夾>`。
 - 教練影片分析（10/19）：`coach/`。`node an.mjs <錄製檔.json> squat <每秒摘要.txt>` 重算次數和錯誤；`trace.mjs` 逐格看計次狀態；`python3 sheet.py <檔> <開始秒> <結束秒> <間隔> <輸出.png>` 畫骨架縮圖；`heelall.mjs`／`leanall.mjs 名稱=檔案 …` 列出每一下的腳跟、前傾；`sim_stand.mjs`、`sim_two.mjs` 試改計次；`frontcount.mjs` 試算正面計次。錄製檔是網路教練影片，不放進這個分支。
 - 10/20：
   - `voice20/voice_check.py`：語音提示、說話規則、計次準確率、複製手機資訊（51 項；用假的講話記下每一句的時間）。`voice20/pick_only.py`：首頁語音三選一。
@@ -178,3 +178,11 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `real1110/timeline.mjs <檔案> [從] [到]`：每 0.25 秒的手肘／膝蓋／髖部角度、身體和地面夾角、側面還是正面、計次狀態和提示、AI 猜的。`formline.mjs <檔案> <規則> <從> <到>`：某條錯誤規則每一格的數字、真的做錯、紅字有沒有亮（11/10 用它找到紅字的尾巴算進下一下）。
   - `real1110/framing.mjs <資料夾>`：伏地挺身、棒式趴著時頭、肩、手肘、手腕、腳踝看得到／看不清楚／在畫面外各幾成。`dips.mjs <資料夾>`：不用網站的計次，自己數手肘伸直 → 彎下去 → 伸直幾次，和網站比。
   - `real1110/chain.sh`：#137 合併前依序跑的測試（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸）。
+- 11/10 晚上總體檢（外部套件、真手機效能、程式和網站、後台）：
+  - 新版 MediaPipe 先比輸出（`audit1110/tools/mp_compare.mjs [lite|full] [CPU|GPU]`）：同一批 150 格畫面（`mp/pose.jpg` 平移、縮放）給每個版本算，比骨架座標、關節角度、每格毫秒。準備：`cd $S/audit1110/mpver && for v in 1.0.1 1.2.2; do mkdir -p pack_$v v$v && (cd pack_$v && npm pack --silent @mediapipe/tasks-vision@$v && tar -xzf *.tgz -C ../v$v --strip-components=1); done`，再把 `mp/pose.jpg`、`mp/pose_landmarker_lite.task`、`mp/pose_landmarker_full.task` 複製到 `audit1110/mpver/`（`compare.html` 已經在裡面）；要比的版本寫在腳本的 `VERS`。11/10 的結果：1.0.1、1.1.1、1.2.0、1.2.2 完全一樣。
+  - AI 教練用真的 Firebase AI 程式（`audit1110/tools/ai_sdk_check.mjs <firebase 套件資料夾> [網站資料夾]`）：Firebase 的程式從 npm 套件給（這個環境連不到 gstatic），Google 的伺服器換成假的，13 項（送出去的網址和設定、只送數字、讀回答、每種錯誤說的原因）。現在的版本：`node ai_sdk_check.mjs $S/fb/node_modules/firebase`。試新版 Firebase：另外裝一份（`mkdir fb13 && cd fb13 && npm init -y && npm install --ignore-scripts firebase@13.2.0`），網站要用複本並把 `js/cloud/config.js` 的 `FIREBASE_VERSION` 改成新版（Firebase 的檔案裡寫死自己版本的網址，只換檔案不換網址會出現「Service AI is not available」）；雲端同步檢查同理（`fbcheck/cloud.py` 的 `FB`、`SDK` 兩個常數改成新版，網站資料夾給複本）。
+  - `audit1110/tools/site_check.py <網站資料夾>`：不開瀏覽器的結構檢查（重複的 id、label／aria 指到的 id、連結和錨點、import 的檔案、程式用到的畫面元素每一頁有沒有、沒被載入的 JS）。
+  - 靜態檢查：`mkdir -p $S/audit1110/lint && cd $S/audit1110/lint && npm init -y && npm install --ignore-scripts eslint@9 globals`，設定檔 `audit1110/lint/eslint.config.mjs`（只開會是 bug 的規則）；ESLint 不檢查設定檔資料夾以外的檔案，先把專案的 `js/`、`sw.js`、`tests/`、`tools/` 複製到 `lint/src/` 再 `node_modules/.bin/eslint -c eslint.config.mjs src`。
+  - `real1110/perf.py <錄製檔資料夾>`（`python3 -I`）：真手機的每秒格數、兩格的間隔（中位數、95%、最大）、卡頓次數、AI 每格毫秒、運算方式（只讀 meta 和時間）。
+  - 離線功能：`cd $S/sw && python3 sw_test.py /home/user/claude-workspace`（7 項）。套件的安全檢查照 `docs/architecture.md` 第八節（`npm install --package-lock-only --ignore-scripts` 再 `npm audit`）。
+  - `audit1110/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → 安全規則（emulators:exec）→ report21 → maint27 → 完整回歸）。

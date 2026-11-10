@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>mp compare</title>
+<canvas id="c" width="640" height="480"></canvas>
+<script type="module">
+// 同一批畫面（pose.jpg 平移、縮放成 150 格：前 100 格在動、後 50 格不動）給指定版本的 MediaPipe 算，回傳每一格的 33 個點和花的時間
+const q = new URLSearchParams(location.search);
+const ver = q.get('v'), model = q.get('model') || 'lite', delegate = q.get('delegate') || 'CPU';
+window.run = async () => {
+    const vision = await import('./v' + ver + '/vision_bundle.mjs');
+    const fileset = await vision.FilesetResolver.forVisionTasks('./v' + ver + '/wasm');
+    const buf = new Uint8Array(await (await fetch('./pose_landmarker_' + model + '.task')).arrayBuffer());
+    const t0 = performance.now();
+    const pl = await vision.PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetBuffer: buf, delegate }, runningMode: 'VIDEO', numPoses: 1 });
+    const createMs = performance.now() - t0;
+    const img = new Image(); img.src = './pose.jpg'; await img.decode();
+    const c = document.getElementById('c'), g = c.getContext('2d');
+    const fit = Math.min(c.width / img.width, c.height / img.height) * 0.9;
+    const frames = [], times = [];
+    for (let i = 0; i < 150; i++) {
+        const k = Math.min(i, 100);
+        const dx = 14 * Math.sin(k / 9), dy = 10 * (1 - Math.cos(k / 15)), sc = fit * (1 + 0.04 * Math.sin(k / 20));
+        g.fillStyle = '#888'; g.fillRect(0, 0, c.width, c.height);
+        const w = img.width * sc, h = img.height * sc;
+        g.drawImage(img, (c.width - w) / 2 + dx, (c.height - h) / 2 + dy, w, h);
+        const s = performance.now();
+        const r = pl.detectForVideo(c, Math.round(i * 1000 / 30));
+        times.push(performance.now() - s);
+        const lm = r.landmarks && r.landmarks[0] ? r.landmarks[0].map(p => [p.x, p.y, p.z, p.visibility, p.presence ?? null]) : null;
+        const wl = r.worldLandmarks && r.worldLandmarks[0] ? r.worldLandmarks[0].map(p => [p.x, p.y, p.z]) : null;
+        frames.push({ lm, wl });
+    }
+    pl.close();
+    return { ver, model, delegate, createMs, times, frames, simd: typeof vision.FilesetResolver.isSimdSupported === 'function' ? await vision.FilesetResolver.isSimdSupported() : 'n/a', wasm: fileset.wasmBinaryPath };
+};
+</script>
