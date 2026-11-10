@@ -103,7 +103,7 @@ export class WorkoutTracker {
         const hold = this.workout.kind === 'hold';
         const during = hold ? !!this.counter.current : count.state === 'down' || count.state === 'squat';
         if (during && hold) this.collectHold(form, timeMs);
-        else if (during) this.collect(form, form.errors, this.errors, this.peaks);
+        else if (during) this.collect(form, this.badNow(form), this.errors, this.peaks);
         // 棒式只記撐著（正在計時）的格子：趴下準備、姿勢跑掉的那幾秒不算晃動
         const counted = !hold || this.counter.lastGood === timeMs;
         if (during && counted) this.stability.add(pose, timeMs);
@@ -112,6 +112,15 @@ export class WorkoutTracker {
         if (done) this.attach(done);
         else if (!during) this.clearErrors();
         return { form, count, done, calibrated };
+    }
+
+    // 這一格真的做錯的錯誤：紅字亮著，而且這一格量到的數字超過門檻
+    //   紅字在姿勢改好之後還會多留 0.6 秒（form.js 的 FORM_HOLD.hideMs，免得紅字一閃一閃），那段不算做錯
+    //   棒式 10/20 起就只記這種；計次的動作 11/10 也改成這樣：11/10 實體測試（真人），伏地挺身兩下之間撐在上面休息時屁股翹高，
+    //   紅字的尾巴碰到下一下的開頭，那一下（其實是平的）被記成「屁股太高」，記下的最嚴重數字只有 8°，
+    //   總結寫「屁股往上翹 8°，超過 20° 算屁股太高」（15 段、74 下裡有 6 下）。只記這種，記下的數字一定超過門檻
+    badNow(form) {
+        return form.errors.filter(e => this.form.states.get(e.id).badSince !== null);
     }
 
     // 把這一格顯示中的錯誤（rules）記到 errors，最嚴重的數字記到 peaks
@@ -127,10 +136,10 @@ export class WorkoutTracker {
     //   這一格姿勢對、正在計時：看到的錯誤直接記（例如塌腰：髖部角度還夠大，照樣計時）
     //   姿勢跑掉：看到的先放著；之後又回到姿勢對才記（中途屁股翹高、又放下來，是真的做錯）；這一次就此結束（起身）就不記
     //   趴好、還沒一直線過：在調整姿勢，之後一直線了就不記；整次都沒一直線（10/20 受測者 B 故意屁股太高的那組）才記（見 attach）
-    //   只記這一格真的做錯的：紅字在姿勢改好之後還會多留一下（form.js 的 hideMs），那段不算
+    //   只記這一格真的做錯的（badNow）：紅字在姿勢改好之後還會多留一下（form.js 的 hideMs），那段不算
     collectHold(form, timeMs) {
         const goodNow = this.counter.lastGood === timeMs;
-        const bad = form.errors.filter(e => this.form.states.get(e.id).badSince !== null);
+        const bad = this.badNow(form);
         if (goodNow) {
             this.timed = true;
             this.collect(form, bad, this.errors, this.peaks);
