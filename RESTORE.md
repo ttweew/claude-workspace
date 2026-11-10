@@ -166,3 +166,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `maint1109/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對）。
   - `worker/robust.py` 修正（11/9）：要讓下載卡住的情境（`hang`，例如 `restarthang`）開新分頁時不用 Service Worker。網站的 Service Worker 有時在測試動手之前就把 AI 檔案存起來，重新啟動直接用存好的、不經過網路（Playwright 的 page.route 也攔不到 Service Worker 發的請求），「網路卡住」就沒發生、等不到「AI 無法使用」的提示，完整回歸只有 36 個 PASS（11/9 連兩次）。
 
+- 11/10 保養（照現場示範的腳本跑一遍、彩排準備）：都是示範動畫的火柴人改的合成骨架，不是真人；在 maint1110 裡跑
+  - `maint1110/demo_frames.mjs`：合成骨架（側面站、正面站（面向或背對鏡頭）、側面走過畫面、正面走向手機／走遠）和照現場示範排好的一整段 `demoScript(哪幾下前傾)`。
+  - `maint1110/walk_probe.mjs`：上面幾種站、走路照重播分析的 AI 全自動分段（和首頁同一套）一格一格跑，印出每 0.5 秒畫面上 AI 猜的、有沒有換、每一段幾下。`side_probe.mjs`：正面站之後轉側身，幾秒後畫面上寫「站著」（3.5 秒）。`plank_probe.mjs`：伏地挺身做完撐著停 0～8 秒，幾秒會換成棒式（5 秒以上）。
+  - `maint1110/demo_dryrun.mjs`：手機寬度（390×844）照現場示範跑一整段（`PATTERNS=00010,00011` 選哪幾下前傾），記下卡片的字、講的話和第一下開始差幾秒、每一下提示的第二行、總結（AI 判斷、AI 評分、AI 解釋、對照圖、教練建議），再跑第二段（深蹲 4 下 → 伏地挺身 4 下）。結果在 `dryrun2.txt`。11/14、11/15 凍結後再跑一次，確定報告當天的流程照常。
+  - `maint1110/record_ai_demo2.mjs <輸出資料夾>`：照 11/10 的腳本（最後 2 下故意前傾）錄備案的合成示範影片，兩段再用 `ffmpeg -filter_complex "[0:v][1:v]concat=n=2:v=1:a=0,fps=30,format=yuv420p[v]" -c:v libx264` 接成 mp4。
+  - `maint1110/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → report21 → maint27 → 完整回歸，最後比對摘要行、PASS 數、md5）。
