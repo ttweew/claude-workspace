@@ -10,7 +10,9 @@ export const AI_COACH = {
     timeoutMs: 10000,     // 超過 10 秒沒回答就改用固定句子（運動完看總結的人不會等太久）
     maxChars: 160,        // 兩三句、每句 30 字左右；太長多半是沒照規則回答
     maxLines: 3,
-    maxTokens: 256
+    // 回答最多幾個 token：兩三句只要約 100 個，但 Gemini 3 以後的模型「想」的過程也算在這裡面，留太少回答會被切成空的
+    //（網站就一直說「回答怪怪的」）；所以多留。回答太長由上面的 maxChars 擋（11/10 總體檢，原本 256）
+    maxTokens: 1024
 };
 
 // 給 Gemini 的話：規則＋這組的數字（JSON，鍵用中文，Gemini 才知道每個數字的意思）
@@ -129,7 +131,9 @@ async function loadModel(config) {
     const name = 'ai-coach';
     const app = appLib.getApps().some(a => a.name === name) ? appLib.getApp(name) : appLib.initializeApp(config, name);
     const ai = aiLib.getAI(app, { backend: new aiLib.GoogleAIBackend() });
-    return aiLib.getGenerativeModel(ai, { model: AI_MODEL, generationConfig: { maxOutputTokens: AI_COACH.maxTokens, temperature: 0.4 } });
+    // 只設回答的長度上限。以前還設 temperature: 0.4（11/10 總體檢拿掉）：Firebase 的更新紀錄（firebase-ai 3.0.0）寫 Gemini 3 以後的模型
+    // 不支援 temperature、topP、topK 這幾個設定；留著，Google 那邊可能不理它、也可能整個拒絕，拿掉用預設值最保險
+    return aiLib.getGenerativeModel(ai, { model: AI_MODEL, generationConfig: { maxOutputTokens: AI_COACH.maxTokens } });
 }
 
 export class AiCoach {

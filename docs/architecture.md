@@ -246,7 +246,7 @@ npm test
 **瀏覽器端測試**（`tests/browser/`，10/30 整理進專案）：用 Playwright（自動操作瀏覽器的工具）打開真的 Chromium，鏡頭、AI、講話都換成假的，骨架用示範動畫的火柴人（合成資料，不用組員的錄影、不用連網路），約 2 分鐘：
 
 ```
-npm install --no-save playwright@1.63.0 axe-core@4.10.3
+npm install --no-save playwright@1.63.0 axe-core@4.14.0
 npx playwright install chromium
 npm run test:browser
 ```
@@ -294,18 +294,23 @@ npm run test:browser
 
 ## 八、外部套件和安全更新
 
-網站本身不用安裝套件；用到的外部程式都固定版本（官方更新不會讓網站突然壞掉），所以要自己定期檢查有沒有安全更新。10/26 檢查的結果：
+網站本身不用安裝套件；用到的外部程式都固定版本（官方更新不會讓網站突然壞掉），所以要自己定期檢查有沒有安全更新。10/26 第一次檢查，11/10 總體檢再查一次（新版不只看安全，也實際比過輸出和速度）：
 
-| 套件 | 用在哪 | 固定的版本 | 10/26 最新 | 安全問題 | 決定 |
+| 套件 | 用在哪 | 固定的版本 | 11/10 最新 | 安全問題 | 決定 |
 |---|---|---|---|---|---|
-| MediaPipe（`@mediapipe/tasks-vision`） | 網站：找骨架（`js/config.js`） | 1.0.1 | 1.1.1 | npm 的安全資料庫沒有紀錄 | 先不換：新版的 AI 輸出會變，計次、錯誤的門檻和回歸測試的基準都要重做；11/9 報告後再評估 |
-| Firebase JS SDK | 網站：雲端同步（`js/cloud/config.js`） | 12.19.0（12 版的最新） | 13.1.0 | `npm audit` 報 4 個「高」，都來自 Firestore 的 Node.js 版用的 `@grpc/grpc-js`（伺服器端的問題），13.1.0 也一樣。網站載入的是瀏覽器版：npm 上同一版的瀏覽器檔案只用 WebChannel，沒有 grpc | 不用換 |
-| firebase-tools | 只在測試：GitHub Actions 的 `rules`、本機的模擬器 | 15.34.1（10/26 從 15.32.1 換） | 15.34.1 | 15.32.1 有 5 個「高」（例如 `basic-ftp` 的 CPU 耗盡）、4 個「中」；15.34.1 剩 5 個「中」，還沒有修好的版本 | 換成 15.34.1，不影響網站 |
+| MediaPipe（`@mediapipe/tasks-vision`） | 網站：找骨架（`js/config.js`） | 1.0.1 | 1.2.2（11/3 才出） | npm 的安全資料庫沒有紀錄 | 不換。11/10 用同一批 150 格畫面比 1.0.1、1.1.1、1.2.0、1.2.2（lite、full 模型，CPU 和軟體模擬的 GPU）：骨架座標、關節角度完全一樣（差 0），每格花的時間也一樣，所以換了不會更準、不會更快；新版的 AI 引擎檔大 24%（11.8 → 14.6 MB，第一次打開要多下載），1.2.2 還拿掉給不支援 SIMD 的舊瀏覽器用的版本（例如 iOS 16.4 以前的 iPhone 會完全不能用）。10/26 寫的「新版的 AI 輸出會變」實測沒有變 |
+| Firebase JS SDK | 網站：雲端同步、AI 教練（`js/cloud/config.js`） | 12.19.0 | 13.2.0（11/2 出） | `npm audit` 報 4 個「高」，都來自 Firestore 的 Node.js 版用的 `@grpc/grpc-js`（伺服器端的問題），13.2.0 也一樣。網站載入的是瀏覽器版：只用 WebChannel，沒有 grpc | 可以換、還沒換。13.x 的登入（auth 1.13.7～1.13.9）修了「開網站時剛好遇到伺服器忙，存著的匿名帳號被清掉」（清掉就讀不到以前的雲端紀錄）和幾個切到背景時的錯誤；AI 那一包升到 3.0.0，改的是我們沒用到的功能。11/10 用 13.2.0 的檔案測過：本機模擬器的雲端同步 35 項、AI 教練 13 項（真的 Firebase AI 程式＋假的 Google 伺服器）都過，和 12.19.0 一樣。這個開發環境連不到 `www.gstatic.com`，沒辦法確認官方網址上已經有 13.2.0 的檔案；確認之後改 `FIREBASE_VERSION` 一行 |
+| firebase-tools | 只在測試：GitHub Actions 的 `rules`、本機的模擬器 | 15.34.1（10/26 從 15.32.1 換） | 15.35.0 | 15.34.1、15.35.0 都是 15 個「中」，沒有「高」 | 不用換，不影響網站 |
+| Playwright、axe-core | 只在測試：GitHub Actions 的 `browser`、本機的瀏覽器測試 | 1.63.0、4.14.0（11/10 從 4.10.3 換） | 1.65.0、4.14.0 | 沒有紀錄 | axe-core 換成 4.14.0：無障礙的規則比較新，45 項瀏覽器測試用新版跑一樣全過（沒有抓到新問題）。Playwright 不換：本機的開發環境裝的就是 1.63.0，本機和 GitHub 用同一版，測到的才一樣 |
+
+GitHub Actions（11/10）：`ubuntu-latest` 10/19 起換成 Ubuntu 26.04，測試和發布已經在上面跑、都通過。`actions/checkout@v4` 這幾個步驟還是給 Node.js 20 的版本，GitHub 現在強制用 Node.js 24 跑（每次有警告，功能正常），`setup-java@v4` 不再更新：11/16 報告後換成新版（發布流程報告前不動）。
 
 下次怎麼檢查：
 
 1. `npm view @mediapipe/tasks-vision version`、`npm view firebase version`、`npm view firebase-tools version` 看最新版。
 2. 在暫存資料夾寫一個只有這幾個套件、版本和專案一樣的 `package.json`，`npm install --package-lock-only --ignore-scripts` 之後 `npm audit`（只算出套件清單，不會下載、執行套件）。
 3. 報出來的問題要看是在瀏覽器版還是 Node.js 版：網站只用瀏覽器版。
+
+4. 新版先比過再換（工具在暫存區的 `audit1110/tools/`，也備份在 `test-tools` 分支）：MediaPipe 用 `mp_compare.mjs` 拿同一批畫面比新舊版本的骨架座標、角度、速度；Firebase 把網站複本的 `FIREBASE_VERSION` 改成新版，用新版的 npm 套件在本機模擬器跑雲端同步檢查（`fbcheck/cloud.py`）和 `ai_sdk_check.mjs`（AI 教練用真的 Firebase AI 程式，Google 的伺服器換成假的）。
 
 換 MediaPipe 版本見上面第六節；換 Firebase 版本改 `js/cloud/config.js` 的 `FIREBASE_VERSION`，再跑 `npm run test:rules` 和 `npm run test:live`；換 firebase-tools 改 `.github/workflows/test.yml`（兩個地方）和 `CLAUDE.md`。
