@@ -279,6 +279,131 @@ h1 .accent {
     cursor: default;
     transform: none;
 }
+/* 智慧課表（11/14，js/ui/plan-card.js）：四個大按鈕下面一張卡片：左邊名稱＋說明、右邊「開始課表」，下面一行這次排的；
+   「怎麼排的」點開才看到每一項的理由和勾選（平常只占三行，四個大按鈕還是第一眼看到的） */
+.plan-box {
+    margin: 10px 0 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(76, 195, 255, 0.4);
+    border-radius: 12px;
+    background: rgba(76, 195, 255, 0.07);
+}
+.plan-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.plan-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.4;
+}
+.plan-title small {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+.plan-start {
+    flex: none;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--info);
+    border-radius: 10px;
+    background: var(--info);
+    color: #04202E;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.plan-start:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+.plan-line {
+    margin: 8px 0 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+.plan-more {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 14px;
+}
+.plan-more > summary {
+    min-height: 32px;
+    padding: 4px 0;
+    cursor: pointer;
+}
+.plan-steps {
+    display: grid;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+}
+.plan-steps label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    font-size: 15px;
+}
+.plan-steps input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+.plan-why {
+    display: block;
+    margin: 2px 0 0 28px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.plan-note, .plan-hint {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.plan-hint {
+    color: var(--attn);
+}
+/* 分享這次的結果（11/14）：總結最下面一顆次要按鈕，結果（已複製…）寫在旁邊 */
+.share-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 0;
+}
+.share-row button {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(46, 230, 166, 0.5);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.share-note {
+    color: var(--muted);
+    font-size: 13px;
+}
+.share-row .copy-fallback {
+    flex: 1 1 100%;
+}
 /* 暫時不能按（例如匯出檔案產生中）：變淡，但保留鍵盤焦點 */
 button[aria-disabled="true"] {
     opacity: 0.6;

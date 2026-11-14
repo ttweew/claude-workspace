@@ -140,13 +140,17 @@ export function spokenHint(text) {
 //   n：第幾下；depth：'good'、'close'、'shallow'；errorWords：這一下要講的錯誤短句（ErrorStreak 選出來的）
 //   完整：「3 下」＋最多一個提醒（錯誤 ＞ 蹲不夠深）；每 5 下、這一下又做得好時加「很好」
 //   只講錯誤：只講錯誤那句
-export function repLine(mode, n, depth, errorWords) {
+//   score（11/14）：這一下的 AI 評分（0～100 的整數）；首頁勾了「每一下也唸 AI 分數」才給，完整語音才唸：「3 下，92 分」
+//     有分數時，分數不到 80 就不加「很好」（AI 覺得這一下不太對，規則要連續兩下才提醒：「5 下，15 分，很好」聽起來前後矛盾）
+export const SCORE_PRAISE = 80;
+export function repLine(mode, n, depth, errorWords, score = null) {
     const error = errorWords.length ? errorWords[0] : '';
     if (mode === 'errors') return error ? { kind: 'form', text: error } : null;
     if (mode !== 'full') return null;
-    const count = n + ' 下';
+    const scored = Number.isInteger(score) && score >= 0 && score <= 100;
+    const count = n + ' 下' + (scored ? '，' + score + ' 分' : '');
     if (error) return { kind: 'form', text: count + '，' + error };
     if (depth === 'close') return { kind: 'count', text: count + '，再低一點' };
     if (depth === 'shallow') return { kind: 'count', text: count + '，太淺了' };
-    return { kind: 'count', text: n % 5 === 0 ? count + '，很好' : count };
+    return { kind: 'count', text: n % 5 === 0 && (!scored || score >= SCORE_PRAISE) ? count + '，很好' : count };
 }

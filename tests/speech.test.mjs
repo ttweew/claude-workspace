@@ -1,7 +1,7 @@
 // 說話規則（js/ui/speech-plan.js）、語音模式的記憶（js/ui/voice.js）、計次準確率（js/analysis/session.js）、複製手機資訊（js/ui/phone-info.js）
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine, VOICE_MODES, KINDS } from '../js/ui/speech-plan.js';
+import { SpeechPlan, ErrorStreak, LastingError, speaks, spokenHint, repLine, VOICE_MODES, KINDS, SCORE_PRAISE } from '../js/ui/speech-plan.js';
 import { FORM_RULES } from '../js/analysis/form.js';
 import { NO_PERSON } from '../js/analysis/framing.js';
 import { LUNGE_CONFIG, PUSHUP_CONFIG, PLANK_CONFIG } from '../js/analysis/workouts.js';
@@ -186,4 +186,24 @@ test('複製手機資訊：系統、螢幕、AI 速度；還沒量到、還沒�
     assert.match(empty, /AI 每格還在量/);
     assert.match(empty, /鏡頭：還沒開/);
     assert.match(empty, /瀏覽器：不明/);
+});
+
+test('每一下也唸 AI 分數（11/14）：完整語音才唸「3 下，92 分」；分數不到 80 不加「很好」；不是 0～100 的整數就不唸', () => {
+    assert.deepEqual(repLine('full', 3, 'good', [], 92), { kind: 'count', text: '3 下，92 分' });
+    assert.deepEqual(repLine('full', 4, 'good', ['胸口挺起來'], 12), { kind: 'form', text: '4 下，12 分，胸口挺起來' });
+    assert.deepEqual(repLine('full', 3, 'close', [], 70), { kind: 'count', text: '3 下，70 分，再低一點' });
+    assert.deepEqual(repLine('full', 3, 'shallow', [], 40), { kind: 'count', text: '3 下，40 分，太淺了' });
+    assert.deepEqual(repLine('full', 5, 'good', [], 94), { kind: 'count', text: '5 下，94 分，很好' });
+    assert.deepEqual(repLine('full', 5, 'good', [], SCORE_PRAISE), { kind: 'count', text: '5 下，80 分，很好' });
+    assert.deepEqual(repLine('full', 5, 'good', [], 15), { kind: 'count', text: '5 下，15 分' }, 'AI 覺得不太對的那一下不說「很好」');
+    assert.deepEqual(repLine('full', 5, 'good', [], 0), { kind: 'count', text: '5 下，0 分' });
+    // 只講錯誤、不講話：和以前一樣，不唸分數
+    assert.deepEqual(repLine('errors', 3, 'good', ['胸口挺起來'], 12), { kind: 'form', text: '胸口挺起來' });
+    assert.equal(repLine('errors', 3, 'good', [], 92), null);
+    assert.equal(repLine('off', 3, 'good', [], 92), null);
+    // 沒有分數（沒勾、這個動作沒有 AI 模型）、奇怪的值：和以前一樣
+    for (const none of [null, undefined, NaN, 92.5, -1, 101, '92', {}]) {
+        assert.deepEqual(repLine('full', 3, 'good', [], none), { kind: 'count', text: '3 下' }, String(none));
+        assert.deepEqual(repLine('full', 5, 'good', [], none), { kind: 'count', text: '5 下，很好' }, String(none));
+    }
 });

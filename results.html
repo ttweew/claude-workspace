@@ -46,11 +46,12 @@
     <div class="page help results">
         <header class="help-head">
             <h1>研究成果</h1>
-            <p class="intro">網站目前量到的數字（整理到 10/28）：次數算得對不對、做錯抓不抓得到、角度準不準、跑得快不快、各種手機能不能用。每個數字都寫了怎麼量的；還沒有數字的，最後一節也寫出來。</p>
+            <p class="intro">網站目前量到的數字（整理到 11/14）：次數算得對不對、做錯抓不抓得到、角度準不準、跑得快不快、各種手機能不能用。每個數字都寫了怎麼量的；還沒有數字的，最後一節也寫出來。</p>
             <ul class="toc" aria-label="這一頁的內容">
                 <li><a href="#headline">一眼看完</a></li>
                 <li><a href="#count">次數和錯誤</a></li>
                 <li><a href="#angle">角度準不準</a></li>
+                <li><a href="#distance">手機要放多遠</a></li>
                 <li><a href="#speed">速度</a></li>
                 <li><a href="#devices">各種裝置</a></li>
                 <li><a href="#more">其他量到的</a></li>
@@ -104,7 +105,22 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="prose">所以網站只在側面、斜側面拍時算次數和深度。真人的角度和量角器比（驗證實驗 A），工具做好了（數據面板「記下角度」、<a href="protractor.html">照片量角器</a>），還沒有數字。</p>
+                <p class="prose">所以網站只在側面、斜側面拍時算次數和深度。真人的角度和量角器比（驗證實驗 A），工具做好了（數據面板「記下角度」、<a href="protractor.html">照片量角器</a>）。11/12 組員用量角器對照：擺好姿勢不動時，網站的角度和量角器幾乎一樣（量角器本身大概有 2～3° 的誤差）；動作中關節一直在動、數字跟著變，沒有拿來比。每一筆差幾度的數字還在整理，整理好再寫平均差幾度。</p>
+            </section>
+
+            <section id="distance" aria-labelledby="distanceTitle">
+                <h2 id="distanceTitle">手機要放多遠（11/12，組員用捲尺量）</h2>
+                <p class="prose">一支手機、一位受測者，人慢慢走近、走遠，用捲尺量提示出現時離手機多遠。只量了一次，人為誤差可能有十幾公分。</p>
+                <div class="table-wrap">
+                    <table class="result-table">
+                        <thead><tr><th scope="col">位置</th><th scope="col">量到的距離、原因</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">最近</th><td>152 公分：全身剛好入鏡的界線，再近網站會提示往後退。網站看的是髖、膝、腳踝有沒有都拍到，沒有寫死距離；和鏡頭的視角、身高有關，換手機會差一點</td></tr>
+                            <tr><th scope="row">最遠</th><td>395 公分：走到這裡出現「未偵測到人體」，是 AI（MediaPipe）自己找不到人。官方的<a href="https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf">模型說明</a>寫「離鏡頭太遠（例如超過 4 公尺）」不在設計範圍內，量到的和它一致</td></tr>
+                            <tr><th scope="row">建議</th><td>2～3 公尺：在量到的範圍中間，兩邊都還有空間</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             <section id="speed" aria-labelledby="speedTitle">
@@ -119,6 +135,7 @@
                             <tr><th scope="row">第二次打開</th><td>AI 檔案（約 18 MB）存在手機裡，約 0.5 秒就能用，沒有網路也能用（PR #43）</td></tr>
                             <tr><th scope="row">運動 30 分鐘</th><td>連續做 549 下深蹲（假的 AI、電腦）：每秒 30 格、主畫面忙碌約 13% 從頭到尾不變，記憶體只多 0.7 MB，每 2 分鐘算到的次數都是 36～37 下（10/29）</td></tr>
                             <tr><th scope="row">全部 AI 一起開 30 分鐘</th><td>AI 全自動（深蹲、伏地挺身、弓箭步輪流，換了 51 次動作）、手勢錄影（17 段）、每一下的 AI 判斷和分數一起開（假的 AI、電腦）：每秒 29～30 格、主畫面忙碌約 11% 從頭到尾不變，記憶體只多 0.65 MB，和只做深蹲時差不多（11/8）</td></tr>
+                            <tr><th scope="row">真手機（11/10）</th><td>組員實體測試，Android 手機、Chrome、GPU、lite 模型，15 段共 671 秒：每秒 21～25 格（平均 23.3）、AI 每格 33～49 毫秒，兩格之間沒有一次超過 0.1 秒；跟不上鏡頭的 30 格，但沒有慢到要提醒</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -152,7 +169,8 @@
                 <h2 id="todoTitle">還沒有的數字</h2>
                 <ul class="prose-list">
                     <li>只有 2 個受測者、都用筆電：門檻是照這兩個人和網路教練影片訂的，人越多、身材越不一樣，門檻越可靠。</li>
-                    <li>角度和量角器差幾度（驗證實驗 A）、3D 長度和捲尺差幾公分（實驗 D）。</li>
+                    <li>角度和量角器差幾度（驗證實驗 A：11/12 對照過，擺好不動時幾乎一樣，還沒有每一筆的數字）、3D 長度和捲尺差幾公分（實驗 D）。</li>
+                    <li>11/10 組員實體測試（真人、手機，15 段）：錄的時候沒開實測模式，檔案裡沒有「這組要做的」，還算不出故意做錯抓到幾成；AI 自動辨識動作（合成的火柴人訓練的）每一段最常猜的對不對：伏地挺身 8／9 段、深蹲 2／2、弓箭步 1／2、棒式 0／2，真人的棒式還認不出來。</li>
                     <li>真的做到累的一組：疲勞分析的門檻目前只用「不累的組」訂。</li>
                     <li>動作穩定度的真人數字（深蹲、弓箭步的重心晃動，棒式的髖部晃動）：用 10/20 的實測檔重算後才能訂門檻。</li>
                     <li>iPhone 的 Safari、手機錄 10 分鐘以上、每秒 60 格以上。</li>
