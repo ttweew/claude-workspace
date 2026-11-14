@@ -57,6 +57,10 @@ import { loadTestMode, conditionsFor, testMeta, testFileName } from '../data/tes
 import { setupTestCard } from '../ui/test-card.js';
 import { setupGoalPick } from '../ui/goal-pick.js';
 import { loadGoals, HoldCaller, repGoalText, goalLabel } from '../analysis/goal.js';
+import { PlanRun, stepSpeech } from '../analysis/plan.js';
+import { setupPlanCard } from '../ui/plan-card.js';
+import { shareText } from '../analysis/share-text.js';
+import { shareOrCopy } from '../ui/share.js';
 import { TestBar } from '../ui/test-bar.js';
 import { setupLibraryPanel } from '../ui/library-panel.js';
 import { RecCountdown } from '../ui/rec-countdown.js';
@@ -200,6 +204,17 @@ const errorStreak = new ErrorStreak();    // 計次的動作：同一種錯誤�
 const fatigueWatch = new FatigueWatch();  // 疲勞提醒（10/28）：每組最多一次
 const lastingError = new LastingError();  // 棒式：錯誤持續 2 秒才講
 let voiceMode = loadVoiceMode();          // 首頁「語音提示」：完整、只講錯誤、不講話
+// 每一下也唸 AI 分數（11/14）：「3 下，92 分」；預設關（AI 是合成資料訓練的示範，分數先只寫在畫面上），勾了會記住；要選「完整」才唸
+const SCORE_VOICE_KEY = 'scoreVoice';
+const scoreVoiceToggle = document.getElementById('scoreVoiceToggle');
+let scoreVoiceOn = false;
+try { scoreVoiceOn = localStorage.getItem(SCORE_VOICE_KEY) === '1'; } catch (err) { /* 不能讀就用預設（關） */ }
+scoreVoiceToggle.checked = scoreVoiceOn;
+scoreVoiceToggle.disabled = !voice.supported;
+scoreVoiceToggle.addEventListener('change', () => {
+    scoreVoiceOn = scoreVoiceToggle.checked;
+    try { localStorage.setItem(SCORE_VOICE_KEY, scoreVoiceOn ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
+});
 const advancedNote = document.getElementById('advancedNote');
 const framingSound = new FramingSound(cueFraming);  // 離開畫面、站位不對、站好了
 const framing = new FramingHint();    // 入鏡提示（請往後退、請站到中間…）
@@ -209,9 +224,21 @@ let testSet = null;                   // 實測正在倒數或錄製的這一組
 // 自訂目標（js/analysis/goal.js，10/25 組員回饋）：首頁「目標」卡片設定，每個動作各一個；棒式另外每 10 秒報時、最後 5 秒倒數
 let goals = loadGoals();
 let holdCaller = new HoldCaller(null);
+// 智慧課表（11/14，js/analysis/plan.js）：進行中的課表（PlanRun），沒有時 null；要按首頁的「開始課表」才有，關鏡頭就結束
+let plan = null;
+let planSwitching = false;   // 課表自己在換下一項（和使用者自己換動作分開：使用者換了動作就不照課表走了）
+let planStarting = false;    // 正在按「開始課表」開鏡頭（其他方式開鏡頭時，之前沒走完的課表不算）
+let planOkSince = null;      // 第一項：從什麼時候開始站好（站好一下才講「課表開始：…」，先讓「站好了」講完）
+let planCard = { refresh() {}, setDisabled() {} };   // 首頁的課表卡片（js/ui/plan-card.js），下面設定好才換成真的
 // 這次運動的目標；實測的一組進行中不用（每一組有自己要做的下數、秒數，主持人照受測者卡指揮）
+// 課表進行中用課表這一項的（不看首頁「目標」卡片；課表排的時候已經看過了）
 function currentGoal() {
-    if (testSet || !Object.prototype.hasOwnProperty.call(goals, workout.id)) return null;
+    if (testSet) return null;
+    if (plan) {
+        const step = plan.step;
+        return step && step.workout === workout.id ? step.goal : null;
+    }
+    if (!Object.prototype.hasOwnProperty.call(goals, workout.id)) return null;
     return goals[workout.id];
 }
 let lastPanelUpdate = 0;              // 數據面板上次更新的時間（每秒更新 5 次，數字才看得清楚）
@@ -798,7 +825,8 @@ function showResult(result, now) {
             : landmarks;
         const shownDerived = shown === landmarks ? processed.derived : getDerivedPoints(shown);
         // 次數、動作錯誤：做錯的部位畫成紅線
-        const tracked = tracker.update(processed, now);
+        // 智慧課表剛換下一項的那幾秒在換姿勢（站著 → 趴下），不數：當成沒有人，骨架照畫
+        const tracked = tracker.update(plan && plan.preparing(performance.now()) ? null : processed, now);
         // 個人校正（js/analysis/calibrate.js）：站直不動約 2 秒後，依這個人調整，短暫說明
         if (tracked.calibrated) showAutoNote(calibrationText(tracked.calibrated));
         // 重心：數字用沒預測的點；畫的記號用畫出來的點（往前預測過），才會和骨架對齊
@@ -819,6 +847,7 @@ function showResult(result, now) {
         else showHint(hint.text, hint.kind, now);
         // 站位沒問題時才顯示動作錯誤（站位不對時先處理站位）
         showForm(hint.kind === 'ok' && !prompt ? tracked.form : null);
+        planTick(hint.kind === 'ok');
     } else {
         // 偵測不到人的頭一小段時間（AI 偶爾漏掉一兩格、某個關節跳一下被擋鬼點擋掉）：保留上一格的骨架，畫面不會閃一下
         // 「未偵測到人體」的提示也和其他提示一樣，要持續一下才換上去，不會突然跳出大橫幅又馬上消失
@@ -828,6 +857,7 @@ function showResult(result, now) {
         showForm(null);
         const hint = framing.update(NO_PERSON, now);
         showHint(hint.text, hint.kind, now);
+        planTick(false);
     }
     // 錄製：原始資料（未平滑、未過濾，模型輸出什麼就記什麼）＋平滑後的點（和畫面上的骨架相同），兩種都存
     // 3D 座標每一格都要處理（平滑需要連續的資料），錄製時才存
@@ -886,7 +916,8 @@ aiAutoToggle.addEventListener('change', () => {
     try { localStorage.setItem(AI_AUTO_KEY, aiAutoOn ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
     resetActivity();
 });
-const aiAutoAllowed = () => aiAutoOn && hasActivityModel() && !testMode.on;
+// 智慧課表進行中也不用：課表已經知道現在做哪一個，不用猜（真人的棒式、弓箭步 AI 還認不太出來，照課表換比較穩）
+const aiAutoAllowed = () => aiAutoOn && hasActivityModel() && !testMode.on && !plan;
 let workoutLocked = false;   // 錄製中（setWorkoutLocked）：不能換動作
 let aiAutoNote = null;         // 剛自動換過去：{ text, until }，卡片上留 3 秒
 // 這次開鏡頭做過的動作（11/8 追加）：AI 全自動換一次動作，前一個就存成一次運動，總結只剩最後一個；
@@ -901,6 +932,11 @@ let aiAutoSwitching = false;
 // 每一格（showResult）：自由模式（或 AI 全自動開著）才猜；選了動作、看不到人、剛開始資料不到 3 秒時收起來
 // （AI 全自動時一直顯示，寫現在數什麼）；只在字變了的時候改畫面（每一格都寫會一直重新排版）
 function showActivity(processed, now) {
+    // 智慧課表（11/14）：同一張卡片寫現在第幾項、做到了自動換哪一個
+    if (plan) {
+        setActivityCard('智慧課表', plan.cardText(performance.now(), workoutLocked), '', null);
+        return;
+    }
     const auto = aiAutoAllowed();
     const watching = hasActivityModel() && (workout.id === 'free' || auto);
     const guess = watching ? activityMeter.update(processed, now) : undefined;
@@ -997,6 +1033,83 @@ onWorkoutLock(on => {
     activitySwitch.title = on ? '錄製中不能換動作：先停止錄製' : '';
 });
 
+// ---------- 智慧課表（11/14，js/analysis/plan.js、js/ui/plan-card.js）：照紀錄排一套，做完一項自動換下一項 ----------
+// 課表的話比一般的提醒長（「深蹲做完 10 下，AI 評分平均 85 分；下一個：伏地挺身 8 下，記得收緊腹部」）：排隊久一點也要講
+const PLAN_SPEECH_LIFE = 6000;
+// 站好多久才講「課表開始：…」：先讓「站好了」講完
+const PLAN_INTRO_MS = 1200;
+function planSay(text) {
+    if (canSpeak('goal')) speech.offer('goal', text, performance.now(), PLAN_SPEECH_LIFE);
+    else sound.play('long');
+}
+// 這一項做到了：換下一項；錄製中不能換動作（和 AI 全自動一樣），先記著，停止錄製後再換
+function planReached() {
+    if (workoutLocked) plan.waiting = true;
+    else planAdvance();
+}
+// 換下一項（最後一項做完換成自由模式：不再數）：和按「切換到…」一樣換動作，上一項存成一次運動；
+// 講上一項的結果（finishSession 記在 aiAutoLast，和 AI 全自動換動作時一樣）再講下一個是什麼
+function planAdvance() {
+    const next = plan.next;
+    const target = next ? next.workout : 'free';
+    aiAutoLast = null;
+    aiAutoSwitching = true;   // 教練建議只寫、不唸、不問 Gemini（人還在運動）
+    planSwitching = true;
+    try {
+        setWorkout(target);
+    } finally {
+        aiAutoSwitching = false;
+        planSwitching = false;
+    }
+    // 換不過去（剛好開始錄製）：先記著
+    if (workout.id !== target) {
+        plan.waiting = true;
+        return;
+    }
+    const before = aiAutoLast ? aiAutoLast + '；' : '';
+    aiAutoLast = null;
+    plan.advance(performance.now());
+    planSay(before + (next ? stepSpeech(next, false) : '課表完成，一共 ' + plan.steps.length + ' 項'));
+}
+// 每一格：ok 是站位沒問題（全身入鏡）
+function planTick(ok) {
+    if (!plan || plan.finished) return;
+    const now = performance.now();
+    if (plan.waiting) {
+        if (!workoutLocked) planAdvance();
+        return;
+    }
+    // 準備完了：提醒開始（前一句還沒講完就排在後面）
+    if (plan.began(now)) planSay('開始');
+    // 第一項：站好之後講這一項要做什麼
+    if (!plan.introduced) {
+        if (!ok) planOkSince = null;
+        else if (planOkSince === null) planOkSince = now;
+        else if (now - planOkSince >= PLAN_INTRO_MS) {
+            plan.introduced = true;
+            planSay(stepSpeech(plan.step, true));
+        }
+    }
+}
+// 首頁按「開始課表」：選好第一項、開鏡頭（和按四個大按鈕一樣，開鏡頭前的準備都在 #startBtn）
+function startPlan(steps) {
+    plan = new PlanRun(steps);
+    planOkSince = null;
+    if (plan.finished) {
+        plan = null;
+        return;
+    }
+    planSwitching = true;
+    planStarting = true;
+    try {
+        setWorkout(plan.step.workout);
+        startBtn.click();
+    } finally {
+        planSwitching = false;
+        planStarting = false;
+    }
+}
+
 // ---------- 手勢控制（11/8，js/analysis/gesture.js）：站遠舉起一隻手過頭 2 秒，開始（結束）錄影 ----------
 // 首頁「手勢控制錄影」開關（預設打開，會記住）；實測模式不用（每一組由主持人按、自動錄製）
 const GESTURE_KEY = 'gestureControl';
@@ -1076,10 +1189,15 @@ function showCount(tracked) {
         const goal = currentGoal();
         if (holdCaller.goal !== goal) holdCaller = new HoldCaller(goal);
         const call = holdCaller.update(result.seconds);
-        if (call) sayGoal(call);
+        // 智慧課表：時間到就換下一項（講這一項的結果和下一個是什麼，不另外講「時間到」）
+        if (call && call.kind === 'done' && plan && plan.reached(workout.id, result.seconds)) planReached();
+        else if (call) sayGoal(call);
     } else {
         text = String(result.reps);
-        if (result.rep) finishRep(result.rep, result.rep.depth);
+        if (result.rep) {
+            finishRep(result.rep, result.rep.depth);
+            if (plan && plan.reached(workout.id, result.reps)) planReached();
+        }
     }
     if (hudReps.textContent !== text) hudReps.textContent = text;
     showGoal(result);
@@ -1123,12 +1241,13 @@ function finishRep(rep, depth) {
     const score = judged ? repScore(rep, judged.ai) : null;
     const ai = judged ? { text: 'AI：' + judgeCell(judged.ai) + (score === null ? '' : ' · ' + score + ' 分'), differ: judged.ai.label !== judged.rule } : null;
     showRepToast(workout.toast(rep) + (shorts.length ? ' · ' + shorts.join('、') : '') + (tired ? ' · ' + TIRED_WORDS[tired] : '') + stall + similar, kind, ai);
-    sayRep(rep, depth, tired);
+    sayRep(rep, depth, tired, score);
 }
 
 // 一下做完的空檔才講話（js/ui/speech-plan.js）：「3 下」＋最多一個提醒；同一種錯誤連續兩下才講
 // 棒式撐完一次：「撐了 30 秒」（棒式的錯誤在撐的時候講，見 showForm）
-function sayRep(rep, depth, tired = null) {
+// score：這一下的 AI 評分（首頁勾了「每一下也唸 AI 分數」才唸，11/14）
+function sayRep(rep, depth, tired = null, score = null) {
     let line;
     if (workout.kind === 'hold') {
         // 整次都沒一直線（0 秒）：說沒有計時，不說「撐了 0 秒」
@@ -1141,10 +1260,11 @@ function sayRep(rep, depth, tired = null) {
         // 做到目標的那一下：「10 下，完成目標」（這一下的提醒下一下再講；錯誤一直沒改會再提醒）
         const done = repGoalText(rep.n, currentGoal());
         if (done) {
-            sayGoal({ kind: 'done', text: done });
+            // 智慧課表：馬上要換下一項，那一句會講這一項做完幾下（錄製中換不了時照常講「完成目標」）
+            if (!(plan && !workoutLocked)) sayGoal({ kind: 'done', text: done });
             return;
         }
-        line = repLine(voiceMode, rep.n, depth, words);
+        line = repLine(voiceMode, rep.n, depth, words, scoreVoiceOn ? score : null);
     }
     if (line && canSpeak(line.kind)) speech.offer(line.kind, line.text, performance.now());
 }
@@ -1272,7 +1392,7 @@ function finishSession() {
     sessionStart = Date.now();
     resetCounter();
     if (!s) return;
-    if (aiAutoAllowed()) {
+    if (aiAutoAllowed() || plan) {
         aiAutoDone.push({ workout: s.workout, count: s.count, best: s.best });
         aiAutoLast = WORKOUTS[s.workout].name + '做完 ' + s.count + (WORKOUTS[s.workout].kind === 'hold' ? ' 次，最久 ' + Math.floor(s.best) + ' 秒' : ' 下') + (average === null ? '' : '，AI 評分平均 ' + average + ' 分');
     }
@@ -1283,6 +1403,8 @@ function finishSession() {
     }
     const previous = saveSession(s);
     showSummary(s, previous, false, series, goal, ai, score, explain, compare);
+    // 智慧課表：紀錄多了一筆，下次的課表跟著重排
+    planCard.refresh();
     // 雲端同步：上傳這一筆、還沒打開也還沒問過時在總結下面問一次（js/ui/cloud-panel.js）
     cloudPanel.afterSession();
 }
@@ -1299,6 +1421,24 @@ const scoreSummaryBox = document.getElementById('scoreSummaryBox');   // AI 動�
 const explainSummaryBox = document.getElementById('explainSummaryBox');   // AI 解釋（11/11）
 const poseCompareBox = document.getElementById('poseCompareBox');   // 你這一下 vs 標準動作（11/12）
 const autoSummaryBox = document.getElementById('autoSummaryBox');   // AI 全自動這次做了哪些動作（11/8 追加）
+// 分享這次的結果（11/14，js/analysis/share-text.js、js/ui/share.js）：把畫面上這幾行整理成一段文字；按了才分享，只有文字
+const shareRow = document.getElementById('shareRow');
+const shareBtn = document.getElementById('shareBtn');
+const shareNote = document.getElementById('shareNote');
+shareBtn.addEventListener('click', () => {
+    if (!shownSummary) return;
+    const texts = selector => [...document.querySelectorAll(selector)].map(el => el.textContent);
+    const text = shareText({
+        date: shownSummary.s.date,
+        // 「（每個動作各存成一次運動，下面是最後一個）」是給看這一頁的人的說明，分享出去的不用
+        list: autoSummaryBox.hidden ? '' : autoSummaryBox.textContent.replace(/（每個動作各存成一次運動，下面是最後一個）$/, ''),
+        lines: texts('#summaryLines li'),
+        ai: scoreSummaryBox.hidden ? [] : [scoreSummaryBox.textContent],
+        advice: document.getElementById('coachAdvice').hidden ? [] : texts('#coachLines li'),
+        url: location.origin + location.pathname.replace(/[^/]*$/, '')
+    });
+    shareOrCopy(text, shareBtn, shareNote);
+});
 // series：每一下的圖表要畫的（js/analysis/rep-series.js）；goal：這次的目標（棒式的圖畫目標線）
 // ai：AI 判斷那一句（js/analysis/ai-judge.js 的 aiLine，不含句號；這個動作沒有模型時 ''）
 // score：AI 動作評分那一句（11/10，ai-judge.js 的 scoreLine，不含句號；沒有時 ''）；explain：AI 解釋那一句（11/11，explainLine）
@@ -1309,7 +1449,7 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null, 
     // AI 全自動做了兩個以上的動作：最上面一句列出來（每個動作各存成一次運動，下面是最後一個的總結）；超過 6 段每種加起來（session.js 的 autoList）
     const n = aiAutoDone.length;
     autoSummaryBox.hidden = n < 2;
-    autoSummaryBox.textContent = n < 2 ? '' : '這次做了 ' + n + ' 個動作（AI 全自動）' + (n > AUTO_LIST_MAX ? '，每種加起來：' : '：') + autoList(aiAutoDone) + '（每個動作各存成一次運動，下面是最後一個）';
+    autoSummaryBox.textContent = n < 2 ? '' : '這次做了 ' + n + ' 個動作（' + (plan ? '智慧課表' : 'AI 全自動') + '）' + (n > AUTO_LIST_MAX ? '，每種加起來：' : '：') + autoList(aiAutoDone) + '（每個動作各存成一次運動，下面是最後一個）';
     summaryTitle.textContent = fromDemo ? '示範影片的結果（不存進運動紀錄）' : '這次運動';
     // 填「實際做了幾下」會改到存起來的最後一筆，示範影片沒有存，不能填；雲端同步的詢問也收起來
     if (fromDemo) document.getElementById('cloudAsk').hidden = true;
@@ -1317,6 +1457,10 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null, 
     actualForm.hidden = fromDemo || !countsReps(s);
     actualInput.value = Number.isInteger(s.actual) ? String(s.actual) : '';
     actualNote.textContent = '';
+    // 分享這次的結果（11/14）：示範影片不是自己運動，不分享；換了一次總結，上一次的「已複製」收起來
+    shareRow.hidden = fromDemo;
+    shareNote.textContent = '';
+    for (const old of shareRow.querySelectorAll('.copy-fallback')) old.remove();
     summaryBox.hidden = false;
     // 框出現之後才畫：要量框的寬度，字才是實際的大小
     renderRepChart(repChart, series, { goal: s.workout === 'plank' ? goal : null });
@@ -1397,6 +1541,7 @@ document.getElementById('clearHistory').addEventListener('click', () => {
     clearHistory();
     summaryBox.hidden = true;
     showHistory();
+    planCard.refresh();
 });
 // ---------- 複製手機資訊（10/20，js/ui/phone-info.js）：實測時記下每支手機的速度 ----------
 const phoneInfoBtn = document.getElementById('phoneInfoBtn');
@@ -1466,6 +1611,8 @@ onWorkoutChange(next => {
     // 實測的一組還在倒數就換動作：這一組作廢（要做的錯誤是上一個動作的）。錄製中不能換動作（setWorkoutLocked）
     if (testSet) cancelCountdown();
     finishSession();
+    // 智慧課表進行中，使用者自己換了動作（鏡頭畫面的「選擇動作」）：不照課表走了（上面那一筆還算課表的）
+    if (plan && !planSwitching) plan = null;
     resetActivity();
     workout = next;
     tracker = new WorkoutTracker(next.id);
@@ -1646,6 +1793,9 @@ function closeCamera() {
     cameraRequest++;
     stopStream();
     finishSession();
+    // 智慧課表到關鏡頭為止（做到一半按「結束」：做完的幾項已經各存成一次運動）
+    plan = null;
+    planOkSince = null;
     if (demo) {
         demo = null;
         showClipTag();
@@ -1787,6 +1937,7 @@ function startTestSet(condition) {
 setupTestCard(testMode, mode => {
     testMode = mode;
     showTestBar();
+    showPlanBlock();
 });
 
 // ---------- 錄影（10/20 使用者要求：像手機相機一樣開始、暫停、結束；每一段自動存進錄製檔） ----------
@@ -1966,6 +2117,7 @@ setupVoicePick(voiceMode, voice.supported, mode => {
 setupGoalPick(next => {
     goals = next;
     showGoal(null);
+    planCard.refresh();
 });
 const cloudPanel = setupCloudPanel();
 // 教練建議（10/31，js/ui/coach-view.js）：完整語音、有中文的聲音時唸出來（關鏡頭了，前面沒講完的先停掉）
@@ -2221,6 +2373,8 @@ startBtn.addEventListener('click', () => {
     sound.unlock();
     voice.unlock();
     aiAutoDone = [];
+    // 不是按「開始課表」開的鏡頭（四個大按鈕、自由模式、示範影片）：就算之前有沒走完的課表也不算
+    if (!planStarting) plan = null;
     startCamera(cameraSelect.value);
 });
 stopBtn.addEventListener('click', closeCamera);
@@ -2366,6 +2520,18 @@ if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
     setStartDisabled(true);
 }
+// 首頁的「智慧課表」卡片（11/14）：照運動紀錄和目標排一套；不能開鏡頭、實測模式開著（每一組由主持人選）時不能按
+planCard = setupPlanCard({
+    line: document.getElementById('planLine'),
+    list: document.getElementById('planSteps'),
+    start: document.getElementById('planStart'),
+    hint: document.getElementById('planHint')
+}, { getHistory: loadHistory, getGoals: () => goals, onStart: startPlan });
+function showPlanBlock() {
+    if (!isCameraSupported()) planCard.setDisabled(true, '此瀏覽器不支援鏡頭功能');
+    else planCard.setDisabled(testMode.on, '實測模式開著時不能用課表（每一組由主持人選）');
+}
+showPlanBlock();
 
 // ---------- 示範模式（10/26 提案，js/platform/video-source.js）：選一段影片當鏡頭 ----------
 // 報告時不用現場運動；網路教練影片下載下來也能直接看網站的判斷。用目前選的動作（鏡頭畫面右上角也能換）
