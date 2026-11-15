@@ -96,6 +96,21 @@
                     <button id="clipBtn" type="button" class="free-start">用一段影片代替鏡頭（示範模式）</button>
                     <input id="clipFile" type="file" accept="video/*" hidden>
                 </p>
+                <!-- 智慧課表（11/14，js/analysis/plan.js、js/ui/plan-card.js）：照這台裝置上的運動紀錄排一套（規則，不是模型），
+                     做完一項自動換下一項，全程用講的帶，不用碰手機；每一下照樣有 AI 判斷和分數。#planLine、#planSteps 由 plan-card.js 填入 -->
+                <div id="planBox" class="plan-box">
+                    <div class="plan-head">
+                        <p class="plan-title"><strong>智慧課表</strong><small>照你的紀錄排一套；做完一項自動換下一項，全程用講的帶，不用碰手機</small></p>
+                        <button id="planStart" type="button" class="plan-start">開始課表</button>
+                    </div>
+                    <p id="planLine" class="plan-line"></p>
+                    <details class="plan-more">
+                        <summary>怎麼排的、要做哪幾項</summary>
+                        <ul id="planSteps" class="plan-steps"></ul>
+                        <p class="plan-note">照上一次做了幾下、做得好不好來排：做得不錯就多一點，錯誤多就先少做、把動作做好；沒有紀錄的用起步的下數；「目標」卡片設了目標的照你設的。換下一項時會留幾秒讓你換姿勢。</p>
+                    </details>
+                    <p id="planHint" class="plan-hint" role="status" hidden></p>
+                </div>
                 <!-- 運動總結（js/analysis/session.js）：關鏡頭後顯示這次做了幾下、品質、和上一次比較；紀錄存在這台裝置上 -->
                 <div id="summary" class="summary" aria-live="polite" hidden>
                     <h2 id="summaryTitle">這次運動</h2>
@@ -129,6 +144,12 @@
                         <button type="submit">記下</button>
                         <p id="actualNote" class="actual-note" role="status"></p>
                     </form>
+                    <!-- 分享這次的結果（11/14，js/analysis/share-text.js、js/ui/share.js）：把上面幾行整理成一段文字，手機用系統的分享選單、
+                         電腦複製到剪貼簿；只有文字和數字，按了才送出去 -->
+                    <p id="shareRow" class="share-row">
+                        <button id="shareBtn" type="button">分享這次的結果</button>
+                        <span id="shareNote" class="share-note" role="status"></span>
+                    </p>
                     <!-- 第一次有總結時問一次要不要打開雲端同步（js/ui/cloud-ask.js）；選過就不再問 -->
                     <div id="cloudAsk" class="cloud-ask" hidden>
                         <p>要把運動紀錄存一份到雲端嗎？只存總結的數字，不含影像；之後可以畫成長曲線。</p>
@@ -190,6 +211,8 @@
                             <label><input type="radio" id="voiceErrors" name="voiceMode" value="errors"><span>只講錯誤</span></label>
                             <label><input type="radio" id="voiceOff" name="voiceMode" value="off"><span>不講話</span></label>
                         </div>
+                        <!-- 每一下也唸 AI 分數（11/14）：「3 下，92 分」；預設關，選「完整」才唸（AI 是合成資料訓練的示範） -->
+                        <label class="check-pick"><input type="checkbox" id="scoreVoiceToggle"> 每一下也唸 AI 分數（「3 下，92 分」；語音選「完整」才唸）</label>
                     </fieldset>
                     <!-- 雲端同步（js/cloud/cloud.js）：預設關閉，打開才把運動總結的數字存一份到雲端（Firebase）；網站還沒接上 Firebase 時整段不出現 -->
                     <div id="cloudBox" class="set-card" hidden>
