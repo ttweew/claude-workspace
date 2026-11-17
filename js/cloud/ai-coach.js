@@ -3,7 +3,7 @@
 // 網頁裡不用放 Gemini 的金鑰（Firebase 的設定本來就是公開的，見 config.js）
 // 預設關閉：首頁「AI 教練」打開才會載入、才會送。只送數字和動作名稱，沒有影像、骨架座標、日期、帳號
 // 沒打開、網站沒接上 Firebase、Firebase 主控台還沒開 AI Logic、沒網路、逾時、回答不能用：都改用固定句子（coach.js 的 fixedAdvice）
-import { FIREBASE_CONFIG, FIREBASE_SDK, AI_MODEL } from './config.js';
+import { FIREBASE_CONFIG, FIREBASE_SDK, AI_MODEL, APP_CHECK_SITE_KEY } from './config.js';
 
 const KEY = 'aiCoach';
 export const AI_COACH = {
@@ -12,7 +12,11 @@ export const AI_COACH = {
     maxLines: 3,
     // 回答最多幾個 token：兩三句只要約 100 個，但 Gemini 3 以後的模型「想」的過程也算在這裡面，留太少回答會被切成空的
     //（網站就一直說「回答怪怪的」）；所以多留。回答太長由上面的 maxChars 擋（11/10 總體檢，原本 256）
-    maxTokens: 1024
+    maxTokens: 1024,
+    // App Check 的通行證最多等幾秒（11/17）：reCAPTCHA 被擋廣告的外掛、學校公司的網路擋住時，Firebase AI 會一直等通行證，
+    // 不加這個要等滿 10 秒才改用固定句子、還寫成「沒回答」看不出原因；這個開發環境模擬 reCAPTCHA 載不到時就是這樣（11/17）。
+    // 平常開鏡頭時就先拿好了（warm），運動完不用等；6 秒內拿到，剩下約 4 秒給 Gemini
+    appCheckMs: 6000
 };
 
 // 給 Gemini 的話：規則＋這組的數字（JSON，鍵用中文，Gemini 才知道每個數字的意思）
@@ -99,6 +103,7 @@ export const FAILURE_TEXT = {
     busy: 'AI 教練現在太忙（免費的用量用完了），先用固定的建議',
     model: 'AI 教練用的模型要更新（Google 換了新的模型），先用固定的建議',
     'bad-reply': 'AI 教練的回答怪怪的，先用固定的建議',
+    appcheck: 'AI 教練沒有通過 Google 的安全驗證（App Check；擋廣告的外掛可能會擋住），先用固定的建議',
     error: 'AI 教練暫時連不上，先用固定的建議'
 };
 
@@ -109,12 +114,24 @@ export const FAILURE_TEXT = {
 export function failureOf(err) {
     const code = err && err.code;
     const status = err && err.customErrorData && err.customErrorData.status;
-    if (code === 'timeout' || code === 'bad-reply' || code === 'offline') return code;
+    if (code === 'timeout' || code === 'bad-reply' || code === 'offline' || code === 'appcheck') return code;
     if (code === 'api-not-enabled') return 'disabled';
     if (status === 429) return 'busy';
     if (status === 404) return 'model';
+    // 401、403：Google 擋下沒有通過 App Check 的要求（11/2 起一定要有）：金鑰沒登記、網域不對、reCAPTCHA 載不到
+    if (status === 401 || status === 403 || /app ?check/i.test(String(err && err.message))) return 'appcheck';
     if (code === 'response-error') return 'bad-reply';
     return 'error';
+}
+
+// 等 App Check 的通行證（11/17）：ms 毫秒內沒拿到、或拿不到（reCAPTCHA 載不到、Google 不給），就不問 Gemini，丟出 code 'appcheck'
+function waitAppCheck(promise, ms) {
+    let timer;
+    const late = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(Object.assign(new Error('App Check 的通行證 ' + ms / 1000 + ' 秒內沒有拿到'), { code: 'appcheck' })), ms);
+    });
+    const got = promise.catch(err => { throw Object.assign(new Error('App Check 的通行證拿不到：' + (err && err.message)), { code: 'appcheck' }); });
+    return Promise.race([got, late]).finally(() => clearTimeout(timer));
 }
 
 function withTimeout(promise, ms) {
@@ -127,22 +144,41 @@ function withTimeout(promise, ms) {
 
 // 載入 Firebase 的 AI 程式、建好模型（用自己的 app 名字，不和雲端同步的 app 互相影響）
 async function loadModel(config) {
-    const [appLib, aiLib] = await Promise.all([import(FIREBASE_SDK + '/firebase-app.js'), import(FIREBASE_SDK + '/firebase-ai.js')]);
+    const [appLib, aiLib, checkLib] = await Promise.all([
+        import(FIREBASE_SDK + '/firebase-app.js'),
+        import(FIREBASE_SDK + '/firebase-ai.js'),
+        APP_CHECK_SITE_KEY ? import(FIREBASE_SDK + '/firebase-app-check.js') : null
+    ]);
     const name = 'ai-coach';
     const app = appLib.getApps().some(a => a.name === name) ? appLib.getApp(name) : appLib.initializeApp(config, name);
+    // App Check（11/17，config.js 的 APP_CHECK_SITE_KEY）：reCAPTCHA 在背景看這個瀏覽器像不像真人在用（不會跳出要人點的框），
+    // 換成一張約 1 小時有效的通行證，Firebase AI 每次問 Gemini 會自己附上；快過期時自己換新的（isTokenAutoRefreshEnabled）
+    // 同一個 app 只能設定一次：上一次載入失敗、重新載入時 app 還在，同一把金鑰再呼叫一次，Firebase 會回傳原本那一個
+    // 先拿一次通行證（不等它）：開鏡頭時就在準備（warm），運動完問 Gemini 時不用再等 reCAPTCHA；拿不到不在這裡報錯：
+    // advise() 問之前會再確認一次（最多等 AI_COACH.appCheckMs），拿不到就不問、改用固定句子並寫出原因
+    let appCheckToken = null;
+    if (checkLib) {
+        const appCheck = checkLib.initializeAppCheck(app, { provider: new checkLib.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+        appCheckToken = () => checkLib.getToken(appCheck);
+        appCheckToken().catch(() => {});
+    }
     const ai = aiLib.getAI(app, { backend: new aiLib.GoogleAIBackend() });
     // 只設回答的長度上限。以前還設 temperature: 0.4（11/10 總體檢拿掉）：Firebase 的更新紀錄（firebase-ai 3.0.0）寫 Gemini 3 以後的模型
     // 不支援 temperature、topP、topK 這幾個設定；留著，Google 那邊可能不理它、也可能整個拒絕，拿掉用預設值最保險
-    return aiLib.getGenerativeModel(ai, { model: AI_MODEL, generationConfig: { maxOutputTokens: AI_COACH.maxTokens } });
+    const model = aiLib.getGenerativeModel(ai, { model: AI_MODEL, generationConfig: { maxOutputTokens: AI_COACH.maxTokens } });
+    // 問之前先確認拿得到通行證（advise 用；拿到過的有存，不用再等）
+    if (appCheckToken) model.appCheckToken = appCheckToken;
+    return model;
 }
 
 export class AiCoach {
     // config：Firebase 的設定（測試可以傳 null，當作網站還沒接上 Firebase）；load：建好模型（測試換成假的）
-    constructor(config = FIREBASE_CONFIG, { load = loadModel, timeoutMs = AI_COACH.timeoutMs } = {}) {
+    constructor(config = FIREBASE_CONFIG, { load = loadModel, timeoutMs = AI_COACH.timeoutMs, appCheckMs = AI_COACH.appCheckMs } = {}) {
         this.config = config;
         this.available = !!config;
         this.load = load;
         this.timeoutMs = timeoutMs;
+        this.appCheckMs = appCheckMs;
         this.enabled = false;
         try { this.enabled = this.available && localStorage.getItem(KEY) === '1'; } catch (err) { /* 不能讀就當作關閉 */ }
         this.model = null;   // 載入過的模型（失敗了下次再試）
@@ -153,21 +189,35 @@ export class AiCoach {
         try { localStorage.setItem(KEY, this.enabled ? '1' : '0'); } catch (err) { /* 存不了：這次有效 */ }
     }
 
+    // 開始載入 Firebase 的 AI 程式、App Check（失敗了 this.model 變回 null，下次再試）
+    startLoading() {
+        const loading = this.load(this.config);
+        this.model = loading;
+        loading.then(() => { loading.done = true; }, () => { if (this.model === loading) this.model = null; });
+        return loading;
+    }
+
+    // 先準備（11/17，開鏡頭時呼叫）：AI 教練打開、有網路、還沒載入過才載入。App Check 要先載入 reCAPTCHA、拿通行證（約 1～2 秒），
+    // 在運動的時候就做好，運動完問 Gemini 時才不會把 10 秒的等待用掉一大段；只準備、不問 Gemini（不用掉免費額度）
+    warm() {
+        if (!this.enabled || this.model) return;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        this.startLoading().catch(() => {});
+    }
+
     // 請 Gemini 給建議：回傳句子陣列；失敗時丟出錯誤（failureOf 看原因）
     async advise(facts) {
         if (!this.enabled) throw Object.assign(new Error('AI 教練沒有打開'), { code: 'off' });
         // 明顯沒有網路：不用等 10 秒，直接用固定句子（10/31 保養）
         if (typeof navigator !== 'undefined' && navigator.onLine === false) throw Object.assign(new Error('沒有網路'), { code: 'offline' });
-        if (!this.model) {
-            const loading = this.load(this.config);
-            this.model = loading;
-            loading.then(() => { loading.done = true; }, () => { if (this.model === loading) this.model = null; });
-        }
+        if (!this.model) this.startLoading();
         const loading = this.model;
         let result;
         try {
             result = await withTimeout((async () => {
                 const model = await loading;
+                // App Check（11/17）：通行證還沒拿到就不送（Firebase AI 會一直等），直接寫原因
+                if (model.appCheckToken) await waitAppCheck(model.appCheckToken(), this.appCheckMs);
                 const res = await model.generateContent(coachPrompt(facts));
                 return res.response.text();
             })(), this.timeoutMs);

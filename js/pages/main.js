@@ -2385,6 +2385,7 @@ function updateLabelBtn() {
 startBtn.addEventListener('click', () => {
     sound.unlock();
     voice.unlock();
+    coach.prepare();   // AI 教練打開時先拿 App Check 的通行證（11/17），運動完問 Gemini 不用等
     aiAutoDone = [];
     // 不是按「開始課表」開的鏡頭（四個大按鈕、自由模式、示範影片）：就算之前有沒走完的課表也不算
     if (!planStarting) plan = null;

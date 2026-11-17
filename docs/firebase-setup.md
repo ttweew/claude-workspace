@@ -107,21 +107,35 @@ npm run test:live
 | AI Logic 還沒開 | Google 回 403、SDK 的錯誤代號 `api-not-enabled` | 還沒開通 |
 | 免費的用量用完了 | Google 回 429（`RESOURCE_EXHAUSTED`）；Gemini Developer API 免費方案有每分鐘、每天的上限 | 太忙 |
 | 模型停用、改名 | Google 回 404：改 `js/cloud/config.js` 的 `AI_MODEL` | 模型要更新 |
+| 沒通過 App Check（11/17） | 6 秒內拿不到通行證（reCAPTCHA 被擋廣告的外掛擋住、連不上）、Google 不給通行證、Gemini 回 401／403：都不送（或不再送） | 沒有通過 Google 的安全驗證（App Check） |
 | 回答被 Google 擋下（安全規則）| SDK 的錯誤代號 `response-error` | 回答怪怪的 |
 | 回答不能用 | 英文太多、簡體字、網址、太短（不到 6 個中文字）、太長（超過 160 字）、說了給它的話裡沒有的數字（四捨五入到整數、5 以下的小數字、不超過次數的「第幾下」可以；到位的門檻 90° 沒給它，說了也不行） | 回答怪怪的 |
 | 其他（連不上、伺服器錯誤）| | 暫時連不上 |
 
 回答能用時，列點的符號、粗體、標題、表情符號拿掉，沒有句號的補上，重複的句子只留一句，最多 3 句。這些情況用真的 Firebase AI 程式（npm 的 firebase 12.19.0，和 gstatic 上的同一份）、假的 Google 伺服器測過（測試工具 `maint31/real_sdk.py`）。
 
-**之後可以加的**：App Check（確認是從我們的網站送的，別人拿不到這個專案的 Gemini 免費額度；要用 reCAPTCHA，使用者要在主控台多設定一次）。
+**App Check（11/17 接上）**：Google 從 **2026/11/2** 起規定，用 Firebase AI Logic 一定要通過 App Check（沒有的專案會自動開啟強制執行，沒有通行證的要求被擋下；
+2027/1/21 以前可以申請暫緩，之後不行）。App Check 讓每次問 Gemini 都附一張「是從我們的網站送的」通行證：別人拿 `js/cloud/config.js` 那段公開的設定自己寫程式，
+問不了，也用不掉這個專案的免費額度。
 
-11/17 大翻查又確認一次：網站的 Firebase 設定（`js/cloud/config.js`）本來就是公開的（Firebase 的設計就是這樣，資料靠安全規則保護），
-但 AI 教練直接從瀏覽器問 Gemini，別人拿這份設定寫程式一直問，就能把免費額度用完（AI 教練會一直顯示「AI 教練忙不過來」）。
-要擋的話，組員在主控台做這幾步，做完把 reCAPTCHA 的網站金鑰（site key，公開的那一個，不是密鑰）給 Claude 接上網站：
-1. Google reCAPTCHA 管理頁建一個 reCAPTCHA v3（或 Enterprise）金鑰，網域填 `ttweew.github.io`。
-2. Firebase 主控台 → App Check → 註冊網頁應用程式，選 reCAPTCHA，貼上密鑰（secret key）。
-3. 先用「監看」模式看幾天（看真的網站送的都有通過），再對「Firebase AI Logic」按「強制執行」。
-網站要改的：載入 `firebase-app-check.js`、`initializeAppCheck`，CSP 加上 reCAPTCHA 的網址（`www.google.com`、`www.gstatic.com/recaptcha`）。
+- 通行證怎麼來：網站載入 Google 的 reCAPTCHA Enterprise（Google Cloud 改名叫 Fraud Defense），它在背景看這個瀏覽器像不像真人在用，**不會跳出要人點的框**，
+  換成一張約 1 小時有效的通行證；Firebase AI 每次問 Gemini 自己附上，快過期時自己換新的。
+- 網站的程式：`js/cloud/config.js` 的 `APP_CHECK_SITE_KEY`（網站金鑰，公開的，不是密碼）；`js/cloud/ai-coach.js` 的 `loadModel` 載入 `firebase-app-check.js`、
+  `initializeAppCheck`（只替 AI 教練的 app 設定；雲端同步的 Firestore 沒有接，所以 **Firestore、Authentication 不要按強制執行**，按了雲端同步會壞）。
+  開鏡頭時就先準備（`warm`）：運動完問 Gemini 不用再等 reCAPTCHA。AI 教練關著時完全不載入。
+- 每一頁的 CSP 加上 reCAPTCHA 的程式和背景的小框（`https://www.google.com/recaptcha/`、`https://recaptcha.google.com/recaptcha/`）、換通行證的地方
+  （`https://content-firebaseappcheck.googleapis.com`）。
+- 沒通過（金鑰沒登記、網域不對、reCAPTCHA 載不到）：Google 回 401／403，網站寫「AI 教練沒有通過 Google 的安全驗證（App Check），先用固定的建議」。
+- 只認 `ttweew.github.io`：在自己的電腦（localhost）打開時拿不到有效的通行證，AI 教練會改用固定句子（要在本機測真的 Gemini，用 App Check 的「偵錯權杖」，
+  主控台 App Check →「應用程式」→ 管理偵錯權杖；不要把 localhost 加進 reCAPTCHA 的網域，那等於讓任何人都能在自己電腦上冒用）。
+
+**設定步驟（11/17 使用者在主控台做的）**：
+1. Google Cloud 主控台 →「安全性 → Fraud Defense」→「建立金鑰」：名稱 `ai-sport-web`、應用程式類型「網路」、網域清單只有 `ttweew.github.io`；
+   「停用網域驗證」、AMP 都關著；其他設定的「驗證」（打勾的框）、「測試金鑰」、「WAF」都是「否」→「Create key」，複製金鑰 ID（6L 開頭、40 個字）。
+2. Firebase 主控台 → App Check →「開始使用」→「應用程式」分頁 → web（網頁應用程式）→「Fraud Defense（舊稱 reCAPTCHA Enterprise）」→ 貼上金鑰，
+   權杖存留時間 1 小時 →「儲存」（狀態變成「已註冊」）。
+3. 「API」分頁：Firebase AI Logic 是「已強制執行」（11/2 起 Google 自動開）。網站更新後用手機做一組，主控台的「已驗證的要求」會開始增加。
+4. 免費方案（Spark）就能用；reCAPTCHA 每個月有免費的次數，通行證一小時換一次，一個人一天用幾次遠遠用不完。
 
 ## 六、之後換成自己的伺服器
 

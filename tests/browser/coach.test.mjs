@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { launch, serve, open, script, rep, workout } from './harness.mjs';
 import { FAILURE_TEXT } from '../../js/cloud/ai-coach.js';
-import { AI_MODEL } from '../../js/cloud/config.js';
+import { AI_MODEL, APP_CHECK_SITE_KEY } from '../../js/cloud/config.js';
 
 const require = createRequire(import.meta.url);
 const SQUAT = script([{ id: 'squat', depth: 0, frames: 60 }, ...[1, 2, 3, 4, 5, 6].flatMap(() => rep('squat', { rest: 30 }))]);
@@ -27,12 +27,13 @@ test.after(async () => {
 
 // 打開網頁前先設好：AI 教練開著沒（這台裝置記住的），假的 Gemini 怎麼回答
 //   beforeStop(context)：按「結束」前要做的事（例如斷網）
-async function session({ coachOn = false, fakeAI = null, size = {}, beforeStop = null } = {}) {
+async function session({ coachOn = false, fakeAI = null, appCheck = null, size = {}, beforeStop = null } = {}) {
     const { context, page } = await open(browser, SQUAT, size);
-    await context.addInitScript(([on, how]) => {
+    await context.addInitScript(([on, how, check]) => {
         try { if (on) localStorage.setItem('aiCoach', '1'); } catch (e) {}
         window.__fakeAI = how;
-    }, [coachOn, fakeAI]);
+        window.__fakeAppCheck = check;
+    }, [coachOn, fakeAI, appCheck]);
     await workout(page, site.base, 'squat', SIX, { beforeStop: beforeStop && (() => beforeStop(context)) });
     // AI 教練的回答是非同步的：等到不是「想一下」
     await page.waitForFunction(() => !document.getElementById('coachStatus').textContent.includes('想一下'), null, { timeout: 15000 });
@@ -42,7 +43,8 @@ async function session({ coachOn = false, fakeAI = null, size = {}, beforeStop =
         lines: [...document.querySelectorAll('#coachLines li')].map(li => li.textContent),
         status: document.getElementById('coachStatus').textContent,
         said: window.__said.filter(t => t.startsWith('教練建議：')),
-        prompts: window.__aiPrompts || []
+        prompts: window.__aiPrompts || [],
+        appCheck: window.__appCheck || []
     }));
     return { context, page, read };
 }
@@ -73,6 +75,43 @@ test('AI 教練打開：用 Gemini 的回答、唸出來；送出去的只有這
     assert.equal(data.次數, 6);
     assert.ok(!/http|date|uid|landmark|\d{4}-\d{2}-\d{2}/.test(p), '沒有網址、日期、帳號、骨架：' + p);
     assert.equal(await page.isChecked('#coachToggle'), true);
+    // App Check（11/17）：替 AI 教練的 app 設定一次，用 config.js 的網站金鑰、自動換新的通行證
+    assert.deepEqual(read.appCheck, [{ app: 'ai-coach', siteKey: APP_CHECK_SITE_KEY, auto: true }]);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
+
+test('App Check（11/17）：開鏡頭時就先準備好通行證，運動中不問 Gemini；AI 教練關著時完全不載入', async () => {
+    for (const on of [true, false]) {
+        const { context, page } = await open(browser, SQUAT);
+        await context.addInitScript(coach => { try { localStorage.setItem('aiCoach', coach ? '1' : '0'); } catch (e) {} }, on);
+        await page.goto(site.base + 'index.html?workout=squat');
+        await page.waitForFunction(() => /已就緒|失敗/.test(document.getElementById('poseStatus').textContent), null, { timeout: 60000 });
+        await page.click('#startBtn');
+        await page.waitForFunction(() => !document.getElementById('stage').hidden, null, { timeout: 10000 });
+        if (on) await page.waitForFunction(() => (window.__appCheckTokens || 0) >= 1, null, { timeout: 10000 });
+        else await page.waitForTimeout(1500);
+        const got = await page.evaluate(() => ({ appCheck: window.__appCheck || [], tokens: window.__appCheckTokens || 0, prompts: (window.__aiPrompts || []).length }));
+        assert.deepEqual(got, on ? { appCheck: [{ app: 'ai-coach', siteKey: APP_CHECK_SITE_KEY, auto: true }], tokens: 1, prompts: 0 } : { appCheck: [], tokens: 0, prompts: 0 });
+        assert.deepEqual(page.errors, []);
+        await context.close();
+    }
+});
+
+test('拿不到 App Check 的通行證（reCAPTCHA 被擋、Google 不給）：不問 Gemini，不等滿 10 秒，寫出原因', async () => {
+    for (const appCheck of [{ hang: true }, { error: true }]) {
+        const { context, page, read } = await session({ coachOn: true, fakeAI: { reply: '每一下都蹲到位，很穩。' }, appCheck });
+        // 寫的是 App Check 的原因（不是「超過 10 秒沒回答」）：等通行證最多 6 秒就放棄
+        failed(read, FAILURE_TEXT.appcheck);
+        assert.equal(read.prompts.length, 0, '沒有通行證就不送');
+        assert.deepEqual(page.errors, []);
+        await context.close();
+    }
+});
+
+test('沒有通過 App Check（Google 回 403）：改用固定句子，寫出原因', async () => {
+    const { context, page, read } = await session({ coachOn: true, fakeAI: { error: { code: 'fetch-error', message: '[403 ] Firebase App Check token is invalid.', customErrorData: { status: 403 } } } });
+    failed(read, FAILURE_TEXT.appcheck);
     assert.deepEqual(page.errors, []);
     await context.close();
 });
