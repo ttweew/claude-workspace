@@ -24,6 +24,13 @@
 - 量角器：上傳照片、拖點，線跟著動、沒有錯誤。改版前後六頁（手機、電腦）、鏡頭畫面、運動總結的截圖並排比對；axe-core 0 個問題。
 - 完整回歸測試：見 PR。
 
+**11/17 晚上：App Check 接上 AI 教練**
+- 查 App Check 的設定時發現：Google 從 **11/2** 起規定 Firebase AI Logic 一定要通過 App Check（沒設的專案自動強制執行，沒有通行證的要求被擋）。所以這一步不只是「別人用不掉免費額度」，沒有它 AI 教練根本問不了 Gemini（網站會改用固定句子，不會壞）。
+- 使用者在 Google Cloud「Fraud Defense」建了 reCAPTCHA Enterprise 的網站金鑰（網域只有 `ttweew.github.io`、不跳出打勾的框），在 Firebase 的 App Check 登記網頁應用程式。
+- 網站：`config.js` 放網站金鑰；AI 教練載入時 `initializeAppCheck`（只替 AI 教練的 app，雲端同步沒接，所以 Firestore 不能按強制執行）；**開鏡頭時就先準備**（下載 reCAPTCHA、拿通行證），運動完問 Gemini 不用再等；沒通過（401、403）寫「沒有通過 Google 的安全驗證（App Check）」。CSP 加上 reCAPTCHA、換通行證的網址；使用說明的隱私寫打開 AI 教練時會用 reCAPTCHA。
+- **用真的 Firebase 程式測出來的問題**：reCAPTCHA 載不到時（擋廣告的外掛、學校公司的網路會擋），App Check 的程式會一直等通行證，Firebase AI 也跟著等，AI 教練要等滿 10 秒才改用固定句子，還寫成「超過 10 秒沒回答」，看不出原因。改成問之前先確認通行證：最多等 6 秒，拿不到（或 Google 不給）就不問、寫「沒有通過 Google 的安全驗證（App Check；擋廣告的外掛可能會擋住）」。平常開鏡頭時就拿好了，不用等。
+- 測了什麼：`npm test` 338 項（新增 `tests/app-check.test.mjs` 5 項）；瀏覽器測試 coach 15 項（新增 3 項：開鏡頭先準備、關著不載入；拿不到通行證（一直等、被拒絕）不問 Gemini；403 寫原因）、CSP（多檢查 reCAPTCHA 的網址、只開 `/recaptcha/` 那一個資料夾）；**真的 Firebase 程式**（npm 的 firebase 12.19.0，和 gstatic 上的同一份）＋假的 reCAPTCHA、假的換通行證伺服器、假的 Gemini，14 種情況都對：問 Gemini 時附上通行證、通行證只換一次（開鏡頭時）、用我們的金鑰和看不見的小框；reCAPTCHA 被擋 6.1 秒放棄、Google 不給馬上放棄，都不送出問題（測試工具 `maint31/real_sdk2.py`）。這個開發環境連不到 Google 的 reCAPTCHA，真的通行證要用手機在正式網站上確認。
+
 ## 11/14（六）使用者要求再加 AI 功能和方便性：智慧課表、每一下也唸 AI 分數、分享這次的結果
 
 原本今天功能凍結。下午使用者說可以再多加一些 AI 的功能和方便性、進度再多推一點，11/15 晚上組內開會要用簡報：凍結延到這次合併之後。早上開始跑的凍結檢查停掉（新功能做完在最後的版本上重跑）。

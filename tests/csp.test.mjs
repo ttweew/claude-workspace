@@ -73,6 +73,12 @@ test('網站用到的外部網址都有列：AI 檔案、骨架模型、Firebase
     // Firebase 登入在手機上會先開一個看不見的框（authDomain）
     const authDomain = read('js/cloud/config.js').match(/authDomain: '([^']+)'/)[1];
     assert.ok(map['frame-src'].includes('https://' + authDomain));
+    // App Check（11/17）：reCAPTCHA 的程式和背景的小框、換通行證的地方
+    assert.ok(map['script-src'].includes('https://www.google.com/recaptcha/'));
+    assert.ok(map['frame-src'].includes('https://www.google.com/recaptcha/') && map['frame-src'].includes('https://recaptcha.google.com/recaptcha/'));
+    assert.ok(map['connect-src'].includes('https://content-firebaseappcheck.googleapis.com'));
+    // 只開 reCAPTCHA 那一個資料夾，不是整個 www.google.com
+    assert.ok(!map['script-src'].includes('https://www.google.com') && !map['connect-src'].includes('https://www.google.com'));
     // AI 引擎要編譯 WebAssembly；分頁、背景執行緒都是自己網站的檔案
     assert.ok(map['script-src'].includes("'wasm-unsafe-eval'"));
     assert.deepEqual(map['worker-src'], ["'self'"]);

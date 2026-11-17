@@ -198,6 +198,19 @@ export async function getDocs(q) {
     return { docs, empty: !docs.length, size: docs.length };
 }
 export function writeBatch() { return { delete() {}, async commit() {} }; }`,
+    // App Check（11/17）：記下網站用哪一把金鑰、替哪一個 app 設定（真的會載入 reCAPTCHA、向 Google 換通行證）
+    'firebase-app-check.js': `export class ReCaptchaEnterpriseProvider { constructor(siteKey) { this.siteKey = siteKey; } }
+export function initializeAppCheck(app, options) {
+    (window.__appCheck = window.__appCheck || []).push({ app: app.name, siteKey: options.provider.siteKey, auto: options.isTokenAutoRefreshEnabled });
+    return { app };
+}
+export async function getToken() {
+    window.__appCheckTokens = (window.__appCheckTokens || 0) + 1;
+    const how = window.__fakeAppCheck || {};
+    if (how.hang) return new Promise(() => {});   // reCAPTCHA 載不到（被擋廣告的外掛擋住）：一直等
+    if (how.error) throw Object.assign(new Error('fake App Check error'), { code: 'appCheck/fetch-status-error' });
+    return { token: 'fake-app-check-token' };
+}`,
     'firebase-ai.js': `export class GoogleAIBackend {}
 export const getAI = (app, options) => ({ app, options });
 export function getGenerativeModel(ai, params) {

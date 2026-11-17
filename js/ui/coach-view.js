@@ -41,6 +41,10 @@ export function setupCoach({ speak }) {
     // 每次運動完一個號碼：Gemini 慢慢回來時，使用者已經又做了一組，舊的回答就不用了
     let round = 0;
     return {
+        // 開鏡頭時（js/pages/main.js）：AI 教練打開的話先準備（App Check 的通行證），運動完不用等
+        prepare() {
+            aiCoach.warm();
+        },
         // facts：js/analysis/coach.js 的 coachFacts（null：這次不是計次、計時的動作，收起來）
         // quiet：只寫固定句子，不唸、不問 Gemini（AI 全自動換動作時）
         async show(facts, { quiet = false } = {}) {
