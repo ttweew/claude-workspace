@@ -13,7 +13,7 @@
   - 怎麼試
   - 測了什麼
   - 還需要組員做什麼
-- 進度地圖（每天的工作表）：https://claude.ai/artifact/2QcNyXe2VCMAvk1GhrcPrd 。簡報：https://claude.ai/artifact/DLE3Mgj4qAsx34vkhtTfN1 。
+- 進度地圖（每天的工作表）：https://claude.ai/artifact/2QcNyXe2VCMAvk1GhrcPrd 。簡報：https://claude.ai/artifact/DLE3Mgj4qAsx34vkhtTfN1 （82 頁的完整版備份：https://claude.ai/artifact/ALKASDfHHtmo5d3w8HK7cN ）。
   - 這兩個頁面只有使用者看得到，分享由使用者處理。
   - 更新前先讀線上版本再改。
 
@@ -43,7 +43,8 @@
 - 外部來的資料都當成可能被改過，包括網址參數、錄製檔、localStorage。先比對清單（例如 `isWorkout`），不要直接拿去查物件（`constructor` 這種名字查得到東西）。
 - 同一個數字在畫面、提示、總結要一樣（例如秒數一律無條件捨去）。
 - 網站只透過 `js/cloud/` 用雲端。上傳的欄位改了，要同時改 `js/cloud/sync.js` 和 `firestore.rules`。
-- 換 MediaPipe 版本：`js/config.js`，以及 `sw.js` 的版本號和 `AI_CACHE`。
+- 換 MediaPipe 版本或模型：`js/config.js`，以及 `sw.js` 的版本號、`AI_CACHE` 和 `AI_SHA256` 指紋。
+- 每一頁的 `<meta http-equiv="Content-Security-Policy">`（CSP）六頁一模一樣；加新的外部網址或改頁面裡的程式要一起改（`tests/csp.test.mjs`）。
 
 ## 瀏覽器測試工具
 

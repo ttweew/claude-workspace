@@ -2,21 +2,26 @@
 
 /* ---------- 設計基礎：顏色、圓角、陰影都集中在這裡，改一個地方全站一起變 ---------- */
 :root {
-    --bg: #0B1220;              /* 頁面底色：深藍黑，和鏡頭畫面的黑色一致 */
-    --surface: #121B2E;         /* 卡片 */
-    --surface-2: #18243B;       /* 卡片上的元素 */
-    --line: rgba(255, 255, 255, 0.09);
-    --text: #EAF0F7;            /* 主要文字 */
-    --muted: #9DABBE;           /* 次要文字 */
-    --accent: #2EE6A6;          /* 品牌色：活力綠，也代表「姿勢正確」 */
-    --accent-ink: #052B1E;      /* 綠色按鈕上的深色字 */
+    /* 11/17 大翻查改版（使用者：太有 AI 感）：以前是藍黑底＋霓虹綠＋發光、漸層，正是 AI 產生的網頁最常見的樣子
+       改成「石墨灰＋粉筆白」：底色是中性的灰（不帶藍），主要按鈕用粉筆白；顏色只拿來表示狀態——
+       綠＝姿勢正確、準備好了，紅＝錯誤、錄製中，黃＝要注意，藍＝資訊。裝飾用的發光、漸層、彩色外框都拿掉 */
+    --bg: #131416;              /* 頁面底色：石墨灰，和鏡頭畫面的黑邊接得上 */
+    --surface: #1B1D20;         /* 卡片 */
+    --surface-2: #24272B;       /* 卡片上的元素 */
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #EDEBE6;            /* 主要文字：粉筆白（帶一點暖，長時間看比純白舒服） */
+    --muted: #A5A8AD;           /* 次要文字（在卡片上對比 6.9，超過 4.5） */
+    --accent: #3DC98A;          /* 狀態色：姿勢正確、準備好了（沉穩一點的綠，不再是霓虹綠） */
+    --accent-ink: #062A1B;      /* 綠底上的深色字 */
+    --chalk: #EDEBE6;           /* 主要按鈕的底色（粉筆白）：最重要的一個動作用白底黑字，不靠顏色 */
+    --chalk-ink: #151618;       /* 粉筆白按鈕上的字 */
     --info: #4CC3FF;            /* 編號、資訊 */
     --danger: #FF5C5C;          /* 錯誤、錄製中 */
     --attn: #FFC857;            /* 提醒：重要但不容易發現的地方（進階設定、實測模式開著、錄製檔還沒下載）；一個畫面最多兩、三個，全部都亮就等於都不亮 */
-    --muted-2: #B8C4D4;         /* 設定卡片裡的說明字：比 --muted 亮一點（10/21 使用者回饋：灰字在黑底上不顯眼） */
-    --glass: rgba(11, 18, 32, 0.72);  /* 鏡頭畫面上的半透明底 */
-    --radius: 14px;
-    --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    --muted-2: #C3C5C9;         /* 設定卡片裡的說明字：比 --muted 亮一點（10/21 使用者回饋：灰字在黑底上不顯眼） */
+    --glass: rgba(19, 20, 22, 0.72);  /* 鏡頭畫面上的半透明底 */
+    --radius: 16px;             /* 卡片；按鈕 12px、標籤全圓（大小不同的東西圓角不同，看得出層級） */
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.4);   /* 只給浮在畫面上的東西（鏡頭畫面上的面板、跳出來的視窗）；頁面上的卡片不加 */
     --font: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
 }
 
@@ -32,10 +37,7 @@ body {
     margin: 0;
     min-height: 100vh;
     min-height: 100dvh;
-    background:
-        radial-gradient(1200px 600px at 85% -10%, rgba(46, 230, 166, 0.14), transparent 60%),
-        radial-gradient(900px 500px at -10% 20%, rgba(76, 195, 255, 0.10), transparent 60%),
-        var(--bg);
+    background: var(--bg);
     color: var(--text);
     font-family: var(--font);
     line-height: 1.6;
@@ -73,7 +75,10 @@ body {
         display: block;
         grid-column: 2;
         grid-row: 1 / span 4;
-        align-self: center;
+        align-self: start;
+        position: sticky;
+        top: 96px;
+        margin-top: 24px;
         width: 100%;
         height: auto;
     }
@@ -91,39 +96,39 @@ body {
 }
 .art-bones path {
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--text);
     stroke-width: 7;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 .art-arc {
     fill: none;
-    stroke: #FFFFFF;
+    stroke: var(--accent);
     stroke-width: 3;
     stroke-dasharray: 4 4;
 }
 .art-head {
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--text);
     stroke-width: 6;
 }
 .art-joints circle {
-    fill: #FFFFFF;
+    fill: var(--accent);
     stroke: var(--bg);
     stroke-width: 3;
 }
 .art-chip rect {
-    fill: #FFFFFF;
+    fill: var(--accent);
 }
 .art-chip text {
-    fill: var(--bg);
+    fill: var(--accent-ink);
     font-size: 22px;
     font-weight: 800;
     text-anchor: middle;
 }
 .art-status rect {
-    fill: rgba(13, 110, 70, 0.9);
-    stroke: rgba(46, 230, 166, 0.6);
+    fill: rgba(22, 96, 64, 0.9);
+    stroke: rgba(61, 201, 138, 0.6);
 }
 .art-status text {
     fill: #FFFFFF;
@@ -136,7 +141,6 @@ body {
     gap: 10px;
     color: var(--muted);
     font-size: 14px;
-    letter-spacing: 0.04em;
 }
 .brand-mark {
     width: 32px;
@@ -148,19 +152,20 @@ body {
 }
 .brand-mark g {
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--text);
     stroke-width: 2.6;
     stroke-linecap: round;
 }
 h1 {
     margin: 0;
     font-size: clamp(30px, 6.5vw, 52px);
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: #FFFFFF;
+    line-height: 1.18;
+    letter-spacing: 0;
+    font-weight: 800;
+    color: var(--text);
 }
 h1 .accent {
-    color: var(--accent);
+    color: inherit;
 }
 .intro {
     max-width: 560px;
@@ -175,8 +180,7 @@ h1 .accent {
     padding: 20px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: rgba(18, 27, 46, 0.8);
-    box-shadow: var(--shadow);
+    background: var(--surface);
 }
 /* 今天要做什麼運動？（js/ui/start-pick.js）：四個大按鈕 2×2，按了就開鏡頭；自由模式是最下面一行小字
    #startBtn 用 .workout-btn.current（上次選的動作，綠底）或 .free-start（自由模式）的樣子 */
@@ -200,18 +204,18 @@ h1 .accent {
     min-width: 0;
     min-height: 76px;
     padding: 12px 14px;
-    border: 1px solid rgba(46, 230, 166, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
-    background: rgba(46, 230, 166, 0.1);
+    background: var(--surface-2);
     color: var(--text);
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 .workout-btn:hover {
-    transform: translateY(-1px);
-    background: rgba(46, 230, 166, 0.18);
+    border-color: rgba(255, 255, 255, 0.28);
+    background: #2B2E33;
 }
 .workout-btn:active {
     transform: translateY(0);
@@ -228,17 +232,16 @@ h1 .accent {
 }
 /* 上次選的動作：綠底，右上角「上次」 */
 .workout-btn.current {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--accent-ink);
-    box-shadow: 0 6px 24px rgba(46, 230, 166, 0.35);
+    border-color: var(--chalk);
+    background: var(--chalk);
+    color: var(--chalk-ink);
 }
 .workout-btn.current:hover {
-    background: var(--accent);
-    box-shadow: 0 10px 30px rgba(46, 230, 166, 0.45);
+    border-color: #FFFFFF;
+    background: #FFFFFF;
 }
 .workout-btn.current .wb-sub {
-    color: rgba(5, 43, 30, 0.78);
+    color: rgba(21, 22, 24, 0.72);
 }
 .wb-tag {
     position: absolute;
@@ -246,7 +249,7 @@ h1 .accent {
     right: 10px;
     padding: 0 8px;
     border-radius: 999px;
-    background: rgba(5, 43, 30, 0.16);
+    background: rgba(21, 22, 24, 0.1);
     font-size: 12px;
     font-weight: 700;
     line-height: 20px;
@@ -284,9 +287,9 @@ h1 .accent {
 .plan-box {
     margin: 10px 0 0;
     padding: 12px 14px;
-    border: 1px solid rgba(76, 195, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
-    background: rgba(76, 195, 255, 0.07);
+    background: var(--surface-2);
 }
 .plan-head {
     display: flex;
@@ -312,10 +315,10 @@ h1 .accent {
     flex: none;
     min-height: 44px;
     padding: 0 16px;
-    border: 1px solid var(--info);
+    border: 1px solid var(--chalk);
     border-radius: 10px;
-    background: var(--info);
-    color: #04202E;
+    background: var(--chalk);
+    color: var(--chalk-ink);
     font: inherit;
     font-size: 15px;
     font-weight: 700;
@@ -389,7 +392,7 @@ h1 .accent {
 .share-row button {
     min-height: 40px;
     padding: 0 14px;
-    border: 1px solid rgba(46, 230, 166, 0.5);
+    border: 1px solid rgba(61, 201, 138, 0.5);
     border-radius: 10px;
     background: transparent;
     color: var(--text);
@@ -686,7 +689,7 @@ button:focus-visible, select:focus-visible {
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 16px;
@@ -728,7 +731,7 @@ button:focus-visible, select:focus-visible {
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 16px;
@@ -748,7 +751,7 @@ button:focus-visible, select:focus-visible {
     padding: 0 8px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 16px;
@@ -780,7 +783,7 @@ button:focus-visible, select:focus-visible {
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 16px;
@@ -817,14 +820,14 @@ button:focus-visible, select:focus-visible {
     height: 100%;
     overflow: hidden;
     border-radius: inherit;
-    background: linear-gradient(90deg, var(--info), var(--accent));
+    background: var(--accent);
     transition: width 0.4s ease;
 }
 #modelProgress .fill::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
     animation: shimmer 1.4s linear infinite;
 }
 @keyframes shimmer {
@@ -873,9 +876,9 @@ h2 {
     height: 36px;
     padding: 6px;
     border-radius: 10px;
-    background: rgba(46, 230, 166, 0.12);
+    background: var(--surface-2);
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--text);
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -931,7 +934,7 @@ h2 {
     padding: 0 6px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 16px;
@@ -993,8 +996,8 @@ h2 {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-ink);
+    background: var(--chalk);
+    color: var(--chalk-ink);
     font-weight: 800;
 }
 .steps strong {
@@ -1006,9 +1009,9 @@ h2 {
 .summary {
     margin: 12px 0 0;
     padding: 10px 12px;
-    border: 1px solid rgba(46, 230, 166, 0.5);
+    border: 1px solid rgba(61, 201, 138, 0.5);
     border-radius: 12px;
-    background: rgba(46, 230, 166, 0.08);
+    background: rgba(61, 201, 138, 0.08);
 }
 .summary h2 {
     margin: 0 0 4px;
@@ -1416,7 +1419,7 @@ h2 {
     font-size: 12px;
 }
 .lib-items li.done small {
-    color: #9FF0D0;
+    color: #A9E3C6;
 }
 .library .lib-items button, .library .lib-actions button {
     flex: none;
@@ -1438,8 +1441,8 @@ h2 {
     margin-top: 10px;
 }
 .library .lib-actions .lib-zip {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: rgba(255, 255, 255, 0.28);
+    color: var(--text);
 }
 .library .lib-actions button:disabled {
     opacity: 0.45;
@@ -1487,20 +1490,20 @@ h2 {
     margin-top: auto;
     min-height: 40px;
     padding: 6px 10px;
-    border: 1px solid rgba(46, 230, 166, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 10px;
     background: transparent;
-    color: var(--accent);
+    color: var(--text);
     font: inherit;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
 }
 .exercises .start-workout:hover {
-    background: rgba(46, 230, 166, 0.12);
+    background: rgba(255, 255, 255, 0.06);
 }
 .exercises > li.selected {
-    border-color: rgba(46, 230, 166, 0.6);
+    border-color: rgba(61, 201, 138, 0.6);
 }
 @media (max-width: 560px) {
     .exercises {
@@ -1585,8 +1588,10 @@ footer {
     color: var(--muted);
     font-size: 13px;
 }
-/* 文字裡的連結：深色底上用亮藍色（瀏覽器預設的深藍色在深色底上幾乎看不到，10/19 無障礙檢查 axe-core 找到：對比 1.8，要 4.5 以上） */
-footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
+/* 文字裡的連結：深色底上用亮藍色（瀏覽器預設的深藍色在深色底上幾乎看不到，10/19 無障礙檢查 axe-core 找到：對比 1.8，要 4.5 以上）
+   11/17 改成所有連結的預設：研究成果頁表格裡的「模型說明」漏掉了（對比 1.96）——以前背景是漸層，axe-core 判斷不了對比才沒抓到；
+   導覽列、按鈕樣子的連結有自己的顏色（寫在各自的地方，會蓋過這裡） */
+a {
     color: var(--info);
 }
 /* 首頁頁尾「加到主畫面」（10/29）：瀏覽器說可以安裝時才出現 */
@@ -1615,7 +1620,7 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     gap: 12px;
     padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right), calc((100% - 1000px) / 2)) 10px max(20px, env(safe-area-inset-left), calc((100% - 1000px) / 2));
     border-bottom: 1px solid var(--line);
-    background: rgba(11, 18, 32, 0.82);
+    background: rgba(19, 20, 22, 0.82);
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
 }
@@ -1678,7 +1683,7 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     bottom: 4px;
     height: 3px;
     border-radius: 2px;
-    background: var(--accent);
+    background: var(--chalk);
 }
 .nav-brand:focus-visible, .nav-links a:focus-visible, .toc a:focus-visible {
     outline: 3px solid var(--info);
@@ -1811,7 +1816,7 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     font-weight: 800;
 }
 .check-verdict[data-level="ok"] {
-    background: rgba(13, 110, 70, 0.9);
+    background: rgba(22, 96, 64, 0.9);
 }
 .check-verdict[data-level="warn"] {
     background: rgba(150, 85, 0, 0.9);
@@ -1916,8 +1921,8 @@ footer a, .panel-note a, .note a, .prose a, .steps a, .faq a, .task-list a {
     font-size: 18px;
 }
 .chip-demo.ok {
-    border: 1px solid rgba(46, 230, 166, 0.6);
-    background: rgba(13, 110, 70, 0.9);
+    border: 1px solid rgba(61, 201, 138, 0.6);
+    background: rgba(22, 96, 64, 0.9);
     color: #FFFFFF;
 }
 .chip-demo.warn {
@@ -2020,7 +2025,7 @@ code {
     gap: 4px;
     padding: 2px 8px 2px 3px;
     border-radius: 999px;
-    background: rgba(11, 18, 32, 0.8);
+    background: rgba(19, 20, 22, 0.8);
     color: #FFFFFF;
     font-size: 13px;
     line-height: 1.4;
@@ -2081,7 +2086,7 @@ code {
     gap: 6px;
     padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
     border-bottom: 1px solid var(--line);
-    background: rgba(11, 18, 32, 0.78);
+    background: rgba(19, 20, 22, 0.78);
     font-size: 14px;
 }
 #toolbar button, #toolbar select {
@@ -2121,7 +2126,7 @@ code {
     text-overflow: ellipsis;
 }
 #toolbar select option {
-    color: #1B2536;
+    color: #25282C;
 }
 /* 上面的 display 會蓋掉 hidden，這裡補上（例如只有一顆鏡頭時，鏡頭選單要藏起來） */
 #toolbar [hidden] {
@@ -2143,8 +2148,8 @@ code {
 }
 /* 開啟中的功能（顯示編號、數據）：綠色外框 */
 #toolbar .tool[aria-pressed="true"] {
-    border-color: rgba(46, 230, 166, 0.7);
-    background: rgba(46, 230, 166, 0.16);
+    border-color: rgba(61, 201, 138, 0.7);
+    background: rgba(61, 201, 138, 0.16);
 }
 /* 音量關掉時，按鈕顏色變淡 */
 #toolbar #soundBtn.muted {
@@ -2217,8 +2222,8 @@ code {
 }
 /* 偵測狀態用顏色區分，不用讀字也知道現在好不好（白字對比都在 4.5:1 以上） */
 #poseStatus[data-kind="ok"] {
-    border-color: rgba(46, 230, 166, 0.6);
-    background: rgba(13, 110, 70, 0.9);
+    border-color: rgba(61, 201, 138, 0.6);
+    background: rgba(22, 96, 64, 0.9);
 }
 #poseStatus[data-kind="warn"] {
     background: rgba(150, 85, 0, 0.92);
@@ -2254,8 +2259,8 @@ code {
     fill: currentColor;
 }
 #demoBtn[aria-expanded="true"] {
-    border-color: rgba(46, 230, 166, 0.7);
-    background: rgba(13, 110, 70, 0.9);
+    border-color: rgba(61, 201, 138, 0.7);
+    background: rgba(22, 96, 64, 0.9);
 }
 #demoPanel {
     position: absolute;
@@ -2267,7 +2272,7 @@ code {
     padding: 10px 12px 12px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: rgba(11, 18, 32, 0.92);
+    background: rgba(19, 20, 22, 0.92);
     color: var(--text);
 }
 #demoPanel[hidden] {
@@ -2322,8 +2327,8 @@ code {
     font-size: 13px;
 }
 .demo-tabs button[aria-pressed="true"] {
-    border-color: rgba(46, 230, 166, 0.7);
-    background: rgba(46, 230, 166, 0.2);
+    border-color: rgba(61, 201, 138, 0.7);
+    background: rgba(61, 201, 138, 0.2);
 }
 #demoPanel .demo-cues {
     margin-top: 8px;
@@ -2338,7 +2343,7 @@ code {
     padding: 0 8px;
 }
 #fpsLive option, #modelLive option {
-    color: #1B2536;
+    color: #25282C;
 }
 /* 光線太暗的提醒：和站位提示一樣用橘色 */
 #lightNote {
@@ -2346,7 +2351,7 @@ code {
 }
 /* 每秒格數自動調整時的短暫說明：綠框，和速度建議（黃框）分開 */
 #autoNote {
-    border-color: rgba(46, 230, 166, 0.6);
+    border-color: rgba(61, 201, 138, 0.6);
 }
 /* 手勢控制（11/8）：藍框（AI 看骨架判斷的，和 AI 自動辨識動作同一個顏色）；站遠要看得到，字大一點 */
 #gestureNote {
@@ -2376,7 +2381,7 @@ code {
     padding: 10px 12px;
     border: 1px solid rgba(255, 200, 87, 0.6);
     border-radius: 12px;
-    background: rgba(11, 18, 32, 0.92);
+    background: rgba(19, 20, 22, 0.92);
     pointer-events: auto;
 }
 .advice-card p {
@@ -2461,7 +2466,7 @@ code {
     max-width: calc(100% - 16px);
     padding: 8px 16px;
     border-radius: 28px;
-    background: rgba(11, 18, 32, 0.78);
+    background: rgba(19, 20, 22, 0.78);
     color: #FFFFFF;
 }
 #recBar[hidden], #recClock[hidden] {
@@ -2585,7 +2590,7 @@ code {
     padding: 0 2px;
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 8px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 13px;
@@ -2665,7 +2670,7 @@ code {
     overflow: auto;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: var(--radius);
-    background: #0B1220;
+    background: #131416;
     color: var(--text);
     box-shadow: var(--shadow);
 }
@@ -2711,7 +2716,7 @@ code {
     padding: 10px 12px;
     border: 1px solid rgba(76, 195, 255, 0.7);
     border-radius: 12px;
-    background: rgba(11, 18, 32, 0.92);
+    background: rgba(19, 20, 22, 0.92);
     pointer-events: auto;
 }
 .test-head {
@@ -2746,8 +2751,8 @@ code {
 }
 /* 錄過的組：綠框打勾，還沒錄的一眼就看得出來 */
 .test-picks button.done {
-    border-color: rgba(46, 230, 166, 0.6);
-    color: #9FF0D0;
+    border-color: rgba(61, 201, 138, 0.6);
+    color: #A9E3C6;
 }
 /* 「這組做完」：紅底白字（和偵測狀態的紅色一樣，對比 4.5:1 以上） */
 #testAction.stop {
@@ -2994,7 +2999,7 @@ code {
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: var(--radius);
     /* 不透明：底下的編號標籤不會透出來和表格數字疊在一起 */
-    background: #0B1220;
+    background: #131416;
     color: #FFFFFF;
     font-size: 12px;
     box-shadow: var(--shadow);
@@ -3061,7 +3066,7 @@ code {
     padding: 0 6px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 8px;
-    background: #1A2436;
+    background: #24272B;
     color: #FFFFFF;
     font: inherit;
     font-size: 13px;
@@ -3084,7 +3089,7 @@ code {
     transform: translate(-50%, -50%);
     border: 4px solid #FFC857;
     border-radius: 50%;
-    background: rgba(11, 18, 32, 0.72);
+    background: rgba(19, 20, 22, 0.72);
     color: #FFFFFF;
     font-size: clamp(64px, 20vmin, 170px);
     font-weight: 800;
@@ -3117,7 +3122,7 @@ code {
     transform: translate(-50%, -50%);
     border: 4px solid #FFC857;
     border-radius: 24px;
-    background: rgba(11, 18, 32, 0.82);
+    background: rgba(19, 20, 22, 0.82);
     color: #FFFFFF;
     font-size: clamp(24px, 6.5vmin, 56px);
     font-weight: 800;
@@ -3165,7 +3170,7 @@ code {
     border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 .panel-mode button[aria-pressed="true"] {
-    background: rgba(46, 230, 166, 0.22);
+    background: rgba(61, 201, 138, 0.22);
     font-weight: 700;
 }
 .panel-mode button:focus-visible {
@@ -3237,7 +3242,7 @@ code {
 /* 使用說明：實測任務卡（組員實測那天照著做，做完打勾） */
 .task-card {
     padding: 16px;
-    border: 1px solid rgba(46, 230, 166, 0.4);
+    border: 1px solid rgba(61, 201, 138, 0.4);
     border-radius: var(--radius);
     background: var(--surface);
 }

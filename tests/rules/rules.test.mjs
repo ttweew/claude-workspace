@@ -147,3 +147,21 @@ test('網站算出來的每一筆總結，雲端都收（四個動作各 25 筆�
         }
     }
 });
+
+// 成長曲線讀雲端（js/cloud/cloud.js 的 loadRecords，11/17）：照開始時間新的在前面、最多 READ_MAX 筆；
+// 自己的讀得到、順序對（單一欄位排序不用另外建索引），別人的整批讀不到
+test('讀自己的全部紀錄：照時間新的在前面；別人的讀不到', { skip }, async () => {
+    const older = { ...SQUAT, date: T - 86400000 };
+    assert.equal(await write('grace', idOf(SQUAT), SQUAT), 200);
+    assert.equal(await write('grace', idOf(older), older), 200);
+    assert.equal(await write('grace', idOf(PLANK), PLANK), 200);
+    const query = as => fetch(`${API}/users/grace:runQuery`, {
+        method: 'POST', headers: headers(as),
+        body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'sessions' }], orderBy: [{ field: { fieldPath: 'date' }, direction: 'DESCENDING' }], limit: 4000 } })
+    });
+    const res = await query('grace');
+    assert.equal(res.status, 200);
+    const dates = (await res.json()).filter(r => r.document).map(r => Number(r.document.fields.date.integerValue));
+    assert.deepEqual(dates, [PLANK.date, SQUAT.date, older.date]);
+    assert.equal((await query('dave')).status, 403);
+});

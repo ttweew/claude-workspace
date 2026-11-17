@@ -71,6 +71,8 @@ service cloud.firestore {
   }
 
   // 計時的動作（棒式）：最久不超過總共；每一次的秒數有幾個要和次數一樣
+  // 每一個秒數是不是 0～86400 的整數，安全規則檢查不了（規則的語言沒有迴圈、清單最長可到 10 萬個）：
+  // 網站上傳前（js/cloud/sync.js 的 cloudSession）、讀回來時（fromCloud）都會檢查，格式不對的那一筆不用（11/17 大翻查）
   function validHold(d) {
     return d.keys().hasOnly(['v', 'workout', 'date', 'minutes', 'count', 'clean', 'errors', 'savedAt',
                              'seconds', 'best', 'total'])

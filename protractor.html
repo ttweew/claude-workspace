@@ -2,9 +2,12 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <!-- 內容安全政策（CSP，11/17 大翻查）：只准從下面這些地方載入程式和連線，萬一哪裡被塞進奇怪的 HTML，裡面的程式也不會執行
+         改了這裡要一起改每一頁（6 頁一模一樣）；要加新的外部網址、改 nomodule 那段文字，見 tests/csp.test.mjs -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://www.gstatic.com https://apis.google.com 'sha256-iQEbWtFX42m3EIMX/PbE/O4/U22oWzjxnHeW3ZJKxSw=' 'sha256-hUz9vlIPhn29/M8dszu4kkysvLVNd1zHZc/JBEmGQ8U=' 'sha256-yT2XKdpb+SAGm4vquUYsabTlZ0gk85cZyn+VPZeaVEU='; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://firebasevertexai.googleapis.com https://www.googleapis.com http://127.0.0.1:* http://localhost:*; worker-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://ai-sport-analysis-bf82e.firebaseapp.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="在照片上拖三個點量關節角度，和 AI 在同一張照片上算的比">
-    <meta name="theme-color" content="#0B1220">
+    <meta name="theme-color" content="#131416">
     <!-- 加到手機主畫面（10/29）：manifest.webmanifest 寫名稱、圖示、從主畫面打開時沒有網址列；iPhone 的 Safari 看 apple- 開頭的設定 -->
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -13,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="AI 運動分析">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>照片量角器 · AI 智慧運動分析系統</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1220'/%3E%3Cg stroke='%232EE6A6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23131416'/%3E%3Cg stroke='%23EDEBE6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/replay.css">
     <link rel="stylesheet" href="css/protractor.css">
