@@ -169,12 +169,19 @@ function draw() {
         h.style.left = (points[i].x / width * 100) + '%';
         h.style.top = (points[i].y / height * 100) + '%';
     });
-    const line = (a, b) => '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '"/>';
+    // 用 DOM 建 SVG 元素、只設數字屬性（11/17 大翻查：以前拼字串放進 innerHTML，現在全是數字所以安全，
+    // 但這是全站唯一放 HTML 的地方，以後點上多了文字就可能被塞東西，改成不會解讀成 HTML 的寫法）
+    const svg = (tag, attrs) => {
+        const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(Number(v)));
+        return el;
+    };
+    const line = (a, b) => svg('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y });
     // AI 找到的點畫成虛線小圈，拖走之後還看得到 AI 原本找在哪裡
     const ai = photo.pose ? aiPoints(photo.pose.landmarks, joint, width, height) : null;
     const r = Math.max(width, height) / 120;
-    lines.innerHTML = line(points[0], points[1]) + line(points[1], points[2])
-        + (ai ? ai.map(p => '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '"/>').join('') : '');
+    lines.replaceChildren(line(points[0], points[1]), line(points[1], points[2]),
+        ...(ai ? ai.map(p => svg('circle', { cx: p.x, cy: p.y, r })) : []));
     const mine = pointAngle(...points);
     const site = photo.pose ? photo.pose.angles[joint] : null;
     const has = v => v !== null && v !== undefined && Number.isFinite(v);

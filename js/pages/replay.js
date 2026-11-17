@@ -159,8 +159,8 @@ const URL_WORKOUT = isWorkout(URL_PARAMS.get('workout')) ? URL_PARAMS.get('worko
 const POINTS = 33;
 
 // 曲線顏色：膝綠、髖藍、肘橘；左邊實線、右邊虛線
-const COLORS = { KNEE: '#2EE6A6', HIP: '#4CC3FF', ELBOW: '#FFB547' };
-const VIEW_COLORS = { side: '#2EE6A6', oblique: '#FFC857', front: '#FF5C5C', none: 'rgba(255,255,255,0.18)' };
+const COLORS = { KNEE: '#3DC98A', HIP: '#4CC3FF', ELBOW: '#FFB547' };
+const VIEW_COLORS = { side: '#3DC98A', oblique: '#FFC857', front: '#FF5C5C', none: 'rgba(255,255,255,0.18)' };
 const shown = new Set(['LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_HIP', 'RIGHT_HIP']);
 let showRaw = false;
 let show3d = false;    // 曲線圖上加畫 3D 膝蓋角度（處理過的 3D 座標算的）
@@ -883,7 +883,7 @@ function drawSkeleton() {
     const seen = j => r.smoothVis[base + j] === 1;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#2EE6A6';
+    ctx.strokeStyle = '#3DC98A';
     ctx.beginPath();
     for (const [a, b] of BONES) {
         const ia = P[a], ib = P[b];

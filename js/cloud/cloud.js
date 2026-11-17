@@ -180,7 +180,9 @@ export class Cloud {
         if (!this.enabled) return null;
         if (typeof navigator !== 'undefined' && navigator.onLine === false) throw Object.assign(new Error('沒有網路'), { code: 'offline' });
         const { fs, db, uid } = await this.connect();
-        const page = await withTimeout(fs.getDocs(fs.query(fs.collection(db, 'users', uid, 'sessions'), fs.limit(READ_MAX))), this.timeoutMs, '讀取雲端的紀錄');
+        // 照開始時間新的在前面讀（11/17 大翻查）：以前只寫 limit，超過 READ_MAX 筆時 Firestore 照代號（動作名稱）的字母順序給，
+        // 弓箭步、棒式、伏地挺身就佔滿了，最新的深蹲讀不到；date 是每一筆一定有的欄位（安全規則規定），單一欄位排序不用另外建索引
+        const page = await withTimeout(fs.getDocs(fs.query(fs.collection(db, 'users', uid, 'sessions'), fs.orderBy('date', 'desc'), fs.limit(READ_MAX))), this.timeoutMs, '讀取雲端的紀錄');
         return page.docs.map(d => fromCloud(d.data())).filter(Boolean);
     }
 

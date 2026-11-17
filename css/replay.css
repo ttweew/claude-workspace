@@ -44,7 +44,7 @@
 }
 .drop:hover, .drop.over, .drop:focus-within {
     border-color: var(--accent);
-    background: rgba(46, 230, 166, 0.06);
+    background: rgba(61, 201, 138, 0.06);
 }
 .drop input {
     position: absolute;
@@ -234,7 +234,7 @@
     width: 100%;
     height: 280px;
     border-radius: 10px;
-    background: #0E1626;
+    background: #17191B;
     cursor: crosshair;
     touch-action: pan-y;
 }
@@ -251,7 +251,7 @@
     border-radius: 2px;
     vertical-align: middle;
 }
-.sw-side { background: #2EE6A6; }
+.sw-side { background: #3DC98A; }
 .sw-oblique { background: #FFC857; }
 .sw-front { background: #FF5C5C; }
 .sw-none { background: rgba(255, 255, 255, 0.18); }
@@ -265,7 +265,7 @@
     width: 100%;
     max-width: 320px;
     border-radius: 10px;
-    background: #0E1626;
+    background: #17191B;
 }
 .player {
     display: flex;

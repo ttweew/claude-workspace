@@ -39,7 +39,9 @@ function axeSource() {
 }
 // 這一頁（或 selector 那一塊）的無障礙問題：回傳 ['規則:幾個地方 (第一個地方)']
 export async function violations(page, selector = null) {
-    await page.addScriptTag({ content: axeSource() });
+    // 用 evaluate 放進頁面（不用 addScriptTag）：網站有內容安全政策（CSP，11/17），擋得掉塞進頁面的 <script>，
+    // evaluate 是瀏覽器的開發工具直接執行的，不受 CSP 管
+    await page.evaluate(axeSource());
     return page.evaluate(sel => window.axe.run(sel ? document.querySelector(sel) : document)
         .then(r => r.violations.map(v => v.id + ':' + v.nodes.length + ' (' + v.nodes[0].target.join(' ') + ')')), selector);
 }
@@ -184,6 +186,7 @@ export function connectFirestoreEmulator() {}
 export const collection = (db, ...path) => ({ path: path.join('/') });
 export const doc = (db, ...path) => ({ path: path.join('/') });
 export const limit = n => ({ limit: n });
+export const orderBy = (field, dir) => ({ orderBy: field, dir });
 export const query = (ref, ...parts) => ({ path: ref.path, parts });
 export const serverTimestamp = () => ({ server: true });
 export async function setDoc(ref, data) { (window.__cloudWrites = window.__cloudWrites || []).push({ path: ref.path, data }); }

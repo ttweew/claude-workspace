@@ -115,6 +115,14 @@ npm run test:live
 
 **之後可以加的**：App Check（確認是從我們的網站送的，別人拿不到這個專案的 Gemini 免費額度；要用 reCAPTCHA，使用者要在主控台多設定一次）。
 
+11/17 大翻查又確認一次：網站的 Firebase 設定（`js/cloud/config.js`）本來就是公開的（Firebase 的設計就是這樣，資料靠安全規則保護），
+但 AI 教練直接從瀏覽器問 Gemini，別人拿這份設定寫程式一直問，就能把免費額度用完（AI 教練會一直顯示「AI 教練忙不過來」）。
+要擋的話，組員在主控台做這幾步，做完把 reCAPTCHA 的網站金鑰（site key，公開的那一個，不是密鑰）給 Claude 接上網站：
+1. Google reCAPTCHA 管理頁建一個 reCAPTCHA v3（或 Enterprise）金鑰，網域填 `ttweew.github.io`。
+2. Firebase 主控台 → App Check → 註冊網頁應用程式，選 reCAPTCHA，貼上密鑰（secret key）。
+3. 先用「監看」模式看幾天（看真的網站送的都有通過），再對「Firebase AI Logic」按「強制執行」。
+網站要改的：載入 `firebase-app-check.js`、`initializeAppCheck`，CSP 加上 reCAPTCHA 的網址（`www.google.com`、`www.gstatic.com/recaptcha`）。
+
 ## 六、之後換成自己的伺服器
 
 - 網站只透過 `js/cloud/cloud.js` 用雲端：換成 FastAPI＋MongoDB 時，改寫這個檔案的連線、上傳、刪除；上傳的內容（`js/cloud/sync.js` 的 `cloudSession`）不用改。

@@ -105,7 +105,7 @@ test('首頁的開關：預設關閉；打開、關閉會記住；320 寬、axe-
     const width = await run.page.evaluate(() => [document.documentElement.scrollWidth, Math.round(document.getElementById('coachAdvice').getBoundingClientRect().right)]);
     assert.ok(Math.max(...width) <= 320, '320 寬不超出：' + width);
     const axe = readFileSync(process.env.AXE_CORE || require.resolve('axe-core/axe.min.js'), 'utf8');
-    await run.page.addScriptTag({ content: axe });
+    await run.page.evaluate(axe);   // 不用 addScriptTag：網站的 CSP 會擋（harness.mjs 的 violations）
     // axe-core 一次只能跑一個：一個一個檢查
     const v = await run.page.evaluate(async () => {
         const out = [];

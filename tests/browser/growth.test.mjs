@@ -154,7 +154,7 @@ test('320 寬的手機：不超出畫面；axe-core（成長曲線打開、表�
     const width = await page.evaluate(() => [document.documentElement.scrollWidth, Math.round(document.getElementById('growthBox').getBoundingClientRect().right)]);
     assert.ok(Math.max(...width) <= 320, '320 寬不超出：' + width);
     const axe = readFileSync(process.env.AXE_CORE || require.resolve('axe-core/axe.min.js'), 'utf8');
-    await page.addScriptTag({ content: axe });
+    await page.evaluate(axe);   // 不用 addScriptTag：網站的 CSP 會擋（harness.mjs 的 violations）
     const v = await page.evaluate(async () => (await window.axe.run(document.getElementById('growthBox'))).violations.map(x => x.id + ':' + x.nodes.length));
     assert.deepEqual(v, []);
     assert.deepEqual(page.errors, []);
