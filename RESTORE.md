@@ -186,3 +186,9 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - `real1110/perf.py <錄製檔資料夾>`（`python3 -I`）：真手機的每秒格數、兩格的間隔（中位數、95%、最大）、卡頓次數、AI 每格毫秒、運算方式（只讀 meta 和時間）。
   - 離線功能：`cd $S/sw && python3 sw_test.py /home/user/claude-workspace`（7 項）。套件的安全檢查照 `docs/architecture.md` 第八節（`npm install --package-lock-only --ignore-scripts` 再 `npm audit`）。
   - `audit1110/chain.sh`：合併前依序跑（自動測試 → 瀏覽器測試 → 安全規則（emulators:exec）→ report21 → maint27 → 完整回歸）。
+- 11/17 大翻查（安全、隱藏的 bug、網站改版）和 App Check：
+  - `maint31/real_sdk2.py <網站資料夾> <port> [情況…]`：`real_sdk.py` 加上 App Check（取代它）。真的 Firebase 程式（firebase-app、firebase-ai、firebase-app-check），reCAPTCHA Enterprise 的程式、換通行證的伺服器（content-firebaseappcheck.googleapis.com）、Gemini 的伺服器都換成假的；14 種：原本的 12 種，加上 `recaptcha_blocked`（reCAPTCHA 的程式載不到：6 秒放棄、不問 Gemini）、`exchange403`（Google 不給通行證：馬上放棄）。每一種都檢查問 Gemini 時有沒有附上通行證（`X-Firebase-AppCheck`）、通行證只換一次、用網站的金鑰和看不見的小框。假的 reCAPTCHA 一定要呼叫 render 時給的 `callback`：App Check 的程式靠它確認成功，沒呼叫就當作失敗。
+  - `audit1117/shots.mjs <網站資料夾> <輸出資料夾>`：六頁 × 手機（390）、電腦（1280）的截圖（用專案的 `tests/browser/harness.mjs`、假的 AI）。`pair.mjs <改之前> <改之後> <輸出>`：同名的截圖左右並排（環境的 PIL 壞掉時用這個；`pair.py` 是 PIL 版）。
+  - `audit1117/contrast.mjs`：研究成果頁 320 寬只跑 axe-core 的顏色對比（要 `AXE_CORE`）。`protractor_smoke.mjs <照片>`：量角器選照片後畫出兩條線、用鍵盤移一個點，線跟著動（畫線改成 createElementNS 之後的確認）。
+  - 沒有放進來的：網站改版用的 `audit1117/redesign.py`（改 CSS 的工具，不是測試）、改進度地圖的腳本（裡面有那一頁的文字）。
+  - 合併前依序跑：專案的瀏覽器測試 → 完整回歸（一次一個）；完整回歸這次約 30 分鐘。
