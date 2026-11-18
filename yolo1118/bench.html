@@ -1,0 +1,66 @@
+<!doctype html><meta charset="utf-8"><title>bench</title>
+<canvas id="c"></canvas>
+<script type="module">
+// YOLO26n-pose（onnxruntime-web）和 MediaPipe（tasks-vision）在同一張照片上各跑幾次，量每張幾毫秒；也畫出 YOLO 抓到的 17 點
+const q = new URLSearchParams(location.search);
+const img = new Image(); img.src = 'pose.jpg'; await img.decode();
+const out = window.__result = { image: [img.naturalWidth, img.naturalHeight] };
+const RUNS = Number(q.get('runs') || 15), WARM = 3;
+async function timeIt(fn) {
+  for (let i = 0; i < WARM; i++) await fn();
+  const t = [];
+  for (let i = 0; i < RUNS; i++) { const a = performance.now(); await fn(); t.push(performance.now() - a); }
+  t.sort((a, b) => a - b);
+  return { median: +t[Math.floor(t.length / 2)].toFixed(1), min: +t[0].toFixed(1), max: +t[t.length - 1].toFixed(1) };
+}
+if (q.get('yolo')) {
+  const ort = await import('./web/node_modules/onnxruntime-web/dist/ort.min.mjs');
+  ort.env.wasm.wasmPaths = new URL('./web/node_modules/onnxruntime-web/dist/', location.href).href;
+  ort.env.wasm.numThreads = Number(q.get('threads') || 1);   // GitHub Pages 不能設跨來源隔離的標頭，網頁上只能單執行緒
+  const size = Number(q.get('size'));
+  const t0 = performance.now();
+  const session = await ort.InferenceSession.create(q.get('yolo'), { executionProviders: ['wasm'] });
+  out.loadMs = +(performance.now() - t0).toFixed(0);
+  // 等比例縮到 size×size、其他補灰邊（和 Ultralytics 一樣補 114）
+  const scale = Math.min(size / img.naturalWidth, size / img.naturalHeight);
+  const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+  const padX = (size - w) / 2, padY = (size - h) / 2;
+  const cv = new OffscreenCanvas(size, size), g = cv.getContext('2d');
+  g.fillStyle = 'rgb(114,114,114)'; g.fillRect(0, 0, size, size); g.drawImage(img, padX, padY, w, h);
+  const px = g.getImageData(0, 0, size, size).data, n = size * size, data = new Float32Array(3 * n);
+  for (let i = 0; i < n; i++) { data[i] = px[i * 4] / 255; data[n + i] = px[i * 4 + 1] / 255; data[2 * n + i] = px[i * 4 + 2] / 255; }
+  const input = new ort.Tensor('float32', data, [1, 3, size, size]);
+  const feeds = { [session.inputNames[0]]: input };
+  let result;
+  out.yolo = await timeIt(async () => { result = await session.run(feeds); });
+  const o = result[session.outputNames[0]];
+  out.outputName = session.outputNames[0]; out.outputDims = o.dims;
+  // 一對一的輸出（不用 NMS）：[1, 300, 6 + 17×3]，每一列 x1 y1 x2 y2 分數 類別 再 17 點的 x y 可信度
+  const [, rows, cols] = o.dims, d = o.data;
+  let best = -1, bestScore = 0;
+  for (let r = 0; r < rows; r++) if (d[r * cols + 4] > bestScore) { bestScore = d[r * cols + 4]; best = r; }
+  out.bestScore = +bestScore.toFixed(3);
+  out.kpts = [];
+  for (let k = 0; k < 17; k++) {
+    const b = best * cols + 6 + k * 3;
+    out.kpts.push([(d[b] - padX) / scale, (d[b + 1] - padY) / scale, d[b + 2]].map(v => +v.toFixed(2)));
+  }
+  const c = document.getElementById('c'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const cg = c.getContext('2d'); cg.drawImage(img, 0, 0);
+  const LINES = [[5,7],[7,9],[6,8],[8,10],[5,6],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+  cg.lineWidth = 4; cg.strokeStyle = '#3DC98A';
+  for (const [a, b] of LINES) { cg.beginPath(); cg.moveTo(out.kpts[a][0], out.kpts[a][1]); cg.lineTo(out.kpts[b][0], out.kpts[b][1]); cg.stroke(); }
+  cg.fillStyle = '#FFB547'; for (const [x, y, s] of out.kpts) if (s > 0.3) { cg.beginPath(); cg.arc(x, y, 6, 0, 7); cg.fill(); }
+}
+if (q.get('mp')) {
+  const vision = await import('./mp/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs');
+  const fileset = await vision.FilesetResolver.forVisionTasks('./mp/node_modules/@mediapipe/tasks-vision/wasm');
+  const t0 = performance.now();
+  const lm = await vision.PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: './mp/pose_landmarker_' + q.get('mp') + '.task', delegate: 'CPU' }, runningMode: 'IMAGE', numPoses: 1 });
+  out.loadMs = +(performance.now() - t0).toFixed(0);
+  let r;
+  out.mediapipe = await timeIt(async () => { r = lm.detect(img); });
+  out.found = r.landmarks.length;
+}
+out.done = true;
+</script>
