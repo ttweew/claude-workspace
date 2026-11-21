@@ -71,6 +71,38 @@ test('指紋清單：每個 MediaPipe 檔案、兩個骨架模型都有，格式
     assert.notEqual(cacheName, 'ai-files-v1');
 });
 
+test('YOLO（11/21）：LiteRT 引擎的四個檔案、config.js 的每個模型檔都有指紋；模型檔和 AI 檔案一樣先用存起來的', async () => {
+    const { list } = load();
+    const config = readFileSync(new URL('../js/config.js', import.meta.url), 'utf8');
+    const files = [...config.matchAll(/path: 'models\/yolo\/([a-z0-9-]+\.tflite)'/g)].map(m => m[1]);
+    assert.equal(files.length, 2);
+    for (const name of [...files, 'litert_wasm_internal.js', 'litert_wasm_internal.wasm', 'litert_wasm_compat_internal.js', 'litert_wasm_compat_internal.wasm']) {
+        assert.match(list[name] || '', /^[0-9a-f]{64}$/, name);
+    }
+    // 放在網站裡的模型檔：指紋和檔案一模一樣
+    for (const name of files) {
+        const body = readFileSync(new URL('../models/yolo/' + name, import.meta.url));
+        assert.equal(createHash('sha256').update(body).digest('hex'), list[name], name);
+    }
+    // 模型檔：指紋對才存進 AI 檔案；不是 .tflite（例如 README）照網站檔案處理
+    const text = 'fake-model';
+    const source = SOURCE.replace(list[files[0]], sha(text));
+    const sw = load(source);
+    const hit = await sw.fetchEvent(SCOPE + 'models/yolo/' + files[0] + '?retry=1', text);
+    assert.equal(hit.got, text);
+    assert.deepEqual(Object.keys(hit.saved[sw.cacheName] || {}), [SCOPE + 'models/yolo/' + files[0]]);
+    const readme = await load().fetchEvent(SCOPE + 'models/yolo/README.md', '# x');
+    assert.equal(Object.keys(readme.saved).some(name => name.startsWith('ai-files-')), false);
+    // LiteRT 引擎從兩個下載來源來都算 AI 檔案
+    const engine = 'engine-bytes';
+    const src2 = SOURCE.replace(list['litert_wasm_internal.wasm'], sha(engine));
+    for (const base of ['https://cdn.jsdelivr.net/npm/@litertjs/core@2.6.0/wasm/', 'https://unpkg.com/@litertjs/core@2.6.0/wasm/']) {
+        const sw2 = load(src2);
+        const r = await sw2.fetchEvent(base + 'litert_wasm_internal.wasm', engine);
+        assert.deepEqual(Object.keys(r.saved[sw2.cacheName] || {}), [base + 'litert_wasm_internal.wasm'], base);
+    }
+});
+
 test('AI 檔案：指紋對才存；不對的照樣交給網頁、但不存；不在清單上的也不存', async () => {
     const good = 'console.log("真的檔案")';
     const sw = load(SOURCE.replace(/'vision_bundle\.mjs': '[0-9a-f]{64}'/, "'vision_bundle.mjs': '" + sha(good) + "'"));

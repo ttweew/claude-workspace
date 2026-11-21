@@ -1,5 +1,5 @@
 // 「找骨架」這一層（11/21，讓使用者自己選模型的第 1 步）：網站其他部分（首頁、照片量角器）只透過這裡拿骨架，
-// 不管後面是哪一家的模型。同一家換大小（MediaPipe lite ↔ full）交給那一家自己換；換一家（之後的 YOLO）時，
+// 不管後面是哪一家的模型。同一家換大小（MediaPipe lite ↔ full、YOLO n ↔ s）交給那一家自己換；換一家（MediaPipe ↔ YOLO）時，
 // 先把新的載入好、成功了才關掉舊的：新的載入失敗，舊的照常能用（和換大小失敗一樣，錯誤標 recovered）
 //
 // 每一家的載入函式 load(onProgress, attempt, key) 回傳一個偵測器，要有：
@@ -8,11 +8,12 @@
 //   detect(畫面, 時間) → Promise { landmarks：33 點（MediaPipe 的順序，模型沒有的點 visibility 0）或 null, world：3D 座標或 null }、
 //   lostReason()（不能用的原因，能用是 ''）、restart()、useModel(key, onFraction)（同一家換大小）、close()
 import { loadPoseModel } from './pose.js';
+import { loadYolo } from './yolo.js';
 import { modelToLoad } from './model-choice.js';
 import { familyOf as profileFamily } from './models.js';
 
-// 每一家怎麼載入
-const LOADERS = { mediapipe: loadPoseModel };
+// 每一家怎麼載入（YOLO：js/ai/yolo.js，11/21）
+const LOADERS = { mediapipe: loadPoseModel, yolo: loadYolo };
 
 // 關掉一個偵測器；關不掉也沒關係（例如背景執行緒早就停了）
 function closeQuietly(detector) {

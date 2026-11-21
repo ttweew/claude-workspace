@@ -2349,6 +2349,11 @@ code {
 #lightNote {
     background: rgba(150, 85, 0, 0.92);
 }
+/* 用的模型判斷不了的錯誤（11/21，例如 YOLO 不判斷腳跟離地）：灰底白字、虛線框，看得出是「說明」不是「做錯了」 */
+#modelNote {
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.5);
+}
 /* 每秒格數自動調整時的短暫說明：綠框，和速度建議（黃框）分開 */
 #autoNote {
     border-color: rgba(61, 201, 138, 0.6);

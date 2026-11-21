@@ -1,7 +1,7 @@
 // Service Worker：把 AI 檔案存在手機裡，第二次打開不用再下載，沒有網路也能用
 //
 // 兩種檔案、兩種做法：
-//   1. AI 檔案（MediaPipe 程式、AI 引擎、骨架模型）：版本固定、內容不會變，又很大（約 18 MB）
+//   1. AI 檔案（MediaPipe 程式、AI 引擎、骨架模型；11/21 起還有 YOLO 的 LiteRT 引擎和模型檔）：版本固定、內容不會變，又很大（約 18 MB）
 //      → 先用存起來的；沒有才下載，下載完整後存起來
 //   2. 網站自己的檔案（網頁、程式、樣式）：可能隨時更新
 //      → 有網路一定抓最新的（和沒有這個檔案時完全一樣）；只有斷網時才用上次存的
@@ -16,8 +16,18 @@ const SITE_CACHE = 'site-files-v1';
 const AI_FILES = [
     /^https:\/\/cdn\.jsdelivr\.net\/npm\/@mediapipe\/tasks-vision@1\.0\.1\//,
     /^https:\/\/unpkg\.com\/@mediapipe\/tasks-vision@1\.0\.1\//,
-    /^https:\/\/storage\.googleapis\.com\/mediapipe-models\/pose_landmarker\//
+    /^https:\/\/storage\.googleapis\.com\/mediapipe-models\/pose_landmarker\//,
+    // YOLO（11/21）：LiteRT.js 的 AI 引擎（js/config.js 的 LITERT_URLS）
+    /^https:\/\/cdn\.jsdelivr\.net\/npm\/@litertjs\/core@2\.6\.0\/wasm\//,
+    /^https:\/\/unpkg\.com\/@litertjs\/core@2\.6\.0\/wasm\//
 ];
+// YOLO 的模型檔放在網站自己的 models/yolo/（11/21）：檔案大（12～21 MB）、內容不會變（換模型就換檔名），
+// 和 AI 檔案一樣先用存起來的、核對指紋才存，不用每次打開都問一次伺服器
+function isAiFile(url) {
+    if (AI_FILES.some(pattern => pattern.test(url))) return true;
+    const models = new URL('models/yolo/', self.registration.scope).href;
+    return url.startsWith(models) && new URL(url).pathname.endsWith('.tflite');
+}
 
 // AI 檔案的指紋（SHA-256）：存進手機之前先核對，內容和下面一模一樣才存（11/17 大翻查）
 // 為什麼：AI 檔案存起來之後，之後每次打開（包括沒網路時）都直接用存的；萬一某一次下載到被改過、壞掉的檔案
@@ -35,7 +45,15 @@ const AI_SHA256 = {
     'vision_wasm_nosimd_internal.js': 'e81d715a3d42cc3373602eb2f7aff795d164934db680e32496b65dab537f9658',
     'vision_wasm_nosimd_internal.wasm': 'a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192',
     'pose_landmarker_lite.task': '59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a',
-    'pose_landmarker_full.task': '5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1'
+    'pose_landmarker_full.task': '5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1',
+    // YOLO（11/21）：npm 上 @litertjs/core@2.6.0 套件 wasm 資料夾裡的檔案（jsDelivr、unpkg 給的就是這個套件的檔案）；
+    // 模型檔是 tools/export-yolo.py 轉出來、放在 models/yolo/ 的檔案（models/yolo/README.md 也有這兩個指紋）
+    'litert_wasm_internal.js': '43bc8c66b43e04630337c90edcea16b133a9f543d008e496a1550d3a229bc9ac',
+    'litert_wasm_internal.wasm': '13db768de5c7a087517e46a0172c81102a7983bd159e6e47b0a0b933bae60014',
+    'litert_wasm_compat_internal.js': 'cffb7bebb9411e2160d711ccff00c3921b0031a66a692f58c25ce8204b7ec541',
+    'litert_wasm_compat_internal.wasm': '4190033238e53ec86b832bad4649851ad111025c226c1688cfae20e1f8fe8926',
+    'yolo26n-pose-320.tflite': 'dfa42d50081ca40b00e011dc00fdbc38660a0b73eb2cea94c4af1cf01af7f67e',
+    'yolo26s-pose-320-w8a32.tflite': '0e10ad8a58bd5301fa38d2ad45db94e538a53e067e01924db959edfab1ad8400'
 };
 
 // 網頁要移除離線功能（?sw=0）時會先通知：之後不再存任何檔案（還在下載中的也不存），並清掉已存的
@@ -145,7 +163,7 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     if (request.method !== 'GET') return;
     const url = request.url;
-    if (AI_FILES.some(pattern => pattern.test(url))) {
+    if (isAiFile(url)) {
         event.respondWith(aiFile(event));
     } else if (url.startsWith(self.registration.scope)) {
         event.respondWith(siteFile(event));

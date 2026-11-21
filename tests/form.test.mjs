@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { P } from '../js/skeleton/landmarks.js';
 import { PosePipeline } from '../js/skeleton/pipeline.js';
-import { FormChecker, measure } from '../js/analysis/form.js';
+import { FormChecker, measure, unjudgedRules, FORM_RULES } from '../js/analysis/form.js';
 import { demoLandmarks } from './helpers.mjs';
 
 const W = 640, H = 480;
@@ -130,4 +130,25 @@ test('一閃而過（0.2 秒）的錯誤不顯示', () => {
         if (checker.update(pipeline.process(bad, t += 33, W, H), t).errors.length) shown = true;
     }
     assert.equal(shown, false);
+});
+
+test('沒有腳跟、腳尖的模型（11/21 YOLO）：腳跟離地、前膝超過腳尖判斷不了，列出來；其他錯誤照樣抓', () => {
+    assert.deepEqual(unjudgedRules('squat', false), ['腳跟離地']);
+    assert.deepEqual(unjudgedRules('lunge', false), ['膝超過腳尖']);
+    assert.deepEqual(unjudgedRules('pushup', false), []);
+    assert.deepEqual(unjudgedRules('plank', false), []);
+    assert.deepEqual(unjudgedRules('free', false), []);
+    for (const id of Object.keys(FORM_RULES)) assert.deepEqual(unjudgedRules(id, true), [], id + '：有腳的模型全部判斷');
+    for (const bad of ['constructor', '__proto__', '', null]) assert.deepEqual(unjudgedRules(bad, false), [], String(bad));
+    // YOLO 換成 33 點時，腳跟、腳尖放在腳踝、看不到（js/ai/keypoints.js）：故意墊腳也不會報（不會亂報），前傾照樣抓
+    const noFeet = lm => lm.map((p, i) => ([...both('HEEL'), ...both('FOOT_INDEX')].includes(i) ? { ...lm[i === P.LEFT_HEEL || i === P.LEFT_FOOT_INDEX ? P.LEFT_ANKLE : P.RIGHT_ANKLE], visibility: 0 } : p));
+    const lm0 = demoLandmarks('squat', 0);
+    const shank = Math.hypot((lm0[P.LEFT_KNEE].x - lm0[P.LEFT_ANKLE].x) * W, (lm0[P.LEFT_KNEE].y - lm0[P.LEFT_ANKLE].y) * H);
+    const heelUp = (lm, d) => move(lm, both('HEEL'), 0, -0.25 * shank / H * d);
+    assert.deepEqual(run('squat', heelUp).seen, ['heel'], 'MediaPipe：抓得到');
+    assert.deepEqual(run('squat', (lm, d) => noFeet(heelUp(lm, d))).seen, [], 'YOLO：不判斷');
+    const knee = (lm, d) => move(lm, [P.LEFT_KNEE], 0.07 * d, 0);
+    assert.deepEqual(run('lunge', (lm, d) => noFeet(knee(lm, d))).seen, [], 'YOLO：前膝超過腳尖不判斷');
+    const leanForward = (lm, d) => move(lm, [...both('SHOULDER'), P.NOSE, ...both('EAR'), ...both('EYE'), ...both('ELBOW'), ...both('WRIST')], 0.09 * d, 0.02 * d);
+    assert.deepEqual(run('lunge', (lm, d) => noFeet(leanForward(lm, d))).seen, ['lean'], 'YOLO：上身前傾照樣抓');
 });

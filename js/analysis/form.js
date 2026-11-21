@@ -120,6 +120,7 @@ export function measure(pose, phoneTilt = 0) {
 // 每個動作的規則：
 //   text：畫面上的紅字；speech：語音唸的（短一點）；short：每一下的提示裡的簡稱；parts：要標紅的部位
 //   active(m)：這個時候要不要檢查；bad(m)：是不是做錯了（數字算不出來時當作沒錯）
+//   feet：要看腳跟、腳尖（11/21）：用沒有這些點的模型（YOLO）時不判斷，畫面和總結寫出來（js/ai/models.js 的能力表）
 //   why：說出原因用（10/19）：label 量的是什麼、value(m) 換成人看得懂的數字（度或 %）、limit 門檻（同樣的單位）
 //     只用來顯示，判斷還是看 bad；value 和 bad 用同一個數字、只是換單位（tests/form.test.mjs 檢查兩邊一致）
 const gt = (v, limit) => v !== null && v > limit;
@@ -146,7 +147,7 @@ export const FORM_RULES = {
     squat: [
         { id: 'lean', short: '上身前傾', text: '上身太前傾，胸口挺起來', speech: '胸口挺起來', parts: ['torso'], active: m => lt(m.knee, 130), bad: m => gt(m.lean, 50),
           why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 50 } },
-        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], active: m => lt(m.knee, 150), bad: m => gt(m.heel, HEEL),
+        { id: 'heel', short: '腳跟離地', text: '腳跟離地了，重心放在腳跟', speech: '腳跟踩穩', parts: ['foot'], feet: true, active: m => lt(m.knee, 150), bad: m => gt(m.heel, HEEL),
           why: { label: '腳跟比站直時高', unit: '%', value: m => has(m.heel) ? m.heel * 100 : null, limit: HEEL * 100 } }
     ],
     pushup: PLANK_RULES,
@@ -154,7 +155,7 @@ export const FORM_RULES = {
     lunge: [
         { id: 'lean', short: '上身前傾', text: '上身保持直立，不要往前倒', speech: '上身挺直', parts: ['torso'], active: m => lt(m.knee, 140), bad: m => gt(m.lean, 30),
           why: { label: '上身前傾', unit: '°', value: m => m.lean, limit: 30 } },
-        { id: 'knee', short: '膝超過腳尖', text: '前膝超過腳尖了，步伐跨大一點', speech: '前膝不要超過腳尖', parts: ['frontShank'], active: m => lt(m.knee, 130), bad: m => gt(m.kneePast, 0.1),
+        { id: 'knee', short: '膝超過腳尖', text: '前膝超過腳尖了，步伐跨大一點', speech: '前膝不要超過腳尖', parts: ['frontShank'], feet: true, active: m => lt(m.knee, 130), bad: m => gt(m.kneePast, 0.1),
           why: { label: '前膝比腳尖前面', unit: '%', value: m => has(m.kneePast) ? m.kneePast * 100 : null, limit: 10 } }
     ]
 };
@@ -177,6 +178,14 @@ export const errorShort = id => SHORT.get(id) || String(id);
 export function errorRule(workoutId, id) {
     const rules = Object.prototype.hasOwnProperty.call(FORM_RULES, workoutId) ? FORM_RULES[workoutId] : [];
     return rules.find(r => r.id === id) || null;
+}
+
+// 用沒有腳跟、腳尖的模型時，這個動作哪些錯誤判斷不了（規則的 feet）：回傳簡稱的清單（例如 ['腳跟離地']）
+// 有腳的模型、或這個動作沒有要看腳的規則時回傳空陣列
+export function unjudgedRules(workoutId, feet) {
+    if (feet) return [];
+    const rules = Object.prototype.hasOwnProperty.call(FORM_RULES, workoutId) ? FORM_RULES[workoutId] : [];
+    return rules.filter(r => r.feet).map(r => r.short);
 }
 
 // 部位 → 要標紅的骨架連線（33 點的編號）；side：看得比較清楚的那一側，front：弓箭步的前腳

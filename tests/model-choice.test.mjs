@@ -60,3 +60,18 @@ test('網址 ?model= 優先但不記住；不認得的參數不理', async () =>
     m = await load('?model=heavy');
     assert.equal(m.getModelChoice(), 'lite');
 });
+
+test('YOLO（11/21）：選了會記住、網址也能指定；自動只在 MediaPipe 裡選', async () => {
+    store.clear();
+    let m = await load();
+    m.setModelChoice('yolo-n');
+    assert.equal(m.modelToLoad(), 'yolo-n');
+    m = await load();
+    assert.equal(m.getModelChoice(), 'yolo-n', '重新整理後還記得');
+    m = await load('?model=yolo-s');
+    assert.equal(m.modelToLoad(), 'yolo-s');
+    m.setModelChoice('auto');
+    assert.equal(m.modelToLoad(), 'full', '自動：還是先用 MediaPipe full');
+    m = await load('?model=yolo-x');
+    assert.equal(m.getModelChoice(), 'auto', '不認得的網址參數不理（用記住的）');
+});

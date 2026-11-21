@@ -4,6 +4,7 @@
 //   假 AI：網站向 CDN 要 MediaPipe 時，給一個假的模組：每一格照時間回傳事先排好的骨架（frames），不下載 AI 引擎
 //     網站只用到 FilesetResolver、PoseLandmarker 兩樣（骨架連線在 js/ui/draw.js 自己有），背景執行緒（importScripts）和主畫面（import）兩種都有
 //   模型檔：給幾個位元組就好（假 AI 不讀它）
+//   YOLO（11/21）：LiteRT.js 換成假的（fakeLiteRt），一樣照時間回傳排好的骨架（17 個點）
 // 需要 Playwright 和它的 Chromium（npm run test:browser 的說明見 docs/architecture.md「怎麼測試」）
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -133,6 +134,57 @@ class PoseLandmarker { static async createFromOptions() { return fake; } }`;
 export const fakeModule = frames => fakeBody(frames) + '\nexport { FilesetResolver, PoseLandmarker };\n';
 export const fakeWorkerScript = frames => '(() => {\n' + fakeBody(frames) + '\nself.Vision = { FilesetResolver, PoseLandmarker };\n})();\n';
 
+// 假的 YOLO（11/21）：YOLO 的背景執行緒（js/ai/yolo-worker.js）向網站要 vendor/litertjs/litert-core.js（LiteRT.js）時給假的：
+//   不載入 AI 引擎、不跑模型；每一格照網站送來的時間（和假的 MediaPipe 一樣：第一次偵測開始，每 1000/30 毫秒換下一格）
+//   回傳排好的骨架裡 COCO 的 17 個點（時間從背景執行緒收到的 detect 訊息拿）
+//   輸出的格式和真的模型一樣（[300, 57]，320×320 裡的像素）：背景執行緒裁切、縮放畫面（drawImage 的參數）照實換算回去，
+//   網站「先框出人」、補灰邊、換回整個畫面的算法都一起測到
+//   量速度時（還沒畫畫面）回傳沒有人
+const COCO_FROM_33 = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+export const fakeLiteRt = frames => `const FRAMES = ${JSON.stringify(frames)};
+const COCO = ${JSON.stringify(COCO_FROM_33)};
+const used = self.__fakeUsed = [];
+let t0 = null, drawn = null, ts = null;
+const handler = self.onmessage;
+self.onmessage = e => {
+    if (e.data && e.data.type === 'detect') ts = e.data.ts;
+    return handler.call(self, e);
+};
+const draw = OffscreenCanvasRenderingContext2D.prototype.drawImage;
+OffscreenCanvasRenderingContext2D.prototype.drawImage = function (img, sx, sy, sw, sh, dx, dy, dw, dh) {
+    if (arguments.length === 9) drawn = { W: img.width, H: img.height, sx, sy, sw, sh, dx, dy, dw, dh };
+    return draw.apply(this, arguments);
+};
+export async function loadLiteRt() {}
+export class Tensor {
+    constructor(values, shape) { this.values = values; this.shape = shape; }
+    async data() { return this.values; }
+    delete() {}
+}
+export async function loadAndCompile(model, options) {
+    return {
+        async run() {
+            const out = new Float32Array(300 * 57);
+            const d = drawn;
+            drawn = null;
+            if (!d) return [new Tensor(out)];
+            const now = typeof ts === 'number' ? ts : performance.now();
+            if (t0 === null) t0 = now;
+            const i = Math.floor((now - t0) / (1000 / 30));
+            used.push([i, now]);
+            const f = FRAMES[i];
+            if (!f) return [new Tensor(out)];
+            const x = v => d.dx + (v * d.W - d.sx) * d.dw / d.sw, y = v => d.dy + (v * d.H - d.sy) * d.dh / d.sh;
+            const xs = COCO.map(k => x(f[k][0])), ys = COCO.map(k => y(f[k][1]));
+            out.set([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), 0.9, 0]);
+            COCO.forEach((k, j) => out.set([xs[j], ys[j], f[k][3]], 6 + j * 3));
+            return [new Tensor(out)];
+        },
+        delete() {}
+    };
+}
+`;
+
 // 網站真的拿到的格子（照時間排好）：AI 在背景執行緒（pose-worker.js）或主畫面，兩邊都看
 export async function usedFrames(page) {
     const lists = [await page.evaluate(() => self.__fakeUsed || [])];
@@ -227,6 +279,7 @@ export function getGenerativeModel(ai, params) {
 };
 
 const CDNS = ['https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@*/**', 'https://unpkg.com/@mediapipe/tasks-vision@*/**'];
+const LITERT_CDNS = ['https://cdn.jsdelivr.net/npm/@litertjs/core@*/**', 'https://unpkg.com/@litertjs/core@*/**'];
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/**';
 
 // 一個瀏覽環境（等於一個乾淨的瀏覽器分頁）：假 AI 播 frames；errors 收集網頁的程式錯誤
@@ -246,6 +299,12 @@ export async function open(browser, frames, { width = 1280, height = 900, mobile
         });
     }
     await context.route(MODEL, route => route.fulfill({ body: 'fake-model', contentType: 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' } }));
+    // YOLO（11/21）：AI 引擎給幾個位元組（假的 LiteRT.js 不用它）、模型檔也是；LiteRT.js 換成假的
+    for (const cdn of LITERT_CDNS) {
+        await context.route(cdn, route => route.fulfill({ body: 'fake-engine', contentType: 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' } }));
+    }
+    await context.route('**/models/yolo/*.tflite*', route => route.fulfill({ body: 'fake-model', contentType: 'application/octet-stream' }));
+    await context.route('**/vendor/litertjs/litert-core.js*', route => route.fulfill({ body: fakeLiteRt(frames), contentType: 'text/javascript' }));
     await context.route('https://www.gstatic.com/firebasejs/**', route => {
         const file = new URL(route.request().url()).pathname.split('/').pop();
         const body = Object.prototype.hasOwnProperty.call(FAKE_FIREBASE, file) ? FAKE_FIREBASE[file] : null;

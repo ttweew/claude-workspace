@@ -39,9 +39,12 @@ claude-workspace/
 │   ├── platform/       裝置功能：鏡頭、螢幕保持亮著、離線、GPU、裝置支援檢查
 │   ├── cloud/          雲端同步（Firebase）：網站只透過這裡用雲端，之後換成自己的伺服器只改這裡
 │   └── data/           錄製與重播：匯出 CSV／JSON、讀檔重算、合成示範資料
+├── models/yolo/        YOLO 姿勢模型（11/21，實驗）：YOLO26n、YOLO26s 轉成 LiteRT 的檔案；AGPL-3.0（LICENSE、README.md 寫來源和轉檔方法）
+├── vendor/litertjs/    LiteRT.js（Google，Apache-2.0）：在瀏覽器裡執行 YOLO（改過一行，README.md 寫改了哪裡）
 ├── tools/              命令列工具（開發用，11/2 起）：dataset.mjs 實測檔 → AI 模型的資料（CSV）、split.mjs 訓練和測試照受測者分、
 │                       train.mjs 訓練 AI 模型（Random Forest）並和規則、DTW 比（--test 一種分法、--cv 交叉驗證、--module 存成網站用的模型）、
-│                       evaluate.mjs 三種判斷法各猜對幾下、train-activity.mjs 訓練「AI 自動辨識動作」的模型（11/8）
+│                       evaluate.mjs 三種判斷法各猜對幾下、train-activity.mjs 訓練「AI 自動辨識動作」的模型（11/8）、
+│                       export-yolo.py 把 Ultralytics 的 YOLO 模型轉成網站用的檔案（11/21，Python）
 ├── tests/              自動測試（node --test tests/）
 ├── docs/               文件（這份、資料格式、設計規劃、日後改進）
 └── .github/workflows/  自動化：發布網站、每次推送時跑測試
@@ -61,6 +64,10 @@ claude-workspace/
 | `ai/` | `pose-source.js` | 換模型的接口（11/21）：網站（首頁、照片量角器）只透過這裡拿骨架；同一家換大小交給那一家，換一家時先載入新的、成功才關掉舊的 |
 | | `models.js` | 骨架模型的能力表（11/21）：每個模型是哪一家、有沒有腳跟腳尖、手指、3D 座標；網站看這張表決定功能開不開 |
 | | `pose.js` | 載入 MediaPipe 與模型（兩個下載來源、逾時重試）、選 GPU 或 CPU、背景執行緒當掉時自動重啟 |
+| | `yolo.js` | YOLO（11/21，實驗）：下載 LiteRT.js 的 AI 引擎和模型檔（看得到進度、卡住放棄重試）、交給背景執行緒；介面和 `pose.js` 的一樣 |
+| | `yolo-worker.js` | YOLO 的背景執行緒：用 LiteRT.js 跑模型；有真的 GPU 時 WebGPU、CPU 都量，用快的那個；先框出人（上一格的框放大 25%）再找點 |
+| | `yolo-core.js` | YOLO 的數字：補灰邊縮成 320×320、先框出人的範圍、模型的輸出換回畫面上的位置（不碰畫布和模型，node 直接測） |
+| | `keypoints.js` | 別家的 17 點（COCO 格式）換成網站的 33 點：沒有的點放在附近、看不到；可信度換成 visibility（「看得到」的界線對齊） |
 | | `pose-worker.js` | 背景執行緒：在這裡跑 AI，主畫面不會卡 |
 | | `fps.js` | 計算每秒偵測幾格 |
 | | `model-choice.js` | AI 模型的選擇：lite、full 或自動（先用 full，這台裝置跟不上就改用 lite 並記住） |
@@ -191,6 +198,7 @@ flowchart LR
 |---|---|---|
 | 主畫面 | 按鈕、畫骨架、平滑與判斷（每格約 1 毫秒） | 要碰畫面的工作只能在這裡 |
 | AI 背景執行緒（`ai/pose-worker.js`） | 跑 MediaPipe（每格 20～60 毫秒） | 最重的工作移出去，按鈕、動畫不會卡；不支援的瀏覽器自動改在主畫面跑 |
+| YOLO 背景執行緒（`ai/yolo-worker.js`，選 YOLO 時才有） | 跑 YOLO（11/21 這台電腦的 CPU：26n 每格約 60 毫秒） | 同上；YOLO 只在背景執行緒跑（不支援背景畫布的瀏覽器不能選 YOLO） |
 | 重播背景執行緒（`data/replay-worker.js`） | 讀檔（選的檔案直接交給它讀）、重算整段錄影 | 5 分鐘的檔案在手機上要算好幾秒；20 分鐘的檔案超過 100 MB，在主畫面讀會卡住、記憶體多用一份 |
 | Service Worker（`sw.js`） | 存 AI 檔案，第二次打開不用下載、沒網路也能用；存之前核對檔案指紋（SHA-256） | 18 MB 的 AI 檔案每次重新下載太慢；下載到被改過的檔案不能一直用下去 |
 | 內容安全政策（CSP，每一頁的 `<meta>`） | 只准從列出來的地方載入程式、連線 | 萬一哪裡被塞進 HTML，裡面的程式也不會執行 |
@@ -234,6 +242,8 @@ npm test
 | `tests/cv.test.mjs` | 交叉驗證（11/3 保養）：每一位受測者輪流當測試（每一下剛好被猜過一次、訓練裡沒有測試的那位）、同樣的資料結果一樣、混到就停（同一個檔案當成兩位）、受測者太少就停、測試的標記訓練沒有照樣算並寫出來、給人看的幾行、命令列 `--cv`（存全部受測者訓練的模型） |
 | `tests/auto-mode.test.mjs` | AI 全自動（11/9）：照 main.js 的做法跑合成受測者：自由模式開始深蹲、伏地挺身、弓箭步每一下都數到（和一開始就選對的一樣）、深蹲 → 伏地挺身兩個都數到、錄製中不換；什麼時候換（站著、還不確定、同一個動作、不認得的名字不換；1.5 秒、3 秒；中間猜回原本的重新等）、從哪一格重算、只留 8 秒；換動作的那幾秒同一下不會兩個動作都算（示範動畫深蹲、弓箭步互換，中間停 0～2 秒，11/8 保養）、`dropRecounted` 只拿掉重算的第一格之後才開始的，AI 認錯（新的動作數不到）、棒式、沒有格子時不拿 |
 | `tests/plan.test.mjs` | 智慧課表（11/14）：沒有紀錄用起步的下數；上次做得不錯多一點、錯誤多先少做、普通一樣多；計次 3～30 下、棒式 10～120 秒（5 秒一格），下數和理由對得上；設了目標照設的；弱點提醒（不認得的錯誤代號、被改過的紀錄不算）；勾選會記住、存的值被改過就四項都做；課表進行（做到了、準備幾秒、錄製中先記著、最後一項做完結束、卡片的字） |
+| `tests/keypoints.test.mjs` | 別家的 17 點換成網站的 33 點（11/21，YOLO）：位置、沒有的點放在附近看不到、可信度換成 visibility（看得到的界線對齊）、壞掉的資料 |
+| `tests/yolo-core.test.mjs` | YOLO 的數字（11/21）：補灰邊縮成 320、先框出人的範圍、模型的輸出換回整個畫面（看整個畫面、只看人附近、0～1 的匯出）、沒有人和壞掉的輸出 |
 | `tests/sw.test.mjs` | Service Worker（11/17）：AI 檔案指紋對才存、不對的照樣給網頁但不存、不在清單上的不存；存檔用 waitUntil 撐住（瀏覽器不讓用時照樣給網頁、照樣存）；清單涵蓋 MediaPipe 的檔案和兩個模型 |
 | `tests/app-check.test.mjs` | App Check（11/17）：網站金鑰的格式；沒通過（401、403、訊息寫 App Check）寫出原因，其他的照舊；開鏡頭先準備只載入一次、不問 Gemini；準備失敗之後重新載入；問之前先確認通行證（拿到才問、一直等到上限放棄、被拒絕馬上放棄，都不問） |
 | `tests/csp.test.mjs` | 內容安全政策（11/17）：六頁一模一樣、放在最前面；不准 unsafe-inline 的程式、object、改 base；nomodule 那段的指紋；網站用到的外部網址都有列 |
@@ -281,6 +291,7 @@ npm run test:browser
 | `tests/browser/ai-all.test.mjs` | 全部 AI 功能一起用（11/13 整合測試）：320 寬的手機、有網路時打開過首頁和重播分析後斷網；首頁打開 AI 全自動、AI 教練（手勢控制錄影預設開著），自由模式站著 → 深蹲 3 下（AI 自己開始數）→ 舉手開始錄影 → 深蹲 4 下 → 舉手結束錄影：舉手時不換動作、不多數，卡片、手勢的提示、次數不互相蓋住，每一下的提示有 AI 判斷和分數，開始、結束錄影都講出來；總結 7 下，AI 評分、AI 解釋、對照圖說的是同一下，教練建議沒有網路用固定句子，axe-core；錄到的 4 下拿到重播分析（也斷網），AI 的幾句和 node 算的一樣；速度建議：AI 全自動開著時量完速度不跳（站遠按不到，建議會藏起 AI 全自動的卡片），關著時照常跳 |
 | `tests/browser/report.test.mjs` | 實測報表的 AI 模型的資料（11/2）：選 17 個合成的實測檔（含一組重錄、一個不是實測檔的）→ 摘要寫幾列、每種標記幾下 → 下載的 CSV 和 node 用同一套程式算的一模一樣；320 寬不超出、載入後 axe-core 0 個問題；只有一位受測者時提醒訓練和測試要用不同的人 |
 | `tests/browser/growth.test.mjs` | 成長曲線（11/1）：這台裝置的紀錄（一天一個點、選動作和數字、表格）、雲端同步打開時只在雲端的也畫進來（被改過的不算、讀一次就記著）、雲端讀不到先畫這台裝置的、運動完多一個點、320 寬、axe-core；重播分析的疲勞分析、流暢度、穩定度和 node 用同一套程式算的一樣 |
+| `tests/browser/yolo.test.mjs` | 選 YOLO（11/21，假的 LiteRT.js 照時間回傳排好的骨架）：深蹲照樣數、鏡頭畫面和總結寫「不判斷腳跟離地」、錄製檔記 yolo26n-pose（腳跟、手指看不到、沒有 3D）、開著鏡頭 lite → YOLO26n → lite 次數接著數、首頁選單分兩組和說明、320 寬、axe-core |
 | `tests/browser/coach.test.mjs` | 教練建議（10/31）：AI 教練關著用固定句子、唸出來、什麼都不送；打開時用 Gemini 的回答（假的 Firebase），送出去的只有數字；還沒開通時寫原因；首頁的開關、320 寬、axe-core；失敗的情況（10/31 保養）：沒有網路（真的斷網，什麼都不送）、超過 10 秒、英文和編出來的數字、429 都改用固定句子，列點的回答整理好；App Check（11/17）：替 AI 教練的 app 用網站金鑰設定一次、開鏡頭就先拿通行證、運動中不問 Gemini、關著時完全不載入，拿不到通行證（一直等、被拒絕）不問 Gemini、沒通過（403）寫原因 |
 
 每次推送到 GitHub 也會跑（`.github/workflows/test.yml` 的 `browser`，Playwright、axe-core 在那裡臨時下載）。用電腦上已經有的 Chromium 時加 `PLAYWRIGHT_CHROMIUM=<Chromium 的位置>`，axe-core 放在別的地方時加 `AXE_CORE=<axe.min.js 的位置>`；`SITE_ROOT=<另一份網站的資料夾>` 可以拿同一套測試跑改之前的程式，比較改前改後。
@@ -295,6 +306,8 @@ npm run test:browser
 |---|---|
 | 換 MediaPipe 版本或模型 | `js/config.js`，以及 `sw.js` 裡的版本號、`AI_CACHE` 名稱和 `AI_SHA256` 指紋（每個檔案 `sha256sum`） |
 | 加一個骨架模型（例如別家的） | `js/ai/models.js` 加一筆能力表（哪一家、有沒有腳跟腳尖、手指、3D 座標），`js/ai/pose-source.js` 的 `LOADERS` 接上那一家的載入方法（介面寫在檔案開頭：點換成 MediaPipe 的 33 點順序，沒有的點 visibility 0），`js/ai/model-choice.js` 的選項 |
+| 換 YOLO 的模型檔（例如自己訓練的） | `tools/export-yolo.py` 轉檔，放進 `models/yolo/`；`js/config.js` 的 `YOLO_FILES`（檔名、大小）、`sw.js` 的 `AI_SHA256`、`models/yolo/README.md` 的表 |
+| 某個錯誤判斷要看腳跟、腳尖 | `js/analysis/form.js` 的規則加 `feet: true`：用沒有腳的模型（YOLO）時不判斷，鏡頭畫面、總結寫出來（`unjudgedRules`） |
 | 加新的外部網址（程式、連線） | 六頁的 CSP（`<meta http-equiv="Content-Security-Policy">`，六頁一模一樣），`tests/csp.test.mjs` 會檢查 |
 | 調整平滑程度 | `js/skeleton/smooth.js` 開頭的數字（旁邊有每個數字的意思） |
 | 多算一個關節角度 | `js/analysis/angles.js` 的 `ANGLES` |
@@ -316,6 +329,7 @@ npm run test:browser
 |---|---|---|---|---|---|
 | MediaPipe（`@mediapipe/tasks-vision`） | 網站：找骨架（`js/config.js`） | 1.0.1 | 1.2.2（11/3 才出） | npm 的安全資料庫沒有紀錄 | 不換。11/10 用同一批 150 格畫面比 1.0.1、1.1.1、1.2.0、1.2.2（lite、full 模型，CPU 和軟體模擬的 GPU）：骨架座標、關節角度完全一樣（差 0），每格花的時間也一樣，所以換了不會更準、不會更快；新版的 AI 引擎檔大 24%（11.8 → 14.6 MB，第一次打開要多下載），1.2.2 還拿掉給不支援 SIMD 的舊瀏覽器用的版本（例如 iOS 16.4 以前的 iPhone 會完全不能用）。10/26 寫的「新版的 AI 輸出會變」實測沒有變 |
 | Firebase JS SDK | 網站：雲端同步、AI 教練（`js/cloud/config.js`） | 12.19.0 | 13.2.0（11/2 出） | `npm audit` 報 4 個「高」，都來自 Firestore 的 Node.js 版用的 `@grpc/grpc-js`（伺服器端的問題），13.2.0 也一樣。網站載入的是瀏覽器版：只用 WebChannel，沒有 grpc | 可以換、還沒換。13.x 的登入（auth 1.13.7～1.13.9）修了「開網站時剛好遇到伺服器忙，存著的匿名帳號被清掉」（清掉就讀不到以前的雲端紀錄）和幾個切到背景時的錯誤；AI 那一包升到 3.0.0，改的是我們沒用到的功能。11/10 用 13.2.0 的檔案測過：本機模擬器的雲端同步 35 項、AI 教練 13 項（真的 Firebase AI 程式＋假的 Google 伺服器）都過，和 12.19.0 一樣。這個開發環境連不到 `www.gstatic.com`，沒辦法確認官方網址上已經有 13.2.0 的檔案；確認之後改 `FIREBASE_VERSION` 一行 |
+| LiteRT.js（`@litertjs/core`、`@litertjs/wasm-utils`） | 網站：執行 YOLO（`vendor/litertjs/`、AI 引擎 `js/config.js` 的 `LITERT_URLS`） | 2.6.0（11/21 加入） | 2.6.0 | `npm audit` 0 個 | 11/21 加入（選 YOLO 時才下載）。換版本照 `vendor/litertjs/README.md` |
 | firebase-tools | 只在測試：GitHub Actions 的 `rules`、本機的模擬器 | 15.34.1（10/26 從 15.32.1 換） | 15.35.0 | 15.34.1、15.35.0 都是 15 個「中」，沒有「高」 | 不用換，不影響網站 |
 | Playwright、axe-core | 只在測試：GitHub Actions 的 `browser`、本機的瀏覽器測試 | 1.63.0、4.14.0（11/10 從 4.10.3 換） | 1.65.0、4.14.0 | 沒有紀錄 | axe-core 換成 4.14.0：無障礙的規則比較新，45 項瀏覽器測試用新版跑一樣全過（沒有抓到新問題）。Playwright 不換：本機的開發環境裝的就是 1.63.0，本機和 GitHub 用同一版，測到的才一樣 |
 
