@@ -17,6 +17,7 @@ let box = null;     // 上一格找到的人（畫面像素 [x1, y1, x2, y2]）�
 let last = null;    // 上一格的 { ts, W, H }：隔太久、畫面大小變了（換了照片、換了鏡頭）就不沿用上一格的框
 const GAP_MS = 500; // 鏡頭每秒 30 格時兩格差約 33 毫秒；超過 0.5 秒（照片量角器一張一張算、切到背景回來）當作新的畫面
 let canvas = null, ctx = null, input = null;
+let kpts = 17;      // 模型有幾個點：官方的 17；自己訓練、加腳跟腳尖的 21（js/ai/models.js 的 kpts）
 
 self.onmessage = event => {
     const m = event.data;
@@ -59,7 +60,7 @@ async function tryAccelerator(bytes, accelerator) {
             const out = await runOnce(compiled);
             times.push(performance.now() - t0);
             // 算出來的數字壞掉（GPU 驅動有問題時會整片 NaN）：這種運算方式不能用
-            if (!out || out.length < yc.COLS || !Number.isFinite(out[4])) throw new Error(accelerator + ' 算出來的數字不對');
+            if (!out || out.length < yc.colsOf(kpts) || !Number.isFinite(out[4])) throw new Error(accelerator + ' 算出來的數字不對');
         }
         return { compiled, ms: median(times.slice(1)) };
     } catch (err) {
@@ -82,17 +83,25 @@ async function realGpu() {
     }
 }
 
-// m：{ base（AI 引擎的下載來源）, engineJs（引擎的啟動程式檔名）, engine（引擎 ArrayBuffer）, model（模型檔 ArrayBuffer）, cpuOnly }
+// m：{ base（AI 引擎的下載來源）, engineJs（引擎的啟動程式檔名）, engine（引擎 ArrayBuffer）, model（模型檔 ArrayBuffer）, cpuOnly, kpts }
 async function init(m) {
+    kpts = m.kpts === 21 ? 21 : 17;
     const search = self.location.search;   // 網站更新時的版本號（?v=…），一起帶給 import 的檔案
     yc = await import('./yolo-core.js' + search);
     core = await import('../../vendor/litertjs/litert-core.js' + search);
     // AI 引擎：主畫面已經下載好（才看得到下載進度），直接交給它，不用再下載一次；
     // 萬一引擎啟動失敗，LiteRT.js 會一直等，所以自己回報錯誤（主畫面另外有時限）
+    // 引擎、模型的位元組用完就放掉（m 裡的也清掉）：self.Module 一直留著，裡面的 locateFile 用到 m，
+    // 不清掉的話引擎和模型檔（YOLO26n 合起來約 23 MB）會一直佔著背景執行緒的記憶體
+    let engine = m.engine;
+    const modelBytes = m.model;
+    m.engine = m.model = null;
     self.Module = {
         locateFile: path => m.base + path,
         instantiateWasm(imports, done) {
-            WebAssembly.instantiate(m.engine, imports).then(r => done(r.instance), err => fatal(new Error('AI 引擎無法啟動：' + err.message)));
+            const bytes = engine;
+            engine = null;
+            WebAssembly.instantiate(bytes, imports).then(r => done(r.instance), err => fatal(new Error('AI 引擎無法啟動：' + err.message)));
             return {};
         }
     };
@@ -110,14 +119,14 @@ async function init(m) {
     let best = null, gpuError = '';
     if (gpu) {
         try {
-            const r = await tryAccelerator(m.model, 'webgpu');
+            const r = await tryAccelerator(modelBytes, 'webgpu');
             tried.GPU = Math.round(r.ms);
             best = { ...r, mode: 'GPU' };
         } catch (err) {
             gpuError = String(err && err.message || err);
         }
     }
-    const cpu = await tryAccelerator(m.model, 'wasm');
+    const cpu = await tryAccelerator(modelBytes, 'wasm');
     tried.CPU = Math.round(cpu.ms);
     if (!best || cpu.ms <= best.ms) {
         if (best) best.compiled.delete();
@@ -148,7 +157,7 @@ async function detect(m) {
         ctx.drawImage(bitmap, region.rx, region.ry, region.rw, region.rh, fit.padX, fit.padY, fit.w, fit.h);
         yc.toInput(ctx.getImageData(0, 0, S, S).data, S, input);
         const out = await runOnce(model);
-        const best = yc.decodeBest(out, region, fit, W, H, S);
+        const best = yc.decodeBest(out, region, fit, W, H, S, kpts);
         box = best ? best.box : null;
         self.postMessage({ type: 'result', id: m.id, k: best ? best.k : null, ms: performance.now() - t0 });
     } catch (err) {

@@ -24,12 +24,12 @@ js/
   cloud/              雲端同步（Firebase）：預設關閉，打開才存運動總結的數字；之後換伺服器只改這裡
 models/yolo/          YOLO 姿勢模型（11/21，實驗；AGPL-3.0，見那裡的 README.md）
 vendor/litertjs/      LiteRT.js（Google，Apache-2.0）：在瀏覽器裡執行 YOLO
-tools/                命令列工具：訓練 AI 模型（train.mjs）、YOLO 轉檔（export-yolo.py）
+tools/                命令列工具：訓練 AI 模型（train.mjs）、YOLO 轉檔（export-yolo.py）、兩個模型的校正（calibrate-models.mjs）、自己訓練 YOLO（yolo-dataset.py、yolo-train.py，見 docs/yolo-training.md）
 firestore.rules       雲端資料庫的安全規則（firebase.json：本機模擬器的設定）
 tests/                自動測試（npm test；雲端的安全規則：npm run test:rules）
 docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
                       design-plan.md（版面規劃）、roadmap.md（日後改進）、firebase-setup.md（雲端同步）、
-                      devlog.md（開發日誌，每天一段）
+                      devlog.md（開發日誌，每天一段）、yolo-training.md（YOLO 的校正和自己訓練）
 .github/workflows/    自動化：deploy.yml（發布網站）、test.yml（每次推送都跑測試）
 ```
 

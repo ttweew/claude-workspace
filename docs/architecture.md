@@ -45,9 +45,11 @@ claude-workspace/
 ├── tools/              命令列工具（開發用，11/2 起）：dataset.mjs 實測檔 → AI 模型的資料（CSV）、split.mjs 訓練和測試照受測者分、
 │                       train.mjs 訓練 AI 模型（Random Forest）並和規則、DTW 比（--test 一種分法、--cv 交叉驗證、--module 存成網站用的模型）、
 │                       evaluate.mjs 三種判斷法各猜對幾下、train-activity.mjs 訓練「AI 自動辨識動作」的模型（11/8）、
-│                       export-yolo.py 把 Ultralytics 的 YOLO 模型轉成網站用的檔案（11/21，Python）
+│                       export-yolo.py 把 Ultralytics 的 YOLO 模型轉成網站用的檔案（11/21，Python）、
+│                       calibrate-models.mjs 兩個模型的角度差幾度、門檻換成另一個模型要改成幾度（11/21）、
+│                       yolo-dataset.py、yolo-train.py 自己訓練有腳跟腳尖的 YOLO（11/21，Python，見 yolo-training.md）
 ├── tests/              自動測試（node --test tests/）
-├── docs/               文件（這份、資料格式、設計規劃、日後改進）
+├── docs/               文件（這份、資料格式、設計規劃、日後改進；YOLO 的校正和自己訓練：yolo-training.md）
 └── .github/workflows/  自動化：發布網站、每次推送時跑測試
 ```
 
@@ -68,8 +70,8 @@ claude-workspace/
 | | `pose.js` | 載入 MediaPipe 與模型（兩個下載來源、逾時重試）、選 GPU 或 CPU、背景執行緒當掉時自動重啟 |
 | | `yolo.js` | YOLO（11/21，實驗）：下載 LiteRT.js 的 AI 引擎和模型檔（看得到進度、卡住放棄重試）、交給背景執行緒；介面和 `pose.js` 的一樣 |
 | | `yolo-worker.js` | YOLO 的背景執行緒：用 LiteRT.js 跑模型；有真的 GPU 時 WebGPU、CPU 都量，用快的那個；先框出人（上一格的框放大 25%）再找點 |
-| | `yolo-core.js` | YOLO 的數字：補灰邊縮成 320×320、先框出人的範圍、模型的輸出換回畫面上的位置（不碰畫布和模型，node 直接測） |
-| | `keypoints.js` | 別家的 17 點（COCO 格式）換成網站的 33 點：沒有的點放在附近、看不到；可信度換成 visibility（「看得到」的界線對齊） |
+| | `yolo-core.js` | YOLO 的數字：補灰邊縮成 320×320、先框出人的範圍、模型的輸出換回畫面上的位置（不碰畫布和模型，node 直接測）；官方的 17 點、自己訓練的 21 點都讀得懂 |
+| | `keypoints.js` | 別家的 17 點（COCO 格式）換成網站的 33 點：沒有的點放在附近、看不到；可信度換成 visibility（「看得到」的界線對齊）。21 點（自己訓練、多了腳跟腳尖的 YOLO）的腳跟、腳尖放進 MediaPipe 的 29～32 號 |
 | | `pose-worker.js` | 背景執行緒：在這裡跑 AI，主畫面不會卡 |
 | | `fps.js` | 計算每秒偵測幾格 |
 | | `model-choice.js` | AI 模型的選擇：lite、full 或自動（先用 full，這台裝置跟不上就改用 lite 並記住） |
@@ -245,8 +247,9 @@ npm test
 | `tests/cv.test.mjs` | 交叉驗證（11/3 保養）：每一位受測者輪流當測試（每一下剛好被猜過一次、訓練裡沒有測試的那位）、同樣的資料結果一樣、混到就停（同一個檔案當成兩位）、受測者太少就停、測試的標記訓練沒有照樣算並寫出來、給人看的幾行、命令列 `--cv`（存全部受測者訓練的模型） |
 | `tests/auto-mode.test.mjs` | AI 全自動（11/9）：照 main.js 的做法跑合成受測者：自由模式開始深蹲、伏地挺身、弓箭步每一下都數到（和一開始就選對的一樣）、深蹲 → 伏地挺身兩個都數到、錄製中不換；什麼時候換（站著、還不確定、同一個動作、不認得的名字不換；1.5 秒、3 秒；中間猜回原本的重新等）、從哪一格重算、只留 8 秒；換動作的那幾秒同一下不會兩個動作都算（示範動畫深蹲、弓箭步互換，中間停 0～2 秒，11/8 保養）、`dropRecounted` 只拿掉重算的第一格之後才開始的，AI 認錯（新的動作數不到）、棒式、沒有格子時不拿 |
 | `tests/plan.test.mjs` | 智慧課表（11/14）：沒有紀錄用起步的下數；上次做得不錯多一點、錯誤多先少做、普通一樣多；計次 3～30 下、棒式 10～120 秒（5 秒一格），下數和理由對得上；設了目標照設的；弱點提醒（不認得的錯誤代號、被改過的紀錄不算）；勾選會記住、存的值被改過就四項都做；課表進行（做到了、準備幾秒、錄製中先記著、最後一項做完結束、卡片的字） |
-| `tests/keypoints.test.mjs` | 別家的 17 點換成網站的 33 點（11/21，YOLO）：位置、沒有的點放在附近看不到、可信度換成 visibility（看得到的界線對齊）、壞掉的資料 |
-| `tests/yolo-core.test.mjs` | YOLO 的數字（11/21）：補灰邊縮成 320、先框出人的範圍、模型的輸出換回整個畫面（看整個畫面、只看人附近、0～1 的匯出）、沒有人和壞掉的輸出 |
+| `tests/keypoints.test.mjs` | 別家的 17 點換成網站的 33 點（11/21，YOLO）：位置、沒有的點放在附近看不到、可信度換成 visibility（看得到的界線對齊）、壞掉的資料；21 點的腳跟、腳尖放到對的位置 |
+| `tests/yolo-core.test.mjs` | YOLO 的數字（11/21）：補灰邊縮成 320、先框出人的範圍、模型的輸出換回整個畫面（看整個畫面、只看人附近、0～1 的匯出）、沒有人和壞掉的輸出；21 點的模型（一列 69 個數字） |
+| `tests/calibrate-models.test.mjs` | 兩個模型的校正（11/21，`tools/calibrate-models.mjs`）：每個動作的門檻和網站的設定一樣、照角度每 15° 一段算差幾度（彎和直分得出來）、門檻換成另一個模型要幾度、資料不夠不建議、看不看得到的差別；兩份錄製檔算到報告 |
 | `tests/model-compare.test.mjs` | 兩個模型對照的數字（11/21）：角度差只比兩邊都有的格子、正負和絕對差、每一下照順序配對、錯誤統計（被改過的代號不算）；真的重播算法給兩個模型同一串骨架，差 0 |
 | `tests/sw.test.mjs` | Service Worker（11/17）：AI 檔案指紋對才存、不對的照樣給網頁但不存、不在清單上的不存；存檔用 waitUntil 撐住（瀏覽器不讓用時照樣給網頁、照樣存）；清單涵蓋 MediaPipe 的檔案和兩個模型 |
 | `tests/app-check.test.mjs` | App Check（11/17）：網站金鑰的格式；沒通過（401、403、訊息寫 App Check）寫出原因，其他的照舊；開鏡頭先準備只載入一次、不問 Gemini；準備失敗之後重新載入；問之前先確認通行證（拿到才問、一直等到上限放棄、被拒絕馬上放棄，都不問） |
@@ -313,6 +316,8 @@ npm run test:browser
 | 換 MediaPipe 版本或模型 | `js/config.js`，以及 `sw.js` 裡的版本號、`AI_CACHE` 名稱和 `AI_SHA256` 指紋（每個檔案 `sha256sum`） |
 | 加一個骨架模型（例如別家的） | `js/ai/models.js` 加一筆能力表（哪一家、有沒有腳跟腳尖、手指、3D 座標），`js/ai/pose-source.js` 的 `LOADERS` 接上那一家的載入方法（介面寫在檔案開頭：點換成 MediaPipe 的 33 點順序，沒有的點 visibility 0），`js/ai/model-choice.js` 的選項 |
 | 換 YOLO 的模型檔（例如自己訓練的） | `tools/export-yolo.py` 轉檔，放進 `models/yolo/`；`js/config.js` 的 `YOLO_FILES`（檔名、大小）、`sw.js` 的 `AI_SHA256`、`models/yolo/README.md` 的表 |
+| 自己訓練有腳跟、腳尖的 YOLO | 照 [yolo-training.md](yolo-training.md)：`tools/yolo-dataset.py`（影片＋MediaPipe 的錄製檔 → 訓練資料）、`tools/yolo-train.py`（訓練、轉檔）；放進網站時 `js/ai/models.js` 那一筆寫 `feet: true`、`kpts: 21`，首頁選單是 `js/ai/model-choice.js` 的 `MODEL_CHOICES`、`js/pages/main.js` 的 `MODEL_TEXT`、`MODEL_GROUPS` |
+| 換成另一個模型時門檻要改多少 | 模型對照頁下載兩份錄製檔，`node tools/calibrate-models.mjs A.json B.json`（[yolo-training.md](yolo-training.md) 第 5 步）；門檻在 `js/analysis/` 的設定 |
 | 某個錯誤判斷要看腳跟、腳尖 | `js/analysis/form.js` 的規則加 `feet: true`：用沒有腳的模型（YOLO）時不判斷，鏡頭畫面、總結寫出來（`unjudgedRules`） |
 | 加新的外部網址（程式、連線） | 每一頁的 CSP（`<meta http-equiv="Content-Security-Policy">`，七頁一模一樣），`tests/csp.test.mjs` 會檢查 |
 | 加一頁 | 照 `compare.html` 的開頭（CSP 那一行一模一樣、nomodule 那段用已經有指紋的文字），`tests/csp.test.mjs` 的頁數、`tests/browser/csp.test.mjs` 的 `PAGES` |

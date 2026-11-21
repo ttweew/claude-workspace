@@ -68,3 +68,19 @@ test('不是 17 點、壞掉的點：不是 17 點回傳 null；座標不是數�
     }
     assert.ok(isVisible(lm[P.LEFT_ELBOW]));
 });
+
+test('21 點（11/21，自己訓練、加腳跟腳尖的 YOLO）：後面 4 點是左右腳跟、左右腳尖，看得到', async () => {
+    const { FEET_NAMES, KNOWN_KPTS } = await import('../js/ai/keypoints.js');
+    assert.deepEqual(KNOWN_KPTS, [17, 21]);
+    const p21 = [...points, [0.41, 0.9, 0.95], [0.61, 0.9, 0.95], [0.45, 0.93, 0.9], [0.65, 0.93, 0.2]];
+    const lm = cocoToLandmarks(p21);
+    assert.equal(lm.length, 33);
+    FEET_NAMES.forEach((name, i) => {
+        assert.equal(lm[P[name]].x, p21[17 + i][0], name);
+        assert.equal(lm[P[name]].y, p21[17 + i][1], name);
+    });
+    assert.ok(isVisible(lm[P.LEFT_HEEL]) && isVisible(lm[P.RIGHT_HEEL]) && isVisible(lm[P.LEFT_FOOT_INDEX]));
+    assert.equal(isVisible(lm[P.RIGHT_FOOT_INDEX]), false, '可信度 0.2：看不到');
+    assert.equal(lm[P.LEFT_THUMB].visibility, 0, '手指還是沒有');
+    for (const n of [18, 20, 22, 33]) assert.equal(cocoToLandmarks(p21.slice(0, n).concat(Array(Math.max(0, n - 21)).fill([0, 0, 1]))), null, n + ' 點');
+});
