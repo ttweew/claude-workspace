@@ -1,10 +1,11 @@
 // 程式起點：取得畫面元素、串接鏡頭與 AI 骨架偵測、處理按鈕事件
 
-import { SHOW_LABELS_AT_START, DEBUG, MODELS, PREDICT, FPS_CHOICES } from '../config.js';
+import { SHOW_LABELS_AT_START, DEBUG, PREDICT, FPS_CHOICES, firstDownloadBytes } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { videoFileSupported, looksLikeVideo, openVideoFile } from '../platform/video-source.js';
 import { loadPose } from '../ai/pose-source.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
+import { shortName, hasFeet, profileOf, familyOf } from '../ai/models.js';
 import { drawSkeleton, drawBalance } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
@@ -22,7 +23,7 @@ import { isWakeLockSupported, isScreenKeptOn, keepScreenOn, allowScreenOff } fro
 import { getWorkout, onWorkoutChange, setWorkoutLocked, formatSeconds, setWorkout, onWorkoutLock, isWorkout, WORKOUTS } from '../analysis/workouts.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
 import { BalanceMeter, balanceOf, BALANCE } from '../analysis/balance.js';
-import { errorShort, errorRule, whyText } from '../analysis/form.js';
+import { errorShort, errorRule, whyText, unjudgedRules } from '../analysis/form.js';
 import { makeSnapshot, addSnapshot, loadSnapshots } from '../analysis/validate.js';
 import { setupCloudPanel } from '../ui/cloud-panel.js';
 import { setupGrowth } from '../ui/growth-chart.js';
@@ -105,6 +106,7 @@ const adviceYes = document.getElementById('adviceYes');
 const adviceNo = document.getElementById('adviceNo');
 const autoNote = document.getElementById('autoNote');  // 自動調整時短暫說明換了什麼
 const lightNote = document.getElementById('lightNote');  // 光線太暗的提醒
+const modelNote = document.getElementById('modelNote');  // 用的模型判斷不了的錯誤（11/21：YOLO 沒有腳跟、腳尖）
 const countdownEl = document.getElementById('countdown');
 const recNoticeEl = document.getElementById('recNotice');
 const recordInfo = document.getElementById('recordInfo');
@@ -341,6 +343,7 @@ function finishLoading(success) {
 const RETRY_DELAYS = [2, 5];  // 第 1、2 次重試前等幾秒
 let loadingPose = false;
 let loadCount = 0;  // 總共載入過幾次；每次都用新的次數，瀏覽器才不會沿用上次失敗的結果
+let unsupportedText = '';  // 這個瀏覽器跑不了選的模型時，畫面上寫的原因和怎麼辦
 async function initPose() {
     if (pose || loadingPose) return;
     loadingPose = true;
@@ -349,13 +352,16 @@ async function initPose() {
         if (result === true) break;
         // 這支手機的瀏覽器跑不了 AI：重試也沒用，直接說明原因與怎麼辦（鏡頭仍可開啟）
         if (result === 'unsupported') {
-            setModelStatus('這支手機的瀏覽器無法執行 AI（不支援 WebGL2）。' + unsupportedAdvice());
+            setModelStatus(unsupportedText || '這支手機的瀏覽器無法執行 AI（不支援 WebGL2）。' + unsupportedAdvice());
             finishLoading(false);
             break;
         }
         await forgetAiFiles();
         if (attempt >= RETRY_DELAYS.length) {
-            setModelStatus('AI 模型載入失敗，請檢查網路（鏡頭仍可使用）');
+            // YOLO（實驗）載不起來：也可以改回 MediaPipe（11/21）
+            setModelStatus(familyOf(modelToLoad()) === 'yolo'
+                ? 'YOLO 模型載入失敗，請檢查網路，或到「進階設定」把 AI 模型改回 MediaPipe（鏡頭仍可使用）'
+                : 'AI 模型載入失敗，請檢查網路（鏡頭仍可使用）');
             finishLoading(false);
             break;
         }
@@ -392,6 +398,8 @@ async function tryLoadPose(attempt) {
         return true;
     } catch (err) {
         console.error(err);
+        // 這個模型在這個瀏覽器跑不了：錯誤寫了怎麼辦（例如 YOLO 要背景畫布）就用它的說明
+        unsupportedText = err && err.unsupported && typeof err.advice === 'string' ? err.advice : '';
         return err && err.unsupported ? 'unsupported' : false;
     }
 }
@@ -1457,7 +1465,8 @@ shareBtn.addEventListener('click', () => {
 // score：AI 動作評分那一句（11/10，ai-judge.js 的 scoreLine，不含句號；沒有時 ''）；explain：AI 解釋那一句（11/11，explainLine）
 // compare：你這一下 vs 標準動作（11/12）{ pose（userFigure 的結果）, n（第幾下） }，沒有時 null
 function showSummary(s, previous, fromDemo = false, series = null, goal = null, ai = '', score = '', explain = '', compare = null) {
-    shownSummary = { s, previous };
+    // model：這次用的模型（YOLO 判斷不了的錯誤，總結也寫出來）
+    shownSummary = { s, previous, model: currentModel() };
     writeSummary();
     // AI 全自動做了兩個以上的動作：最上面一句列出來（每個動作各存成一次運動，下面是最後一個的總結）；超過 6 段每種加起來（session.js 的 autoList）
     const n = aiAutoDone.length;
@@ -1502,8 +1511,9 @@ function showSummary(s, previous, fromDemo = false, series = null, goal = null, 
 }
 
 function writeSummary() {
-    const { s, previous } = shownSummary;
-    const lines = [...describe(s), ...compare(s, previous)];
+    const { s, previous, model } = shownSummary;
+    const unjudged = unjudgedText(s.workout, model);
+    const lines = [...describe(s), ...compare(s, previous), ...(unjudged ? ['這次用 ' + unjudged] : [])];
     summaryLines.replaceChildren(...lines.map(text => {
         const li = document.createElement('li');
         li.textContent = text;
@@ -1619,6 +1629,7 @@ function showWorkout() {
     resetCounter();
     showPoseLabels();
     showTestBar();
+    showModelNote();
 }
 onWorkoutChange(next => {
     // 實測的一組還在倒數就換動作：這一組作廢（要做的錯誤是上一個動作的）。錄製中不能換動作（setWorkoutLocked）
@@ -2117,7 +2128,7 @@ function showAdvancedTitle() {
     if (fpsChoice === 'auto') changed.push('每秒格數自動');
     else if (fpsChoice !== 30) changed.push('每秒 ' + fpsChoice + ' 格');
     const model = getModelChoice();
-    if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : model + ' 模型');
+    if (model !== 'lite') changed.push(model === 'auto' ? 'AI 模型自動' : shortName(model) + ' 模型');
     advancedNote.textContent = '（' + (changed.length ? changed.join('、') : '畫面流暢度、AI 模型，一般不用改') + '）';
 }
 
@@ -2146,7 +2157,12 @@ const coach = setupCoach({
 // ---------- AI 模型（自動調整的第 3 步） ----------
 // 首頁「AI 模型」和鏡頭畫面（點開運算標籤）兩個選單都能選：lite、full 或自動（js/ai/model-choice.js 會記住）
 // 換模型不用重新載入網頁：先下載新的模型檔（下載過的有存，很快），再重新建立偵測器，畫面停 1～2 秒
-const MODEL_TEXT = { lite: 'lite（較快，建議）', full: 'full（較準、較慢）', auto: '自動（先用 full，太慢改 lite，實驗）' };
+// 11/21 起分兩組：MediaPipe（Google）、YOLO（Ultralytics，實驗）；換一家時先載入新的，成功才關掉舊的（js/ai/pose-source.js）
+const MODEL_TEXT = {
+    lite: 'lite（較快，建議）', full: 'full（較準、較慢）', auto: '自動（先用 full，太慢改 lite，實驗）',
+    'yolo-n': 'YOLO26n（實驗，沒有腳跟腳尖）', 'yolo-s': 'YOLO26s（實驗，較準、很慢）'
+};
+const MODEL_GROUPS = [['MediaPipe（Google）', ['lite', 'full', 'auto']], ['YOLO（Ultralytics，實驗）', ['yolo-n', 'yolo-s']]];
 let switchingModel = false;   // 正在換模型
 
 // 現在用的模型（AI 還沒載入時是要載入的那個）
@@ -2154,17 +2170,33 @@ function currentModel() {
     return pose ? pose.model : modelToLoad();
 }
 function modelLabel() {
-    return (getModelChoice() === 'auto' ? '自動：' : '') + currentModel() + ' 模型';
+    return (getModelChoice() === 'auto' ? '自動：' : '') + shortName(currentModel()) + ' 模型';
 }
 
 function fillModelOptions(select) {
-    select.replaceChildren(...MODEL_CHOICES.map(key => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = MODEL_TEXT[key];
-        return option;
+    select.replaceChildren(...MODEL_GROUPS.map(([label, keys]) => {
+        const group = document.createElement('optgroup');
+        group.label = label;
+        group.append(...keys.filter(key => MODEL_CHOICES.includes(key)).map(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = MODEL_TEXT[key];
+            return option;
+        }));
+        return group;
     }));
     select.value = getModelChoice();
+}
+
+// 用的模型判斷不了的錯誤（例如 YOLO 沒有腳跟：深蹲的「腳跟離地」）：鏡頭畫面上一直寫著，不能默默當作做對
+function unjudgedText(workoutId, key) {
+    const list = unjudgedRules(workoutId, hasFeet(key));
+    return list.length ? shortName(key) + ' 沒有腳跟、腳尖的點：不判斷「' + list.join('」「') + '」' : '';
+}
+function showModelNote() {
+    const text = unjudgedText(workout.id, currentModel());
+    modelNote.textContent = text;
+    modelNote.hidden = !text;
 }
 
 function showModelChoice() {
@@ -2177,10 +2209,15 @@ function showModelChoice() {
     modelPickHint.hidden = choice === 'lite';
     modelPickHint.textContent = choice === 'full'
         ? '比較準、鬼點比較少，但運算約慢 1.5 倍、第一次多下載 3.6 MB；開鏡頭後點運算標籤可以看 AI 每格幾毫秒'
+        : choice === 'yolo-n' || choice === 'yolo-s'
+        ? 'YOLO 是另一家（Ultralytics）的模型，只有 17 個點：沒有腳跟、腳尖、手指和 3D 座標，所以深蹲的「腳跟離地」、弓箭步的「前膝超過腳尖」不判斷。'
+            + (choice === 'yolo-s' ? '26s 比 26n 準一點，但每格約慢 1.6 倍，建議用電腦。' : '')
+            + '第一次使用需下載約 ' + Math.round(firstDownloadBytes(choice) / 1e6) + ' MB（授權：AGPL-3.0，見使用說明）'
         : autoRemembered()
         ? '自動：這台裝置之前量到 full 跟不上，所以用 lite（再選一次「自動」會重新判斷）'
         : '實驗中：先用比較準的 full；開鏡頭、站進畫面後量到這台裝置跟不上，會自動改用 lite 並記住';
-    modelHint.textContent = '第一次使用需下載約 ' + Math.round((11.8e6 + MODELS[modelToLoad()].size) / 1e6) + ' MB，之後開啟會快很多';
+    modelHint.textContent = '第一次使用需下載約 ' + Math.round(firstDownloadBytes(modelToLoad()) / 1e6) + ' MB，之後開啟會快很多';
+    showModelNote();
 }
 
 function chooseModel(value) {
@@ -2193,6 +2230,14 @@ function chooseModel(value) {
     }
     showModelChoice();
     updatePerfInfo();
+    // 一開始選的模型載入失敗（例如 YOLO 這個瀏覽器跑不了）、改選別的：用新選的重新載入（11/21）
+    if (!pose && !loadingPose) {
+        modelProgress.hidden = false;
+        modelHint.hidden = false;
+        modelProgress.classList.remove('done', 'hide');
+        initPose();
+        return;
+    }
     checkModel();
 }
 modelSelect.addEventListener('change', () => chooseModel(modelSelect.value));
@@ -2214,11 +2259,12 @@ async function switchPoseModel(key, note) {
     resetSpeedMeter();
     showModelChoice();
     if (note) showAutoNote(note);
-    const from = pose.model;
-    setModelStatus('換成 ' + key + ' 模型中…');
+    const from = shortName(pose.model);
+    const to = shortName(key);
+    setModelStatus('換成 ' + to + ' 模型中…');
     try {
-        await pose.useModel(key, fraction => setModelStatus('換成 ' + key + ' 模型：下載 ' + Math.round(fraction * 100) + '%'));
-        setModelStatus('AI 模型已就緒（' + key + ' 模型）');
+        await pose.useModel(key, fraction => setModelStatus('換成 ' + to + ' 模型：下載 ' + Math.round(fraction * 100) + '%'));
+        setModelStatus('AI 模型已就緒（' + to + ' 模型）');
     } catch (err) {
         console.error(err);
         if (!err.recovered) {
@@ -2227,7 +2273,7 @@ async function switchPoseModel(key, note) {
             giveUpPose();
             return;
         }
-        setModelStatus('換成 ' + key + ' 模型失敗，繼續用 ' + from + '（請檢查網路）');
+        setModelStatus('換成 ' + to + ' 模型失敗，繼續用 ' + from + '（請檢查網路）');
     }
     failures = 0;
     pipeline.reset();
@@ -2262,7 +2308,8 @@ function startRecording() {
     hideRecNotice();
     recorder.start({
         app: 'AI 智慧運動分析系統',
-        model: MODELS[currentModel()].name,
+        // 錄製檔記的模型名字（js/ai/models.js 的 file）：MediaPipe 的和以前一樣（pose_landmarker_lite…），YOLO 是 yolo26n-pose…
+        model: profileOf(currentModel()).file,
         // 使用者選的模型：'lite'、'full' 或 'auto'（自動；錄製中不會換）
         modelChoice: getModelChoice(),
         computeMode: pose ? pose.computeMode : '',

@@ -264,11 +264,13 @@
                             <select id="fpsSelect" aria-describedby="fpsHint"></select>
                         </label>
                         <p id="fpsHint" class="fps-hint" hidden></p>
-                        <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入 -->
+                        <!-- AI 模型：lite（較快）、full（較準）或自動（先用 full，這台裝置跟不上就改用 lite 並記住）。選項由 main.js 填入
+                             11/21 起分兩組：MediaPipe、YOLO（實驗，js/ai/models.js 的能力表） -->
                         <label class="fps-pick">AI 模型
                             <select id="modelSelect" aria-describedby="modelPickHint"></select>
                         </label>
                         <p id="modelPickHint" class="fps-hint" hidden></p>
+                        <p class="switch-more"><a href="help.html#modelFaq">MediaPipe 和 YOLO 差在哪？</a></p>
                     </details>
                 </div>
                 <!-- aria-live：狀態改變時，螢幕閱讀器會唸出來 -->
@@ -435,6 +437,8 @@
             <span id="clipTag" hidden></span>
             <!-- 光線太暗時提醒（js/analysis/light.js）：骨架容易不準，鏡頭每秒格數也會變少 -->
             <span id="lightNote" role="status" hidden>光線太暗：骨架可能不準、畫面變卡，請開燈或面向光源</span>
+            <!-- 用的模型判斷不了的錯誤（11/21）：例如 YOLO 沒有腳跟、腳尖，深蹲不判斷「腳跟離地」；一直寫著，不能默默當作做對 -->
+            <span id="modelNote" role="status" hidden></span>
             <!-- 速度建議（js/ai/advisor.js）：量完這台裝置實際跑多快後出現；只建議，按「試試看」才換 -->
             <div id="advice" aria-live="polite" hidden>
                 <div class="advice-card">

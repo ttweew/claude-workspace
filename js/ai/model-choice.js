@@ -1,10 +1,12 @@
 // 骨架模型的選擇（自動調整的第 3 步）：lite、full 或 'auto'（自動），網站會記住；網址的 ?model= 優先，但不記住
 // 自動：先用比較準的 full；開鏡頭量到這台裝置用 full 跟不上，就改用 lite 並記在這台裝置上，下次直接用 lite
 // 選單再選一次「自動」會忘掉記住的結果，重新判斷
+// 11/21 起也可以選 YOLO（'yolo-n'、'yolo-s'，實驗）：別家的模型，沒有腳跟、腳尖（js/ai/models.js 的能力表）
+//   「自動」只在 MediaPipe 的兩個裡面選：換成 YOLO 會少掉腳跟離地的判斷，要使用者自己決定
 
 import { MODEL_FROM_URL } from '../config.js';
 
-export const MODEL_CHOICES = ['lite', 'full', 'auto'];
+export const MODEL_CHOICES = ['lite', 'full', 'auto', 'yolo-n', 'yolo-s'];
 const CHOICE_KEY = 'poseModel';
 const AUTO_KEY = 'autoModel';   // 自動判斷的結果（目前只會記 'lite'）
 
@@ -26,7 +28,7 @@ function write(key, value) {
 
 let choice = MODEL_FROM_URL || (MODEL_CHOICES.includes(read(CHOICE_KEY)) ? read(CHOICE_KEY) : 'lite');
 
-// 使用者選的：'lite'、'full' 或 'auto'
+// 使用者選的：'lite'、'full'、'auto'、'yolo-n' 或 'yolo-s'
 export function getModelChoice() {
     return choice;
 }
@@ -46,7 +48,7 @@ export function autoRemembered() {
     return choice === 'auto' && read(AUTO_KEY) === 'lite';
 }
 
-// 實際要用哪個模型：'lite' 或 'full'
+// 實際要用哪個模型：'lite'、'full'、'yolo-n' 或 'yolo-s'
 export function modelToLoad() {
     if (choice !== 'auto') return choice;
     return read(AUTO_KEY) === 'lite' ? 'lite' : 'full';

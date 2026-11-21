@@ -9,6 +9,9 @@ export const ADVICE = {
     keepUp: 0.85,       // AI 每秒算的格數有鏡頭的 85% 以上：算跟得上
     slowFps: 20,        // AI 每秒不到 20 格：動作快時骨架會慢半拍
     fullCost: 1.6,      // full 模型每格大約是 lite 的 1.5 倍時間，多抓一點
+    // YOLO26s 每格大約是 YOLO26n 的 1.6 倍時間（11/21 測試電腦的 CPU、網站裡實測：26n 64 毫秒、26s 104 毫秒；
+    // 26s 用權重 8 位元的檔案，比 fp32 的快，所以不到研究頁量的 3 倍），多抓一點
+    yoloSCost: 1.8,
     // 每格耗時在「一格時間」的 60% 以內才算有餘裕：手機用久了發燙會降速，要留空間
     headroom: 0.6
 };
@@ -59,7 +62,8 @@ export class SpeedMeter {
 }
 
 // 依量測結果列出建議，越前面越優先；沒有要建議的回傳空陣列
-// m：{ msPerFrame, aiFps, cameraFps, chosenFps（使用者選的每秒格數）, cameraMax（鏡頭最多幾格，0 不知道）, model（'lite' 或 'full'） }
+// m：{ msPerFrame, aiFps, cameraFps, chosenFps（使用者選的每秒格數）, cameraMax（鏡頭最多幾格，0 不知道）,
+//      model（'lite'、'full'、'yolo-n' 或 'yolo-s'） }
 // 每個建議：{ key（「不用了」記住用）, text, button（null：只有「知道了」）, action（{ fps } 或 { model } 或 null） }
 export function advise(m) {
     const ms = m.msPerFrame;
@@ -82,6 +86,23 @@ export function advise(m) {
                 action: { model: 'lite' }
             });
         }
+        // YOLO（11/21）：s 跟不上建議 n；n 也跟不上建議改回 MediaPipe lite（比較快，也有腳跟、腳尖）
+        if (m.model === 'yolo-s') {
+            list.push({
+                key: 'yolo-n',
+                text: '用 YOLO26s 時，AI 每格要 ' + ms + ' 毫秒，每秒只算到 ' + m.aiFps + ' 格。建議改用比較快的 YOLO26n（換的時候畫面停幾秒）',
+                button: '改用 YOLO26n',
+                action: { model: 'yolo-n' }
+            });
+        }
+        if (m.model === 'yolo-n') {
+            list.push({
+                key: 'lite-from-yolo',
+                text: '用 YOLO26n 時，AI 每格要 ' + ms + ' 毫秒，每秒只算到 ' + m.aiFps + ' 格。MediaPipe lite 比較快（也有腳跟、腳尖），建議改回 MediaPipe lite',
+                button: '改用 lite',
+                action: { model: 'lite' }
+            });
+        }
         if (m.aiFps < ADVICE.slowFps) {
             list.push({
                 key: 'slow',
@@ -100,6 +121,14 @@ export function advise(m) {
             text: 'AI 每格只要 ' + ms + ' 毫秒，還很有餘裕。可以試試比較準的 full 模型（多下載 3.6 MB，換的時候畫面停 1～2 秒）',
             button: '試試 full',
             action: { model: 'full' }
+        });
+    }
+    if (m.model === 'yolo-n' && ms * ADVICE.yoloSCost < frameMs * ADVICE.headroom) {
+        list.push({
+            key: 'yolo-s',
+            text: 'AI 每格只要 ' + ms + ' 毫秒，還很有餘裕。可以試試比較準的 YOLO26s（多下載約 11 MB，換的時候畫面停幾秒）',
+            button: '試試 YOLO26s',
+            action: { model: 'yolo-s' }
         });
     }
     if (m.chosenFps <= 30 && m.cameraMax >= 60 && ms < 1000 / 60 * ADVICE.headroom) {

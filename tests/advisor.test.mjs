@@ -114,3 +114,18 @@ test('自動：鏡頭最多 30 格、鏡頭給不到、降過 2 次 → 不再�
     twice.reset();
     assert.equal(feed(twice, 60, fast, 30), 60, '重開鏡頭重新開始');
 });
+
+test('YOLO（11/21）：26n 很有餘裕建議 26s；26s 跟不上建議 26n；26n 跟不上建議改回 MediaPipe lite', () => {
+    const yolo = { ...base, model: 'yolo-n' };
+    // 每格 11 毫秒：26s 約 1.8 倍 = 19.8 毫秒，還在一格時間（33 毫秒）的 60%（20 毫秒）以內
+    assert.deepEqual(keys({ ...yolo, msPerFrame: 11 }), ['yolo-s']);
+    assert.deepEqual(keys({ ...yolo, msPerFrame: 12 }), [], '26s 會太慢：不建議');
+    const slowS = advise({ ...yolo, model: 'yolo-s', msPerFrame: 150, aiFps: 6 });
+    assert.deepEqual(slowS.map(a => a.key), ['yolo-n', 'slow']);
+    assert.deepEqual(slowS[0].action, { model: 'yolo-n' });
+    const slowN = advise({ ...yolo, msPerFrame: 60, aiFps: 15 });
+    assert.deepEqual(slowN.map(a => a.key), ['lite-from-yolo', 'slow']);
+    assert.deepEqual(slowN[0].action, { model: 'lite' });
+    // MediaPipe 的建議不受影響
+    assert.deepEqual(keys({ ...base, model: 'full', aiFps: 20, msPerFrame: 45 }), ['lite']);
+});

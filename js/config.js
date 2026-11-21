@@ -22,9 +22,33 @@ export function modelUrl(key) {
     const name = MODELS[key].name;
     return 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/' + name + '/float16/1/' + name + '.task';
 }
+// YOLO（11/21，實驗）：Ultralytics 的 YOLO26 姿勢模型，轉成 LiteRT 格式放在網站裡（models/yolo/，AGPL-3.0，見那裡的 README.md）
+// 用 Google 的 LiteRT.js 執行：程式放在網站裡（vendor/litertjs/），AI 引擎（WebAssembly，約 11 MB）和 MediaPipe 一樣從兩個下載來源拿
+// 換 LiteRT 版本時，sw.js 的 AI_SHA256 指紋也要一起改（vendor/litertjs/README.md）
+export const LITERT_URLS = [
+    'https://cdn.jsdelivr.net/npm/@litertjs/core@2.6.0/wasm/',
+    'https://unpkg.com/@litertjs/core@2.6.0/wasm/'
+];
+export const LITERT_ENGINE_SIZE = 11.1e6;   // litert_wasm_internal.wasm（舊瀏覽器用的 compat 版 10.9 MB，差不多）
+// size：檔案大小，用來計算下載進度
+// n 用 fp32（11/21 伏地挺身影片：權重壓成 8 位元的版本最低點的手肘角度多偏 10°，檔案小 4 倍但不值得）；
+// s 用 w8a32（權重 8 位元、運算 fp32）：fp32 要 42 MB 太大（轉檔方法見 tools/export-yolo.py）
+export const YOLO_FILES = {
+    'yolo-n': { path: 'models/yolo/yolo26n-pose-320.tflite', size: 11968338 },
+    'yolo-s': { path: 'models/yolo/yolo26s-pose-320-w8a32.tflite', size: 10884185 }
+};
+
+// 第一次用這個模型要下載多少（首頁「第一次使用需下載約 … MB」）：AI 引擎＋模型檔
+const MEDIAPIPE_ENGINE_SIZE = 11.8e6;
+export function firstDownloadBytes(key) {
+    if (Object.prototype.hasOwnProperty.call(YOLO_FILES, key)) return LITERT_ENGINE_SIZE + YOLO_FILES[key].size;
+    return MEDIAPIPE_ENGINE_SIZE + MODELS[Object.prototype.hasOwnProperty.call(MODELS, key) ? key : 'lite'].size;
+}
+
 // 網址的值要先比對清單，不能直接拿去查 MODELS（'constructor' 這種 JavaScript 內建的名字查得到東西，網頁會壞掉）
+// ?model=yolo-n、?model=yolo-s：直接用 YOLO（不會記住），老師、組員測試方便
 const urlModel = params.get('model');
-export const MODEL_FROM_URL = urlModel === 'auto' || Object.keys(MODELS).includes(urlModel) ? urlModel : '';
+export const MODEL_FROM_URL = urlModel === 'auto' || Object.keys(MODELS).includes(urlModel) || Object.keys(YOLO_FILES).includes(urlModel) ? urlModel : '';
 
 // 測試用：網址加上 ?cpu 會強制用 CPU，方便同一台裝置比較 GPU 與 CPU 的速度
 export const FORCE_CPU = params.has('cpu');

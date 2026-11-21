@@ -22,6 +22,9 @@ js/
   platform/           裝置功能：鏡頭、螢幕保持亮著、離線、GPU、這支手機能不能用
   data/               錄製與重播：匯出 CSV／JSON、讀檔重算、合成示範資料
   cloud/              雲端同步（Firebase）：預設關閉，打開才存運動總結的數字；之後換伺服器只改這裡
+models/yolo/          YOLO 姿勢模型（11/21，實驗；AGPL-3.0，見那裡的 README.md）
+vendor/litertjs/      LiteRT.js（Google，Apache-2.0）：在瀏覽器裡執行 YOLO
+tools/                命令列工具：訓練 AI 模型（train.mjs）、YOLO 轉檔（export-yolo.py）
 firestore.rules       雲端資料庫的安全規則（firebase.json：本機模擬器的設定）
 tests/                自動測試（npm test；雲端的安全規則：npm run test:rules）
 docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
@@ -31,6 +34,7 @@ docs/                 文件：architecture.md（程式架構）、data-format.m
 ```
 
 外部套件：MediaPipe Tasks Vision（Google 官方骨架偵測），由 `js/config.js` 指定的 CDN 網址載入，不需要安裝。設定了兩個下載來源（jsDelivr、unpkg），第一個連不上時自動改用第二個。
+11/21 起也可以選 YOLO（Ultralytics 的 YOLO26 姿勢模型，實驗中）：模型檔放在 `models/yolo/`，用放在 `vendor/litertjs/` 的 LiteRT.js 執行，AI 引擎一樣從 jsDelivr、unpkg 下載。兩家的差別（YOLO 沒有腳跟、腳尖、手指和 3D 座標）寫在 `js/ai/models.js` 的能力表，網站照這張表決定哪些判斷做不了、在畫面上寫出來。
 雲端同步用 Firebase（Authentication＋Cloud Firestore），一樣從官方網址載入；只有使用者在首頁打開「雲端同步」開關才會下載。Firebase 專案的設定和測試方式見 [docs/firebase-setup.md](docs/firebase-setup.md)。
 
 ## 測試用網址參數
@@ -39,7 +43,7 @@ docs/                 文件：architecture.md（程式架構）、data-format.m
 |---|---|
 | `?debug` | 一打開就顯示主要關節的編號與名稱（也可以用工具列的「編號」按鈕切換，網站會記住上次的選擇；直接點畫面上任一點可查看該點）；點開運算標籤時另外顯示各階段載入秒數（下載／啟動／暖機） |
 | `?cpu` | 強制使用 CPU，方便和 GPU 比較速度 |
-| `?model=full`、`?model=lite`、`?model=auto` | 直接指定 AI 模型，方便測試（不會記住）。平常用首頁「進階設定」裡的「AI 模型」選單選：lite（較快，預設）、full（鬼點較少，但運算約慢 1.5 倍、多下載 3.6 MB）、自動（先用 full，量到這台裝置跟不上就改用 lite 並記住）；開著鏡頭時點運算標籤也能切換，不用重新載入網頁 |
+| `?model=full`、`?model=lite`、`?model=auto`、`?model=yolo-n`、`?model=yolo-s` | 直接指定 AI 模型，方便測試（不會記住）。YOLO（實驗）沒有腳跟、腳尖：深蹲的腳跟離地、弓箭步的前膝超過腳尖不判斷。平常用首頁「進階設定」裡的「AI 模型」選單選：lite（較快，預設）、full（鬼點較少，但運算約慢 1.5 倍、多下載 3.6 MB）、自動（先用 full，量到這台裝置跟不上就改用 lite 並記住）；開著鏡頭時點運算標籤也能切換，不用重新載入網頁 |
 | `?workout=squat`（或 `pushup`、`plank`、`lunge`、`free`） | 直接指定運動模式，方便測試（不會記住）。平常在首頁「支援的運動」卡片按「開始」，或開鏡頭後按右上角選。以前的 `?lab=squat` 也還能用（等於深蹲）；重播分析頁會用錄製檔記下的動作分析，也可以加 `?workout=` 指定 |
 | `?worker=0` | AI 改回在主畫面運算（預設在背景執行緒），用手機比較順暢度與 FPS |
 | `?predict=0` | 關掉骨架往前預測，比較動作中骨架「跟手」的差別 |
@@ -128,3 +132,14 @@ npm test
 合併到 `main` 分支後，GitHub Actions 會自動發布到 GitHub Pages，約 1 分鐘生效。
 
 發布時會在每個 CSS、JS 檔名後面加上版本號（例如 `js/pages/main.js?v=1a2b3c4d`），瀏覽器一定拿到同一個版本的全部檔案，不會新舊混在一起而出錯。首頁本身仍可能被暫存最多 10 分鐘，看到舊畫面時按 Ctrl + F5（手機可用無痕模式）。
+
+## 授權
+
+| 部分 | 授權 | 放在哪 |
+|---|---|---|
+| MediaPipe Tasks Vision、骨架模型（Google） | Apache-2.0 | 從 jsDelivr／unpkg、Google 的網址下載，不放在這裡 |
+| LiteRT.js（Google） | Apache-2.0 | `vendor/litertjs/`（改過一行，見那裡的 README.md）；AI 引擎從 jsDelivr／unpkg 下載 |
+| YOLO26 姿勢模型（Ultralytics） | **AGPL-3.0** | `models/yolo/`（全文、來源、轉檔方法見那裡的 README.md） |
+| 這個專案自己的程式 | 還沒決定（要組員和老師決定） | — |
+
+AGPL-3.0 要求：用 YOLO 提供網路服務時，要讓使用的人拿得到原始碼（這個網站的原始碼全部公開在這個 GitHub 專案，使用說明頁也有連結）。Ultralytics 的說法是用了 YOLO 的整個專案都要用 AGPL-3.0 開放原始碼，所以如果要留著 YOLO，建議整個專案也標成 AGPL-3.0；不要的話，照 `models/yolo/README.md` 最後一段拿掉 YOLO。

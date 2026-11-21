@@ -17,7 +17,8 @@ import { fatigueOf } from '../analysis/fatigue.js';
 import { renderFatigue } from '../ui/fatigue-view.js';
 import { fluencyOf, fluencyLine } from '../analysis/fluency.js';
 import { stabilityOf, stabilityLine } from '../analysis/stability.js';
-import { errorShort, errorRule } from '../analysis/form.js';
+import { errorShort, errorRule, unjudgedRules } from '../analysis/form.js';
+import { keyOfFile, hasFeet, shortName } from '../ai/models.js';
 import { parseRecording, needsFrameSize as metaNeedsFrameSize, analyzeRecording, ANGLE_KEYS, SIGNED_KEYS, VIEW_CODES,
     WORLD_BONES, WORLD_KNEES, BALANCE_FIELDS } from '../data/replay-core.js';
 import { balanceLine, BALANCE } from '../analysis/balance.js';
@@ -648,6 +649,11 @@ function showSummary() {
         ['模型 · 運算', (m.model || '—') + ' · ' + (m.computeMode || '—')],
         ['錄製時間', m.startedAt && !m.synthetic ? new Date(m.startedAt).toLocaleString('zh-TW') : '—']
     ];
+    // 用 YOLO 錄的（11/21）：沒有腳跟、腳尖的點，這個動作有哪些錯誤判斷不了（不能默默當作做對）
+    // 錄製檔的模型名字先比對清單（js/ai/models.js 的 keyOfFile），不認得的（舊檔、被改過）當作 MediaPipe
+    const modelKey = keyOfFile(m.model);
+    const unjudged = modelKey && analysis.workout ? unjudgedRules(analysis.workout, hasFeet(modelKey)) : [];
+    if (unjudged.length) items.push(['判斷不了', shortName(modelKey) + ' 沒有腳跟、腳尖的點：' + unjudged.join('、')]);
     // 重心（10/24）：站直時（兩膝都超過 160°，和 balance.js 一樣）重心比腳踝前多少（小腿長 100%）、晃多少，取中位數（偶爾跳一下的格子不影響）
     // 卡片很窄，只寫數字；單位、算法寫在使用說明
     // 前後晃動要站直不動 2.5 秒以上才有（例如合成示範資料每一下中間只站 1 秒，就沒有）
