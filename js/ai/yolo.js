@@ -7,6 +7,7 @@
 
 import { LITERT_URLS, LITERT_ENGINE_SIZE, YOLO_FILES, FORCE_CPU } from '../config.js';
 import { cocoToLandmarks } from './keypoints.js';
+import { profileOf } from './models.js';
 
 const STALL_MS = 15000;            // 下載中超過 15 秒完全沒收到資料 → 放棄這次，交給 main.js 重試（和 pose.js 一樣）
 const CONNECT_TIMEOUT_MS = 20000;  // 一個下載來源 20 秒還沒開始給資料 → 改用下一個來源
@@ -26,6 +27,9 @@ function engineName() {
     }
     return relaxed ? 'litert_wasm_internal' : 'litert_wasm_compat_internal';
 }
+
+// 這個模型有幾個點（js/ai/models.js 的 kpts；沒寫的是官方的 17 點）
+const kptsOf = key => (profileOf(key) && profileOf(key).kpts === 21 ? 21 : 17);
 
 // 這個瀏覽器能不能跑 YOLO：要有背景執行緒、背景執行緒裡的畫布、從影片抓一格畫面、WebAssembly
 export function yoloSupported() {
@@ -118,7 +122,7 @@ function progressOf(sizes, received) {
 }
 
 // 啟動一個背景執行緒、交給它引擎和模型、等它量完速度；回傳 { worker, info }
-function startWorker(files, cpuOnly) {
+function startWorker(files, cpuOnly, kpts = 17) {
     return new Promise((resolve, reject) => {
         let worker;
         try {
@@ -150,7 +154,7 @@ function startWorker(files, cpuOnly) {
         };
         // 複製一份送過去（送過去的會被搬走），原本的留著重新啟動、換大小時用
         const engine = files.engine.slice().buffer, model = files.model.slice().buffer;
-        worker.postMessage({ type: 'init', base: files.base, engineJs: files.engineJs, engine, model, cpuOnly }, [engine, model]);
+        worker.postMessage({ type: 'init', base: files.base, engineJs: files.engineJs, engine, model, cpuOnly, kpts }, [engine, model]);
     });
 }
 
@@ -227,7 +231,7 @@ export async function loadYolo(onProgress, attempt = 0, key = 'yolo-n') {
     }
     const downloadedAt = performance.now();
     onProgress({ stage: 'start', delegate: 'CPU' });
-    const { worker, info } = await startWorker(files, FORCE_CPU);
+    const { worker, info } = await startWorker(files, FORCE_CPU, kptsOf(key));
     const readyAt = performance.now();
     console.info('YOLO 載入：', key, info.mode, info.tried);
     const seconds = ms => Math.round(ms / 100) / 10;
@@ -333,7 +337,7 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
         async restart() {
             worker.terminate();
             fail(new Error('重新啟動中'));
-            const fresh = await startWorker(files, FORCE_CPU);
+            const fresh = await startWorker(files, FORCE_CPU, kptsOf(pose.model));
             setInfo(fresh.info);
             attach(fresh.worker);
         },

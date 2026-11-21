@@ -7,7 +7,8 @@
 //   座標是 S×S 輸入裡的像素（有的匯出是 0～1，看數值判斷）
 
 export const INPUT_SIZE = 320;   // 11/21 實驗：640 抓的點和 320 幾乎一樣，慢 3～4 倍
-export const COLS = 57;
+export const COLS = 57;           // 6 個框的數字＋17 點 × 3；21 點的模型是 69（colsOf）
+export const colsOf = kpts => 6 + 3 * kpts;
 export const PERSON_SCORE = 0.25;   // 分數低於這個當作沒有人（Ultralytics 預設的門檻）
 export const ROI_GROW = 1.25;       // 先框出人：上一格的框放大 25%（人會動），裁成正方形
 
@@ -46,14 +47,15 @@ export function toInput(rgba, S = INPUT_SIZE, out = new Float32Array(3 * S * S))
     return out;
 }
 
-// 模型的輸出 → 最像人的那一個：{ score, box（畫面像素）, k（17 點 [x, y, 可信度]，畫面的比例座標）}；沒有人回傳 null
-// region：這次給模型看的那一塊；fit：letterbox(region 的寬高)；W、H：整個畫面的大小
-export function decodeBest(data, region, fit, W, H, S = INPUT_SIZE) {
-    if (!data || data.length < COLS) return null;
-    const rows = Math.floor(data.length / COLS);
+// 模型的輸出 → 最像人的那一個：{ score, box（畫面像素）, k（kpts 個點 [x, y, 可信度]，畫面的比例座標）}；沒有人回傳 null
+// region：這次給模型看的那一塊；fit：letterbox(region 的寬高)；W、H：整個畫面的大小；kpts：模型有幾個點（17 或 21）
+export function decodeBest(data, region, fit, W, H, S = INPUT_SIZE, kpts = 17) {
+    const cols = colsOf(kpts);
+    if (!data || data.length < cols) return null;
+    const rows = Math.floor(data.length / cols);
     let best = 0;
-    for (let r = 1; r < rows; r++) if (data[r * COLS + 4] > data[best * COLS + 4]) best = r;
-    const o = best * COLS;
+    for (let r = 1; r < rows; r++) if (data[r * cols + 4] > data[best * cols + 4]) best = r;
+    const o = best * cols;
     const score = data[o + 4];
     if (!(score >= PERSON_SCORE)) return null;
     // 座標的單位：這次的匯出是 S×S 裡的像素；有的匯出是 0～1，最大值不超過 1.5 就當作 0～1
@@ -63,7 +65,7 @@ export function decodeBest(data, region, fit, W, H, S = INPUT_SIZE) {
     const fx = v => ((v * unit - fit.padX) / fit.scale + region.rx);
     const fy = v => ((v * unit - fit.padY) / fit.scale + region.ry);
     const k = [];
-    for (let j = 0; j < 17; j++) {
+    for (let j = 0; j < kpts; j++) {
         const b = o + 6 + j * 3;
         k.push([fx(data[b]) / W, fy(data[b + 1]) / H, data[b + 2]]);
     }

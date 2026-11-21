@@ -5,10 +5,14 @@
 // COCO 17 點（YOLO-pose、MoveNet、RTMPose 這些開源模型大多用這個格式）：
 //   0 鼻子、1 左眼、2 右眼、3 左耳、4 右耳、5 左肩、6 右肩、7 左手肘、8 右手肘、9 左手腕、10 右手腕、
 //   11 左髖、12 右髖、13 左膝、14 右膝、15 左腳踝、16 右腳踝
+// 21 點（11/21，自己訓練的 YOLO，tools/yolo-dataset.py）：COCO 的 17 點後面再加 17 左腳跟、18 右腳跟、19 左腳尖、20 右腳尖
 import { P, MIN_VISIBILITY } from '../skeleton/landmarks.js';
 
 export const COCO_NAMES = ['NOSE', 'LEFT_EYE', 'RIGHT_EYE', 'LEFT_EAR', 'RIGHT_EAR', 'LEFT_SHOULDER', 'RIGHT_SHOULDER',
     'LEFT_ELBOW', 'RIGHT_ELBOW', 'LEFT_WRIST', 'RIGHT_WRIST', 'LEFT_HIP', 'RIGHT_HIP', 'LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_ANKLE', 'RIGHT_ANKLE'];
+export const FEET_NAMES = ['LEFT_HEEL', 'RIGHT_HEEL', 'LEFT_FOOT_INDEX', 'RIGHT_FOOT_INDEX'];
+// 認得的點數：17（官方的 YOLO）、21（加腳跟、腳尖）
+export const KNOWN_KPTS = [COCO_NAMES.length, COCO_NAMES.length + FEET_NAMES.length];
 
 // 33 點裡 COCO 沒有的：放在哪一點的位置（看不到）
 const NEAR = {
@@ -30,12 +34,13 @@ export function scoreToVisibility(score) {
     return s < SCORE_SEEN ? s / SCORE_SEEN * MIN_VISIBILITY : MIN_VISIBILITY + (s - SCORE_SEEN) / (1 - SCORE_SEEN) * (1 - MIN_VISIBILITY);
 }
 
-// COCO 17 點 [[x, y, 可信度]]（畫面的比例座標 0～1）→ 33 點 [{ x, y, z: 0, visibility }]；不是 17 點時回傳 null
+// COCO 17 點（或 21 點）[[x, y, 可信度]]（畫面的比例座標 0～1）→ 33 點 [{ x, y, z: 0, visibility }]；點數不對時回傳 null
 // 座標不是數字的點（模型壞掉、資料被改過）放在 0、標成看不到
 export function cocoToLandmarks(points) {
-    if (!Array.isArray(points) || points.length !== COCO_NAMES.length) return null;
+    if (!Array.isArray(points) || !KNOWN_KPTS.includes(points.length)) return null;
+    const names = points.length === COCO_NAMES.length ? COCO_NAMES : COCO_NAMES.concat(FEET_NAMES);
     const byName = {};
-    COCO_NAMES.forEach((name, i) => {
+    names.forEach((name, i) => {
         const p = Array.isArray(points[i]) ? points[i] : [];
         const ok = typeof p[0] === 'number' && Number.isFinite(p[0]) && typeof p[1] === 'number' && Number.isFinite(p[1]);
         byName[name] = { x: ok ? p[0] : 0, y: ok ? p[1] : 0, z: 0, visibility: ok ? scoreToVisibility(p[2]) : 0 };

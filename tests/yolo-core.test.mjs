@@ -95,3 +95,25 @@ test('讀輸出：分數太低（沒有人）、資料不夠、壞掉 → null',
     assert.equal(decodeBest(null, region, fit, 640, 480), null);
     assert.ok(decodeBest(output(300, 3, PERSON_SCORE, [0, 0, 10, 10], k), region, fit, 640, 480));
 });
+
+test('21 點的模型（11/21）：一列 69 個數字，21 個點都換回畫面上的位置', async () => {
+    const { colsOf } = await import('../js/ai/yolo-core.js');
+    assert.equal(colsOf(17), COLS);
+    assert.equal(colsOf(21), 69);
+    const W = 640, H = 480;
+    const region = { rx: 0, ry: 0, rw: W, rh: H };
+    const fit = letterbox(W, H);
+    const cols = colsOf(21);
+    const d = new Float32Array(300 * cols);
+    const o = 5 * cols;
+    d.set([100, 50, 200, 250, 0.8, 0], o);
+    for (let j = 0; j < 21; j++) d.set([160 + j, 160, 0.9], o + 6 + j * 3);
+    const r = decodeBest(d, region, fit, W, H, S, 21);
+    assert.equal(r.k.length, 21);
+    r.k.forEach(([x, y], j) => {
+        assert.ok(near(x, (320 + 2 * j) / W, 1e-5), 'x ' + j);
+        assert.ok(near(y, 240 / H, 1e-5), 'y ' + j);
+    });
+    // 用 17 點去讀 21 點的輸出會讀錯：所以一定要照模型的點數（js/ai/models.js 的 kpts）
+    assert.notEqual(decodeBest(d, region, fit, W, H, S, 17).score, 0.8);
+});

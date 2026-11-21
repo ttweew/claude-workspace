@@ -25,3 +25,7 @@
 - **整個專案要不要標成 AGPL-3.0，要組員和老師決定**（目前只有這個資料夾標了 AGPL-3.0）。不同意的話，把 `js/ai/model-choice.js` 的 `MODEL_CHOICES` 拿掉 `'yolo-n'`、`'yolo-s'`，再刪掉這個資料夾，網站就回到只有 MediaPipe。
 
 換模型檔時，`sw.js` 的 `AI_SHA256`、`js/config.js` 的 `YOLO_FILES`（檔名、大小）、這份說明的表要一起改。
+
+## 自己訓練（有腳跟、腳尖的 YOLO）
+
+官方的 YOLO26 只有 COCO 的 17 個點，沒有腳跟、腳尖。用 MediaPipe 幫組員的影片標點、再訓練 YOLO 多學 4 個點（21 點）的流程：[docs/yolo-training.md](../../docs/yolo-training.md)（`tools/yolo-dataset.py`、`tools/yolo-train.py`）。網站已經讀得懂 21 點的模型（`js/ai/keypoints.js`、`js/ai/yolo-core.js`）。從 YOLO26 訓練出來的模型一樣是 AGPL-3.0。

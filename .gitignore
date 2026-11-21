@@ -1,2 +1,7 @@
 # Firebase 模擬器的紀錄檔（docs/firebase-setup.md 的測試會產生）
 *-debug.log
+# 自己訓練 YOLO（tools/yolo-dataset.py、yolo-train.py）：訓練資料是組員的真人影片截圖，只放自己的電腦（repo 是公開的）
+datasets/
+runs/
+*.pt
+__pycache__/
