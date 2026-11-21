@@ -1,0 +1,59 @@
+<!doctype html><meta charset="utf-8"><title>dual</title>
+<script type="module">
+// 兩個模型同時跑的負擔：像網站一樣「鏡頭」每秒 30 格，每個模型算完一格才接下一格（算不完的格子跳過）
+// 三種情況各跑 SECONDS 秒：只有 MediaPipe、只有 YOLO、兩個一起；量每個模型每秒算到幾格、每格幾毫秒、主畫面有沒有卡
+const q = new URLSearchParams(location.search);
+const out = window.__result = {};
+const SECONDS = Number(q.get('s') || 8), CAM_FPS = 30;
+const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? +s[Math.floor(s.length / 2)].toFixed(1) : null; };
+try {
+  const imgs = [];
+  for (let i = 0; i < 60; i++) { const im = new Image(); im.src = '../frames/pu_' + String(i).padStart(3, '0') + '.png'; await im.decode(); imgs.push(im); }
+  function worker(url, init) {
+    const w = new Worker(url);
+    const ready = new Promise((res, rej) => { w.onmessage = e => e.data.type === 'ready' ? res(e.data.ms) : rej(new Error(e.data.message)); });
+    w.postMessage(init);
+    return { w, ready };
+  }
+  const mp = worker('./mp-worker.js', { type: 'init', model: q.get('mp') || 'lite' });
+  const yo = worker('./yolo-worker.js', { type: 'init', model: new URL('../weights/' + (q.get('yolo') || 'yolo26n-pose-w8a32-320.tflite'), location.href).href });
+  out.loadMs = { mediapipe: Math.round(await mp.ready), yolo: Math.round(await yo.ready) };
+  // 每個模型：閒著的時候才送下一格（和網站 main.js 一樣，算不完的格子跳過）
+  function runner(entry) {
+    const st = { busy: false, done: 0, ms: [], lat: [] };
+    entry.w.onmessage = e => {
+      if (e.data.type === 'error') { out.error = e.data.message; return; }
+      st.busy = false; st.done++; st.ms.push(e.data.ms); st.lat.push(performance.now() - st.sentAt);
+    };
+    st.offer = async (frameIdx, ts) => {
+      if (st.busy) return;
+      st.busy = true; st.sentAt = performance.now();
+      const bmp = await createImageBitmap(imgs[frameIdx % 60]);
+      entry.w.postMessage({ type: 'detect', bitmap: bmp, ts }, [bmp]);
+    };
+    return st;
+  }
+  async function scenario(useMp, useYo) {
+    const a = runner(mp), b = runner(yo);
+    let late = 0, last = performance.now(), frame = 0;
+    const t0 = performance.now();
+    await new Promise(res => {
+      const iv = setInterval(() => {
+        const now = performance.now(); late = Math.max(late, now - last - 1000 / CAM_FPS); last = now;
+        if (useMp) a.offer(frame, now - t0);
+        if (useYo) b.offer(frame, now - t0);
+        frame++;
+        if (now - t0 >= SECONDS * 1000) { clearInterval(iv); res(); }
+      }, 1000 / CAM_FPS);
+    });
+    await new Promise(r => setTimeout(r, 400));   // 等最後一格算完
+    const sec = SECONDS;
+    const rep = st => ({ fps: +(st.done / sec).toFixed(1), msPerFrame: median(st.ms), latency: median(st.lat) });
+    return { mediapipe: useMp ? rep(a) : null, yolo: useYo ? rep(b) : null, mainThreadMaxLateMs: +late.toFixed(1) };
+  }
+  out.onlyMediaPipe = await scenario(true, false);
+  out.onlyYolo = await scenario(false, true);
+  out.both = await scenario(true, true);
+} catch (e) { out.error = String(e && (e.stack || e.message) || e).slice(0, 500); }
+out.done = true;
+</script>
