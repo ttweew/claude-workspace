@@ -3,7 +3,7 @@
 import { SHOW_LABELS_AT_START, DEBUG, MODELS, PREDICT, FPS_CHOICES } from '../config.js';
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { videoFileSupported, looksLikeVideo, openVideoFile } from '../platform/video-source.js';
-import { loadPoseModel } from '../ai/pose.js';
+import { loadPose } from '../ai/pose-source.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
 import { drawSkeleton, drawBalance } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
@@ -138,7 +138,7 @@ let currentStream = null;
 // 不是自己運動：總結照樣顯示，但不存進運動紀錄、不上傳；實測的一組不能用
 let demo = null;
 let cameraRequest = 0;      // 每次開啟或關閉鏡頭就加 1，用來丟棄已經過時的開啟請求
-let pose = null;           // AI 偵測器（loadPoseModel 的結果），載入完成前為 null
+let pose = null;           // AI 偵測器（js/ai/pose-source.js 的 loadPose，換得掉模型），載入完成前為 null
 let lastVideoTime = -1;
 let frameRequest = null;    // 下一次偵測的排程，關閉鏡頭時取消
 let failures = 0;           // 連續偵測出錯的次數
@@ -378,7 +378,7 @@ window.addEventListener('online', () => {
 async function tryLoadPose(attempt) {
     const startTime = performance.now();
     try {
-        const result = await loadPoseModel(progress => {
+        const result = await loadPose(progress => {
             if (!pose) showLoadingStage(progress);
         }, attempt);
         if (result.gpuName) perfBtn.title = '瀏覽器回報的 GPU：' + result.gpuName;

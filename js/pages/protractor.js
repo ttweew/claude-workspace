@@ -1,8 +1,8 @@
 // 照片量角器（protractor.html，10/22）：選一張照片 → AI 找關節 → 把三個圈拖到關節中心 → 比對兩個角度 → 記下來（驗證實驗 A）
-// 計算在 js/analysis/protractor.js；AI 和鏡頭畫面用同一個（js/ai/pose.js），角度用同一套算法（js/skeleton/pipeline.js），
+// 計算在 js/analysis/protractor.js；AI 和鏡頭畫面用同一個（js/ai/pose-source.js，首頁選的模型），角度用同一套算法（js/skeleton/pipeline.js），
 // 所以「AI 算的」就是鏡頭對著這個姿勢時網站會算出來的角度
 
-import { loadPoseModel } from '../ai/pose.js';
+import { loadPose } from '../ai/pose-source.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { JOINTS, isJoint, jointOf, pointAngle, aiPoints, startPoints, defaultJoint, photoSnapshot } from '../analysis/protractor.js';
 import { addSnapshot } from '../analysis/validate.js';
@@ -36,7 +36,7 @@ function setStatus(el, text, error = false) {
 // ---------- AI（第一次選照片才下載，之後重用） ----------
 function getDetector() {
     if (!detectorPromise) {
-        detectorPromise = loadPoseModel(p => {
+        detectorPromise = loadPose(p => {
             if (p.stage === 'download') setStatus(photoStatus, '下載 AI 中（第一次用才要下載）… ' + Math.round(p.fraction * 100) + '%');
             else setStatus(photoStatus, 'AI 準備中…');
         });
