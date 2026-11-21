@@ -1,4 +1,4 @@
-// 內容安全政策（CSP，11/17 大翻查）：六頁的 <meta http-equiv="Content-Security-Policy"> 一模一樣、放在最前面、
+// 內容安全政策（CSP，11/17 大翻查）：每一頁（11/21 起七頁，多了模型對照）的 <meta http-equiv="Content-Security-Policy"> 一模一樣、放在最前面、
 // 網站真的會用到的外部網址都有列、nomodule 那段文字改了要一起改指紋
 // 瀏覽器實際跑起來有沒有被擋：tests/browser/csp.test.mjs
 import { test } from 'node:test';
@@ -21,8 +21,8 @@ function policy(html) {
     return { text: all[0][1], at: all[0].index, map };
 }
 
-test('六頁都有、內容一模一樣，放在任何程式和樣式之前', () => {
-    assert.equal(PAGES.length, 6);
+test('七頁都有、內容一模一樣，放在任何程式和樣式之前', () => {
+    assert.equal(PAGES.length, 7);
     const texts = new Set();
     for (const f of PAGES) {
         const html = read(f);
@@ -31,7 +31,7 @@ test('六頁都有、內容一模一樣，放在任何程式和樣式之前', ()
         const first = Math.min(...['<script', '<link', '<style'].map(t => html.indexOf(t)).filter(i => i >= 0));
         assert.ok(p.at < first, f + '：CSP 要在第一個 <script>、<link> 之前，不然前面的不受管');
     }
-    assert.equal(texts.size, 1, '六頁要一模一樣（改一頁要全部一起改）');
+    assert.equal(texts.size, 1, '每一頁要一模一樣（改一頁要全部一起改）');
 });
 
 test('基本的關門：不准 <object>、不准改 <base>、表單只能送回自己；沒有 unsafe-inline 的程式', () => {

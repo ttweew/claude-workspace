@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { launch, serve, open, script, rep, workout, violations } from './harness.mjs';
 
-const PAGES = ['index.html', 'replay.html', 'help.html', 'report.html', 'protractor.html', 'results.html'];
+const PAGES = ['index.html', 'replay.html', 'help.html', 'report.html', 'protractor.html', 'results.html', 'compare.html'];
 const SIZES = [{ width: 320, height: 640, mobile: true }, { width: 1280, height: 900 }];
 
 let browser, site;
