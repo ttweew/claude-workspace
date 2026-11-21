@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>worker</title>
+<script type="module">
+// 主畫面只負責拿畫面、送給背景執行緒；同時量主畫面有沒有被卡住（每 16 毫秒的計時器延遲多少）
+const out = window.__result = {};
+try {
+  const w = new Worker('./yolo-worker.js');
+  const ask = msg => new Promise((res, rej) => { w.onmessage = e => e.data.type === 'error' ? rej(new Error(e.data.message)) : res(e.data); w.postMessage(msg, msg.bitmap ? [msg.bitmap] : []); });
+  const ready = await ask({ type: 'init', model: new URL('../weights/yolo26n-pose-320.tflite', location.href).href });
+  out.initMs = Math.round(ready.ms);
+  const img = new Image(); img.src = '../pose.jpg'; await img.decode();
+  // 主畫面的「卡頓」：計時器本來每 16 毫秒一次，實際晚了多少
+  let lateMax = 0, last = performance.now();
+  const iv = setInterval(() => { const now = performance.now(); lateMax = Math.max(lateMax, now - last - 16); last = now; }, 16);
+  const ms = []; let r;
+  for (let i = 0; i < 20; i++) { r = await ask({ type: 'detect', bitmap: await createImageBitmap(img) }); ms.push(r.ms); }
+  clearInterval(iv);
+  ms.sort((a, b) => a - b);
+  out.workerMsMedian = +ms[10].toFixed(1); out.score = +r.score.toFixed(3); out.mainThreadLateMaxMs = +lateMax.toFixed(1);
+  out.nose = r.k[0].map(v => +v.toFixed(3)); out.leftAnkle = r.k[15].map(v => +v.toFixed(3));
+} catch (e) { out.error = String(e && (e.stack || e.message) || e).slice(0, 500); }
+out.done = true;
+</script>

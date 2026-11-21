@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><title>vid</title>
+<script type="importmap">{"imports":{
+  "@litertjs/core":"./pkg/lrweb/node_modules/@litertjs/core/dist/index.js",
+  "@litertjs/wasm-utils":"./pkg/lrweb/node_modules/@litertjs/wasm-utils/dist/index.js"}}</script>
+<script type="module">
+// 11/21：伏地挺身側拍影片（60 格）重複 LOOPS 次，MediaPipe（VIDEO 模式，和網站一樣會追蹤）和 YOLO（LiteRT）一格一格跑，
+// 存下每一格的點（MediaPipe 33 點；YOLO 17 點 [x, y, 可信度]，都換成畫面的比例座標），給 node 用網站的分析重算
+const q = new URLSearchParams(location.search);
+const out = window.__result = { frames: [] };
+try {
+  const N = 60, LOOPS = Number(q.get('loops') || 3), FPS = 30, S = Number(q.get('size') || 320);
+  const imgs = [];
+  for (let i = 0; i < N; i++) { const im = new Image(); im.src = 'frames/pu_' + String(i).padStart(3, '0') + '.png'; await im.decode(); imgs.push(im); }
+  const W = imgs[0].naturalWidth, H = imgs[0].naturalHeight; out.size = [W, H];
+  const which = q.get('m');
+  let detect;
+  if (which === 'lite' || which === 'full') {
+    const vision = await import('./mp/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs');
+    const fileset = await vision.FilesetResolver.forVisionTasks('./mp/node_modules/@mediapipe/tasks-vision/wasm');
+    const lm = await vision.PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: './mp/pose_landmarker_' + which + '.task', delegate: 'CPU' }, runningMode: 'VIDEO', numPoses: 1 });
+    detect = (im, t) => { const r = lm.detectForVideo(im, t); return r.landmarks.length ? r.landmarks[0].map(p => [p.x, p.y, p.z, p.visibility]) : null; };
+  } else {
+    const lr = await import('@litertjs/core');
+    await lr.loadLiteRt(new URL('./pkg/lrweb/node_modules/@litertjs/core/wasm/', location.href).href);
+    const model = await lr.loadAndCompile(q.get('model'), { accelerator: 'wasm' });
+    const ROI = q.get('roi') === '1';
+    const cv = new OffscreenCanvas(S, S), g = cv.getContext('2d', { willReadFrequently: true }), input = new Float32Array(3 * S * S);
+    // 在畫面的一塊區域（像素）上跑一次：等比例縮進 S×S、補灰邊；回傳最像人的那一個（分數、框、17 點，都換回整個畫面的比例座標）
+    async function runOn(im, rx, ry, rw, rh) {
+      const scale = Math.min(S / rw, S / rh), w = rw * scale, h = rh * scale, padX = (S - w) / 2, padY = (S - h) / 2;
+      g.fillStyle = 'rgb(114,114,114)'; g.fillRect(0, 0, S, S); g.drawImage(im, rx, ry, rw, rh, padX, padY, w, h);
+      const px = g.getImageData(0, 0, S, S).data, n = S * S;
+      for (let i = 0; i < n; i++) { input[i] = px[i * 4] / 255; input[n + i] = px[i * 4 + 1] / 255; input[2 * n + i] = px[i * 4 + 2] / 255; }
+      const t = new lr.Tensor(input, [1, 3, S, S]); const res = await model.run(t); t.delete();
+      const d = res[0].toTypedArray().slice(); for (const r of res) r.delete();
+      const cols = 57; let best = 0; for (let r = 1; r < d.length / cols; r++) if (d[r * cols + 4] > d[best * cols + 4]) best = r;
+      const o = best * cols; let mx = 0; for (let j = 0; j < 4; j++) mx = Math.max(mx, d[o + j]);
+      const u = mx <= 1.5 ? S : 1;
+      const X = v => (v * u - padX) / scale + rx, Y = v => (v * u - padY) / scale + ry;
+      const k = []; for (let j = 0; j < 17; j++) { const b = o + 6 + j * 3; k.push([X(d[b]) / W, Y(d[b + 1]) / H, d[b + 2]]); }
+      return { score: d[o + 4], box: [X(d[o]), Y(d[o + 1]), X(d[o + 2]), Y(d[o + 3])], k };
+    }
+    let last = null;   // 上一格的人框（ROI 模式：下一格只看這附近，人在 320 裡變大）
+    detect = async im => {
+      let r;
+      if (ROI && last) {
+        const [x1, y1, x2, y2] = last, cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+        const side = Math.max(x2 - x1, y2 - y1) * 1.25;             // 框放大 25%（人會動）、裁成正方形（不浪費 320 的格子）
+        const rx = Math.max(0, cx - side / 2), ry = Math.max(0, cy - side / 2);
+        const rw = Math.min(W, cx + side / 2) - rx, rh = Math.min(H, cy + side / 2) - ry;
+        r = await runOn(im, rx, ry, rw, rh);
+        if (r.score < 0.25) r = await runOn(im, 0, 0, W, H);          // 跟丟了：回到整個畫面
+      } else r = await runOn(im, 0, 0, W, H);
+      if (r.score < 0.25) { last = null; return null; }
+      last = r.box;
+      return { score: r.score, k: r.k };
+    };
+  }
+  let ms = [];
+  for (let loop = 0; loop < LOOPS; loop++) for (let i = 0; i < N; i++) {
+    const t = (loop * N + i) * 1000 / FPS;
+    const a = performance.now(); const r = await detect(imgs[i], t); ms.push(performance.now() - a);
+    out.frames.push({ t: +t.toFixed(2), r });
+  }
+  ms.sort((x, y) => x - y); out.msMedian = +ms[Math.floor(ms.length / 2)].toFixed(1);
+} catch (e) { out.error = String(e && (e.stack || e.message) || e).slice(0, 600); }
+out.done = true;
+</script>

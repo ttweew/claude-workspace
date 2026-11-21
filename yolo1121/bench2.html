@@ -1,0 +1,75 @@
+<!doctype html><meta charset="utf-8"><title>bench2</title>
+<script type="importmap">{"imports":{
+  "@litertjs/core":"./pkg/lrweb/node_modules/@litertjs/core/dist/index.js",
+  "@litertjs/wasm-utils":"./pkg/lrweb/node_modules/@litertjs/wasm-utils/dist/index.js"}}</script>
+<script type="module">
+// 11/21：同一張照片，比 YOLO 的兩種網頁執行方式（ONNX Runtime Web、LiteRT.js）× 模型檔（fp32、fp16、w8a32）× 運算方式（wasm、webgpu）
+// 也量前處理（補灰邊、縮小、轉成模型要的數字）要幾毫秒；MediaPipe 用同一套計時當對照
+const q = new URLSearchParams(location.search);
+const out = window.__result = { secure: isSecureContext, gpu: !!navigator.gpu, isolated: crossOriginIsolated };
+const median = a => { const s = [...a].sort((x, y) => x - y); return +s[Math.floor(s.length / 2)].toFixed(1); };
+try {
+  const img = new Image(); img.src = q.get('img') || 'pose.jpg'; await img.decode();
+  const S = Number(q.get('size') || 320), RUNS = Number(q.get('runs') || 15), WARM = 3;
+  const rt = q.get('rt'), ep = q.get('ep') || 'wasm', threads = Number(q.get('threads') || 1);
+  async function timeIt(fn) {
+    for (let i = 0; i < WARM; i++) await fn();
+    const t = [];
+    for (let i = 0; i < RUNS; i++) { const a = performance.now(); await fn(); t.push(performance.now() - a); }
+    return { median: median(t), min: +Math.min(...t).toFixed(1), max: +Math.max(...t).toFixed(1) };
+  }
+  // 前處理：等比例縮到 S×S、其他補灰（114），每個像素 /255、排成 [1,3,S,S]
+  const scale = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+  const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+  const padX = (S - w) / 2, padY = (S - h) / 2;
+  const cv = new OffscreenCanvas(S, S), g = cv.getContext('2d', { willReadFrequently: true });
+  const input = new Float32Array(3 * S * S);
+  function prep() {
+    g.fillStyle = 'rgb(114,114,114)'; g.fillRect(0, 0, S, S); g.drawImage(img, padX, padY, w, h);
+    const px = g.getImageData(0, 0, S, S).data, n = S * S;
+    for (let i = 0; i < n; i++) { input[i] = px[i * 4] / 255; input[n + i] = px[i * 4 + 1] / 255; input[2 * n + i] = px[i * 4 + 2] / 255; }
+  }
+  { const t = []; for (let i = 0; i < 20; i++) { const a = performance.now(); prep(); t.push(performance.now() - a); } out.prepMs = median(t); }
+  let run;
+  const t0 = performance.now();
+  if (rt === 'ort') {
+    const ort = await import('./web/node_modules/onnxruntime-web/dist/' + (ep === 'webgpu' ? 'ort.webgpu.min.mjs' : 'ort.min.mjs'));
+    ort.env.wasm.wasmPaths = new URL('./web/node_modules/onnxruntime-web/dist/', location.href).href;
+    ort.env.wasm.numThreads = threads;
+    const session = await ort.InferenceSession.create(q.get('model'), { executionProviders: [ep] });
+    const tensor = new ort.Tensor('float32', input, [1, 3, S, S]);
+    run = async () => { const r = await session.run({ [session.inputNames[0]]: tensor }); return r[session.outputNames[0]].data; };
+  } else if (rt === 'litert') {
+    const lr = await import('@litertjs/core');
+    await lr.loadLiteRt(new URL('./pkg/lrweb/node_modules/@litertjs/core/wasm/', location.href).href, { threads: threads > 1 });
+    const model = await lr.loadAndCompile(q.get('model'), { accelerator: ep, cpuOptions: { numThreads: threads } });
+    out.fullyAccelerated = model.isFullyAccelerated;
+    run = async () => {
+      const t = new lr.Tensor(input, [1, 3, S, S]);
+      const res = await model.run(t); t.delete();
+      const o = res[0].accelerator === 'wasm' ? res[0] : await res[0].moveTo('wasm');
+      const arr = o.toTypedArray().slice();
+      o.delete(); for (const r of res) if (r !== o && !r.deleted) r.delete();
+      return arr;
+    };
+  } else if (rt === 'mp') {
+    const vision = await import('./mp/node_modules/@mediapipe/tasks-vision/vision_bundle.mjs');
+    const fileset = await vision.FilesetResolver.forVisionTasks('./mp/node_modules/@mediapipe/tasks-vision/wasm');
+    const lm = await vision.PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: './mp/pose_landmarker_' + q.get('model') + '.task', delegate: 'CPU' }, runningMode: 'IMAGE', numPoses: 1 });
+    run = async () => lm.detect(img);
+  }
+  out.loadMs = +(performance.now() - t0).toFixed(0);
+  let data;
+  out.ms = await timeIt(async () => { data = await run(); });
+  if (rt !== 'mp') {
+    const cols = 57, rows = data.length / cols;
+    let best = 0; for (let r = 1; r < rows; r++) if (data[r * cols + 4] > data[best * cols + 4]) best = r;
+    out.score = +data[best * cols + 4].toFixed(3);
+    const k = []; let norm = 1;
+    for (let j = 0; j < 17; j++) k.push([data[best * cols + 6 + j * 3], data[best * cols + 7 + j * 3], data[best * cols + 8 + j * 3]]);
+    if (Math.max(...k.map(p => Math.max(p[0], p[1]))) <= 1.5) norm = S;   // LiteRT 的輸出是 0～1
+    out.kpts = k.map(([x, y, c]) => [+((x * norm - padX) / scale).toFixed(1), +((y * norm - padY) / scale).toFixed(1), +c.toFixed(3)]);
+  } else out.found = data.landmarks.length;
+} catch (e) { out.error = String(e && (e.stack || e.message) || e).slice(0, 600); }
+out.done = true;
+</script>
