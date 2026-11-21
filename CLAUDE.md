@@ -44,7 +44,7 @@
 - 同一個數字在畫面、提示、總結要一樣（例如秒數一律無條件捨去）。
 - 網站只透過 `js/cloud/` 用雲端。上傳的欄位改了，要同時改 `js/cloud/sync.js` 和 `firestore.rules`。
 - 換 MediaPipe 版本或模型：`js/config.js`，以及 `sw.js` 的版本號、`AI_CACHE` 和 `AI_SHA256` 指紋。
-- 每一頁的 `<meta http-equiv="Content-Security-Policy">`（CSP）六頁一模一樣；加新的外部網址或改頁面裡的程式要一起改（`tests/csp.test.mjs`）。
+- 每一頁的 `<meta http-equiv="Content-Security-Policy">`（CSP）七頁一模一樣；加新的外部網址或改頁面裡的程式要一起改（`tests/csp.test.mjs`）。
 
 ## 瀏覽器測試工具
 

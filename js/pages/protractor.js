@@ -2,7 +2,9 @@
 // 計算在 js/analysis/protractor.js；AI 和鏡頭畫面用同一個（js/ai/pose-source.js，首頁選的模型），角度用同一套算法（js/skeleton/pipeline.js），
 // 所以「AI 算的」就是鏡頭對著這個姿勢時網站會算出來的角度
 
-import { loadPose } from '../ai/pose-source.js';
+import { loadPose, openSource } from '../ai/pose-source.js';
+import { MODEL_KEYS, profileOf, shortName } from '../ai/models.js';
+import { modelToLoad } from '../ai/model-choice.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { JOINTS, isJoint, jointOf, pointAngle, aiPoints, startPoints, defaultJoint, photoSnapshot } from '../analysis/protractor.js';
 import { addSnapshot } from '../analysis/validate.js';
@@ -13,6 +15,9 @@ const photoInput = $('photoInput'), drop = $('drop'), photoStatus = $('photoStat
 const measureCard = $('measureCard'), jointPick = $('jointPick'), stage = $('photoStage'), canvas = $('photo'), lines = $('lines');
 const handles = [...stage.querySelectorAll('.handle')];
 const mineOut = $('mine'), aiOut = $('ai'), diffOut = $('diff'), saveBtn = $('saveBtn'), resetBtn = $('resetBtn'), saveStatus = $('saveStatus');
+// 另一個模型（11/21）：同一張照片再用另一個模型算，看兩個模型差多少（只顯示，不記進驗證實驗 A）
+const aiLabel = $('aiLabel'), otherPick = $('otherModel'), otherRow = $('otherRow'), otherLabel = $('otherLabel'), otherOut = $('other'),
+    otherDiffRow = $('otherDiffRow'), otherDiffOut = $('otherDiff'), otherStatus = $('otherStatus');
 
 const MAX_BYTES = 30 * 1024 * 1024;   // 手機照片一張約 2～8 MB；再大多半不是照片，整張讀進來手機會很慢
 const MAX_PIXELS = 60e6;              // 6000 萬像素：手機照片 1200～5000 萬像素；檔案很小、寫很大的圖整張解開會把手機的記憶體用完（10/24 安全複查）
@@ -27,6 +32,7 @@ let busy = false;
 let photo = null;      // { width, height, pose（pipeline 的結果；AI 找不到人或用不了是 null） }
 let joint = null;      // 量哪個關節（JOINTS 的 key）
 let points = null;     // 三個圈的位置（照片上的像素）
+let other = null;      // 另一個模型：{ key, promise（偵測器） }；不用時是 null
 
 function setStatus(el, text, error = false) {
     el.textContent = text;
@@ -44,6 +50,57 @@ function getDetector() {
         detectorPromise.catch(() => { detectorPromise = null; });
     }
     return detectorPromise;
+}
+
+// 同一張照片給 AI 看 DETECT_TIMES 次，回傳最後一次的結果（pipeline 處理過；找不到人是 null）
+async function detectPose(detector, width, height) {
+    const pipeline = new PosePipeline();
+    let pose = null;
+    for (let i = 0; i < DETECT_TIMES; i++) {
+        // 以前從 100 開始：在主畫面跑 AI（?worker=0）時比暖機的時間早，AI 直接出錯（背景執行緒會自己調，沒發現）
+        ts = Math.max(ts + 100, performance.now());
+        const r = await detector.detect(canvas, ts);
+        pose = r && r.landmarks ? pipeline.process(r.landmarks, ts, width, height) : null;
+    }
+    return pose;
+}
+
+// ---------- 另一個模型（11/21） ----------
+// 選單：不用，或首頁選的以外的每個模型；「AI 算的」寫出是哪個模型
+aiLabel.textContent = 'AI 算的（' + profileOf(modelToLoad()).label + '）';
+otherPick.replaceChildren(new Option('不用', ''), ...MODEL_KEYS.filter(k => k !== modelToLoad()).map(k => new Option(profileOf(k).label, k)));
+otherPick.addEventListener('change', () => {
+    if (other) other.promise.then(d => d.close(), () => {});
+    other = null;
+    if (photo) photo.other = null;
+    const key = otherPick.value;
+    setStatus(otherStatus, '');
+    if (MODEL_KEYS.includes(key)) {
+        other = { key, promise: openSource(key, p => setStatus(otherStatus, p.stage === 'download'
+            ? '下載 ' + shortName(key) + ' 中（第一次用才要下載）… ' + Math.round(p.fraction * 100) + '%' : shortName(key) + ' 準備中…')) };
+        other.promise.catch(() => {});
+        // 照片正在給首頁選的模型看：看完會接著給這個模型看（loadPhoto 的最後）
+        if (!busy) runOther();
+    }
+    if (photo && points) draw();
+});
+
+// 這張照片給另一個模型看；看完更新畫面（換了模型、換了照片，舊的結果不用）
+async function runOther() {
+    const mine = other, shot = photo;
+    if (!mine || !shot) return;
+    try {
+        const detector = await mine.promise;
+        if (other !== mine || photo !== shot) return;
+        setStatus(otherStatus, shortName(mine.key) + ' 找關節中…');
+        const pose = await detectPose(detector, shot.width, shot.height);
+        if (other !== mine || photo !== shot) return;
+        shot.other = pose;
+        setStatus(otherStatus, pose ? '' : shortName(mine.key) + ' 在這張照片裡找不到人');
+    } catch (err) {
+        if (other === mine) setStatus(otherStatus, shortName(mine.key) + ' 用不了（' + err.message + '）', true);
+    }
+    if (photo === shot && points) draw();
 }
 
 // ---------- 選照片 ----------
@@ -71,7 +128,7 @@ async function loadPhoto(file) {
         canvas.height = height;
         canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
         if (bitmap.close) bitmap.close();
-        photo = { width, height, pose: null };
+        photo = { width, height, pose: null, other: null };
         lines.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
         // AI 還在找的時候先收起來：圈還沒放好，按「記下」會記到上一張照片的位置（以前會出錯）
         points = null;
@@ -80,14 +137,7 @@ async function loadPhoto(file) {
         let message;
         try {
             const detector = await getDetector();
-            const pipeline = new PosePipeline();
-            let pose = null;
-            for (let i = 0; i < DETECT_TIMES; i++) {
-                // 以前從 100 開始：在主畫面跑 AI（?worker=0）時比暖機的時間早，AI 直接出錯（背景執行緒會自己調，沒發現）
-                ts = Math.max(ts + 100, performance.now());
-                const r = await detector.detect(canvas, ts);
-                pose = r && r.landmarks ? pipeline.process(r.landmarks, ts, width, height) : null;
-            }
+            const pose = await detectPose(detector, width, height);
             photo.pose = pose;
             message = pose ? 'AI 找到人了：圈先放在 AI 找到的位置，請照你看到的拖到關節中心'
                 : 'AI 在這張照片裡找不到人：還是可以自己把三個圈拖到關節上，「AI 算的」會空著';
@@ -97,6 +147,8 @@ async function loadPhoto(file) {
         pickJoint(defaultJoint(photo.pose ? photo.pose.landmarks : null));
         measureCard.hidden = false;
         setStatus(photoStatus, message, !photo.pose);
+        // 選了另一個模型：這張照片也給它看
+        if (other) await runOther();
     } catch (err) {
         setStatus(photoStatus, err.message, true);
     } finally {
@@ -180,8 +232,15 @@ function draw() {
     // AI 找到的點畫成虛線小圈，拖走之後還看得到 AI 原本找在哪裡
     const ai = photo.pose ? aiPoints(photo.pose.landmarks, joint, width, height) : null;
     const r = Math.max(width, height) / 120;
+    // 另一個模型找到的點：橘色虛線小圈（CSS 的 .other）
+    const otherAi = other && photo.other ? aiPoints(photo.other.landmarks, joint, width, height) : null;
+    const otherCircle = p => {
+        const c = svg('circle', { cx: p.x, cy: p.y, r });
+        c.setAttribute('class', 'other');
+        return c;
+    };
     lines.replaceChildren(line(points[0], points[1]), line(points[1], points[2]),
-        ...(ai ? ai.map(p => svg('circle', { cx: p.x, cy: p.y, r })) : []));
+        ...(ai ? ai.map(p => svg('circle', { cx: p.x, cy: p.y, r })) : []), ...(otherAi ? otherAi.map(otherCircle) : []));
     const mine = pointAngle(...points);
     const site = photo.pose ? photo.pose.angles[joint] : null;
     const has = v => v !== null && v !== undefined && Number.isFinite(v);
@@ -190,6 +249,15 @@ function draw() {
     // 差距和使用說明頁的表格一樣：兩邊都先取到小數第 1 位再相減
     const d = has(mine) && has(site) ? Math.round((Math.round(site * 10) - Math.round(mine * 10))) / 10 : null;
     diffOut.textContent = d === null ? '—' : (d > 0 ? '+' : '') + d.toFixed(1) + '°';
+    // 另一個模型：一樣兩邊都先取到小數第 1 位再相減
+    otherRow.hidden = otherDiffRow.hidden = !other;
+    if (other) {
+        const o = photo.other ? photo.other.angles[joint] : null;
+        otherLabel.textContent = shortName(other.key) + ' 算的';
+        otherOut.textContent = has(o) ? o.toFixed(1) + '°' : '—';
+        const d2 = has(mine) && has(o) ? Math.round((Math.round(o * 10) - Math.round(mine * 10))) / 10 : null;
+        otherDiffOut.textContent = d2 === null ? '—' : (d2 > 0 ? '+' : '') + d2.toFixed(1) + '°';
+    }
     saveBtn.disabled = !has(mine);
 }
 

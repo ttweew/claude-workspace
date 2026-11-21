@@ -1,10 +1,10 @@
 // 內容安全政策（CSP，11/17 大翻查）在瀏覽器裡真的跑起來：網站自己的功能一個都不被擋，塞進來的程式被擋
-// 頁面上的規則本身（六頁一樣、外部網址、指紋）：tests/csp.test.mjs
+// 頁面上的規則本身（七頁一樣、外部網址、指紋）：tests/csp.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { launch, serve, open, script, rep, workout } from './harness.mjs';
 
-const PAGES = ['index.html', 'replay.html', 'help.html', 'report.html', 'protractor.html', 'results.html'];
+const PAGES = ['index.html', 'replay.html', 'help.html', 'report.html', 'protractor.html', 'results.html', 'compare.html'];
 // 每一頁被 CSP 擋下的東西都記下來（document 的 securitypolicyviolation 事件）
 const WATCH = `document.addEventListener('securitypolicyviolation', e => {
     (window.__csp = window.__csp || []).push(e.violatedDirective + ' ' + (e.blockedURI || '(inline)'));
@@ -21,7 +21,7 @@ test.after(async () => {
     await site.close();
 });
 
-test('六頁打開（手機寬度）：沒有任何東西被 CSP 擋', async () => {
+test('七頁打開（手機寬度）：沒有任何東西被 CSP 擋', async () => {
     const { context, page } = await open(browser, [], { width: 390, height: 844, mobile: true });
     await context.addInitScript(WATCH);
     const found = {};

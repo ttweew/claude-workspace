@@ -9,7 +9,7 @@
 程式依功能分在不同資料夾，一個檔案只做一件事。每個檔案在做什麼、鏡頭的一格畫面經過哪些程式，詳見 **[docs/architecture.md](docs/architecture.md)**（第一次看程式碼建議先讀這份）。
 
 ```
-index.html / replay.html / help.html   三個頁面：首頁＋鏡頭畫面、錄製資料重播分析、使用說明（report.html 實測報表在重播分析底下；protractor.html 照片量角器在使用說明「驗證實驗」底下）
+index.html / replay.html / help.html   三個頁面：首頁＋鏡頭畫面、錄製資料重播分析、使用說明（report.html 實測報表、compare.html 模型對照在重播分析底下；protractor.html 照片量角器在使用說明「驗證實驗」底下）
 sw.js                 離線功能（Service Worker）
 css/                  樣式：style.css（全站）、replay.css（重播分析頁）、report.css（實測報表）、protractor.css（照片量角器）
 js/

@@ -62,6 +62,17 @@
     stroke-width: 3;
     vector-effect: non-scaling-stroke;
 }
+/* 另一個模型找到的點（11/21）：橘色，和首頁選的模型（白色虛線）分開 */
+.photo-lines circle.other {
+    stroke: #ffb02e;
+}
+.other-pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
 .photo-lines circle {
     fill: none;
     stroke: rgba(255, 255, 255, 0.7);

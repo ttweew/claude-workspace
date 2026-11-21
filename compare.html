@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <!-- 內容安全政策（CSP，11/17 大翻查）：只准從下面這些地方載入程式和連線，萬一哪裡被塞進奇怪的 HTML，裡面的程式也不會執行
+         改了這裡要一起改每一頁（7 頁一模一樣）；要加新的外部網址、改 nomodule 那段文字，見 tests/csp.test.mjs
+         11/17 加 reCAPTCHA（App Check：AI 教練問 Gemini 前先拿通行證）：程式、背景的小框在 www.google.com/recaptcha/，換通行證在 content-firebaseappcheck.googleapis.com -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://www.gstatic.com https://apis.google.com https://www.google.com/recaptcha/ 'sha256-iQEbWtFX42m3EIMX/PbE/O4/U22oWzjxnHeW3ZJKxSw=' 'sha256-hUz9vlIPhn29/M8dszu4kkysvLVNd1zHZc/JBEmGQ8U=' 'sha256-yT2XKdpb+SAGm4vquUYsabTlZ0gk85cZyn+VPZeaVEU='; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://firebasevertexai.googleapis.com https://www.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com/recaptcha/ http://127.0.0.1:* http://localhost:*; worker-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://ai-sport-analysis-bf82e.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="同一段影片用兩個 AI 模型各算一次，並排比次數、角度、錯誤">
+    <meta name="theme-color" content="#131416">
+    <!-- 加到手機主畫面（10/29）：manifest.webmanifest 寫名稱、圖示、從主畫面打開時沒有網址列；iPhone 的 Safari 看 apple- 開頭的設定 -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AI 運動分析">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>模型對照 · AI 智慧運動分析系統</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23131416'/%3E%3Cg stroke='%23EDEBE6' stroke-width='2.6' stroke-linecap='round' fill='none'%3E%3Ccircle cx='16' cy='7.5' r='2.6'/%3E%3Cpath d='M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7'/%3E%3C/g%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/replay.css">
+    <link rel="stylesheet" href="css/compare.css">
+</head>
+<body>
+    <nav class="site-nav" aria-label="網站導覽">
+        <a class="nav-brand" href="./" aria-label="AI 運動分析（首頁）">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9"/>
+                <g><circle cx="16" cy="7.5" r="2.6"/><path d="M16 11v8M9 14l7-2 7 2M16 19l-5 7M16 19l5 7"/></g>
+            </svg>
+            <span class="nav-name">AI 運動分析</span>
+        </a>
+        <div class="nav-links">
+            <a href="./">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/></svg>首頁
+            </a>
+            <a href="replay.html" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-5 3 3 5-7"/></svg>重播分析
+            </a>
+            <a href="help.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>使用說明
+            </a>
+        </div>
+    </nav>
+
+    <!-- 模型對照（11/21，js/pages/compare.js）：同一段影片的同一批畫面，兩個 AI 模型各算一次，並排比（重播分析的同一套算法）
+         導覽列標在「重播分析」：做的事一樣是「拿錄好的東西重算」 -->
+    <main class="page replay compare">
+        <header class="replay-head">
+            <h1>模型對照</h1>
+            <p class="intro">選一段<strong>側面</strong>拍的運動影片，網站用<strong>兩個 AI 模型</strong>（例如 MediaPipe 和 YOLO）各算一次同一批畫面，並排比次數、每一下的角度、錯誤，還有兩個模型的角度差多少。影片只在這個瀏覽器裡處理，不會上傳。</p>
+            <p class="back-link"><a href="replay.html">← 回重播分析</a> · <a href="help.html#modelFaq">MediaPipe 和 YOLO 差在哪？</a></p>
+        </header>
+
+        <section class="card" aria-labelledby="setupTitle">
+            <h2 id="setupTitle">1. 選影片和模型</h2>
+            <label class="drop" id="drop">
+                <input type="file" id="videoInput" accept="video/*">
+                <span class="drop-main">選一段影片</span>
+                <span class="drop-sub">側面拍、整個人在畫面裡；手機錄的 MP4、MOV 都可以（iPhone 的 HEVC 影片在電腦的 Chrome 可能打不開，請用 Safari 或先轉檔）</span>
+            </label>
+            <p id="loadStatus" class="load-status" role="status" aria-live="polite"></p>
+            <div class="compare-pick">
+                <label>動作<select id="workoutPick"></select></label>
+                <label>模型 A<select id="modelA"></select></label>
+                <label>模型 B<select id="modelB"></select></label>
+                <label>每秒幾格<select id="ratePick">
+                    <option value="30">30 格（和鏡頭一樣）</option>
+                    <option value="15">15 格（快一倍）</option>
+                </select></label>
+            </div>
+            <div class="compare-actions">
+                <button id="runBtn" type="button" class="primary-btn" disabled>開始對照</button>
+                <button id="cancelBtn" type="button" hidden>停止</button>
+            </div>
+            <div id="runProgress" class="run-progress" role="progressbar" aria-label="對照進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="fill"></div></div>
+            <p id="runStatus" class="load-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="card" id="resultCard" aria-labelledby="resultTitle" hidden>
+            <h2 id="resultTitle">2. 結果</h2>
+            <div class="compare-cols" id="modelCards"></div>
+            <h3>每一下最低的角度</h3>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="每一下最低的角度（表格，可以左右捲動）"><table id="repTable" class="stats"></table></div>
+            <h3>兩個模型的角度差多少</h3>
+            <p class="note">兩個模型這一格都找到人、這個角度都算得出來才比。「平均差」正的是 A 比較大；「9 成在幾度內」：9 成的格子差距在這個度數以內。</p>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="兩個模型的角度差（表格，可以左右捲動）"><table id="jointTable" class="stats"></table></div>
+            <h3>角度曲線</h3>
+            <div class="compare-legend" id="chartLegend"></div>
+            <label class="chart-pick">看哪個角度<select id="chartJoint"></select></label>
+            <canvas id="chart" class="compare-chart" role="img" aria-label="兩個模型的角度曲線"></canvas>
+            <h3>畫面</h3>
+            <p class="note">拖動下面的滑桿看每一格：兩個模型找到的骨架疊在同一張畫面上。</p>
+            <div class="frame-stage"><canvas id="frameView" role="img" aria-label="影片畫面和兩個模型的骨架"></canvas></div>
+            <label class="frame-pick">第幾秒<input type="range" id="frameSlider" min="0" max="0" step="1" value="0"><span id="frameTime">0.0 秒</span></label>
+            <div class="compare-actions">
+                <button id="downloadA" type="button">下載 A 的錄製檔</button>
+                <button id="downloadB" type="button">下載 B 的錄製檔</button>
+                <button id="downloadCsv" type="button">下載角度 CSV（兩個模型）</button>
+            </div>
+            <p class="note">錄製檔可以拿到<a href="replay.html">重播分析</a>打開，看每一格的細節。</p>
+        </section>
+        <video id="video" muted playsinline preload="auto" hidden></video>
+    </main>
+
+    <script type="module" src="js/pages/compare.js"></script>
+    <script nomodule>
+        document.getElementById('loadStatus').textContent = '此瀏覽器版本太舊，請改用新版 Chrome、Safari 或 Edge';
+    </script>
+</body>
+</html>
