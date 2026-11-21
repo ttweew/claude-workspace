@@ -58,7 +58,9 @@ claude-workspace/
 | | `help.js` | 使用說明頁：「檢查這支手機」 |
 | | `hero-art.js` | 首頁的深蹲動畫 |
 | | `exercise-demos.js` | 四個動作的示範動畫放到首頁「支援的運動」卡片和鏡頭畫面的「示範」視窗 |
-| `ai/` | `pose.js` | 載入 MediaPipe 與模型（兩個下載來源、逾時重試）、選 GPU 或 CPU、背景執行緒當掉時自動重啟 |
+| `ai/` | `pose-source.js` | 換模型的接口（11/21）：網站（首頁、照片量角器）只透過這裡拿骨架；同一家換大小交給那一家，換一家時先載入新的、成功才關掉舊的 |
+| | `models.js` | 骨架模型的能力表（11/21）：每個模型是哪一家、有沒有腳跟腳尖、手指、3D 座標；網站看這張表決定功能開不開 |
+| | `pose.js` | 載入 MediaPipe 與模型（兩個下載來源、逾時重試）、選 GPU 或 CPU、背景執行緒當掉時自動重啟 |
 | | `pose-worker.js` | 背景執行緒：在這裡跑 AI，主畫面不會卡 |
 | | `fps.js` | 計算每秒偵測幾格 |
 | | `model-choice.js` | AI 模型的選擇：lite、full 或自動（先用 full，這台裝置跟不上就改用 lite 並記住） |
@@ -164,7 +166,7 @@ claude-workspace/
 
 ```mermaid
 flowchart LR
-    CAM["鏡頭<br>platform/camera.js"] --> AI["AI 偵測 33 個點<br>ai/pose.js<br>（背景執行緒 ai/pose-worker.js）"]
+    CAM["鏡頭<br>platform/camera.js"] --> AI["AI 偵測 33 個點<br>ai/pose-source.js → ai/pose.js<br>（背景執行緒 ai/pose-worker.js）"]
     AI --> PIPE["骨架處理<br>skeleton/pipeline.js"]
     subgraph PIPE_IN [" "]
         direction TB
@@ -292,6 +294,7 @@ npm run test:browser
 | 想做的事 | 改哪裡 |
 |---|---|
 | 換 MediaPipe 版本或模型 | `js/config.js`，以及 `sw.js` 裡的版本號、`AI_CACHE` 名稱和 `AI_SHA256` 指紋（每個檔案 `sha256sum`） |
+| 加一個骨架模型（例如別家的） | `js/ai/models.js` 加一筆能力表（哪一家、有沒有腳跟腳尖、手指、3D 座標），`js/ai/pose-source.js` 的 `LOADERS` 接上那一家的載入方法（介面寫在檔案開頭：點換成 MediaPipe 的 33 點順序，沒有的點 visibility 0），`js/ai/model-choice.js` 的選項 |
 | 加新的外部網址（程式、連線） | 六頁的 CSP（`<meta http-equiv="Content-Security-Policy">`，六頁一模一樣），`tests/csp.test.mjs` 會檢查 |
 | 調整平滑程度 | `js/skeleton/smooth.js` 開頭的數字（旁邊有每個數字的意思） |
 | 多算一個關節角度 | `js/analysis/angles.js` 的 `ANGLES` |

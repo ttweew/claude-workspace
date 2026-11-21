@@ -275,13 +275,14 @@ function warmUp(landmarker) {
 // attempt：第幾次重試（第一次為 0）
 // onProgress({ stage, fraction, delegate })：目前進行到哪個階段
 //   stage：'download' 下載檔案（fraction 為 0～1 的整體下載進度）、'start' 啟動 AI、'warmup' 暖機
-// 回傳 { model, computeMode, computeDetail, gpuName, timings, background, detect(), lostReason(), restart(), useModel() }
-//   model：用的是哪個模型（'lite' 或 'full'，依 js/ai/model-choice.js）；useModel(key, onFraction)：換模型
+// key：載入哪個模型（'lite' 或 'full'；11/21 起由 js/ai/pose-source.js 傳進來，沒給就照 js/ai/model-choice.js）
+// 回傳 { model, computeMode, computeDetail, gpuName, timings, background, detect(), lostReason(), restart(), useModel(), close() }
+//   model：用的是哪個模型（'lite' 或 'full'）；useModel(key, onFraction)：換模型；close()：不用了（換成別家的模型時）
 //   background：是否在背景執行緒運算；detect(video, 時間) 回傳 Promise { landmarks, world }
 //   computeMode：'GPU' 或 'CPU'；computeDetail：GPU 時為晶片名稱，CPU 時為原因
 //   timings：各階段花費的秒數 { download, start, warmup }，用來找出載入慢在哪裡
 // 下載卡住（STALL_MS 沒收到資料）時直接失敗，由 main.js 等幾秒後重試
-export async function loadPoseModel(onProgress, attempt = 0) {
+export async function loadPoseModel(onProgress, attempt = 0, key = modelToLoad()) {
     // 沒有 WebGL2 的瀏覽器跑不了 MediaPipe（就算用 CPU 也一樣），開鏡頭後才會中止；一開始就說清楚，也不用重試
     if (!hasWebGL2()) {
         const err = new Error('這個瀏覽器不支援 WebGL2，無法執行 AI');
@@ -300,7 +301,7 @@ export async function loadPoseModel(onProgress, attempt = 0) {
     const report = progress => {
         if (!state.abandoned) onProgress(progress);
     };
-    const loading = load(report, attempt, watch, state);
+    const loading = load(report, attempt, watch, state, key);
     loading.catch(() => {});  // 卡住放棄之後，原本那次載入的失敗不用再處理
     try {
         return await Promise.race([loading, stall]);
@@ -321,9 +322,8 @@ function checkAbandoned(state) {
     if (state.abandoned) throw new Error('這次載入已放棄');
 }
 
-async function load(onProgress, attempt, watch, state) {
+async function load(onProgress, attempt, watch, state, model) {
     const t0 = performance.now();
-    const model = modelToLoad();
     const tracker = downloadTracker(fraction => {
         watch.kick();
         onProgress({ stage: 'download', fraction: fraction });
@@ -458,7 +458,15 @@ async function loadOnMain({ onProgress, attempt, watch, state, t0, tracker, down
             pose.landmarker = next.landmarker;
             lost = next.lost;
         },
-        useModel: (key, onFraction) => switchModel(pose, key, onFraction, () => download, d => { download = d; })
+        useModel: (key, onFraction) => switchModel(pose, key, onFraction, () => download, d => { download = d; }),
+        // 換成別家的模型時（js/ai/pose-source.js）：關掉偵測器，不再佔記憶體和 GPU
+        close() {
+            try {
+                pose.landmarker.close();
+            } catch (err) {
+                // 關不掉也沒關係
+            }
+        }
     };
     return pose;
 }
@@ -716,7 +724,12 @@ function workerPose(firstWorker, { computeMode, computeDetail, gpu, timings, dow
             }
             attach(fresh.worker);
         },
-        useModel: (key, onFraction) => switchModel(pose, key, onFraction, () => download, d => { download = d; })
+        useModel: (key, onFraction) => switchModel(pose, key, onFraction, () => download, d => { download = d; }),
+        // 換成別家的模型時（js/ai/pose-source.js）：結束背景執行緒，還在等的那一格當作失敗
+        close() {
+            worker.terminate();
+            fail(new Error('已換成別的模型'));
+        }
     };
     return pose;
 }
