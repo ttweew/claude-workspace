@@ -60,6 +60,22 @@ export function facingScore(landmarks, width, height) {
     return count ? sum / count : 0;
 }
 
+// 頭朝哪邊（11/22）：鼻子在看得到的耳朵的哪一邊（以軀幹長度為單位），正的是面向畫面右邊；看不到鼻子、耳朵、肩膀和髖部時回傳 null
+// 和 facingScore 裡「鼻子 vs 耳朵」那一項同一個算法；用 YOLO 時決定靠近鏡頭的是哪一側用這個（js/skeleton/pipeline.js）：
+// 不看腳尖 vs 腳跟，因為趴著（伏地挺身、棒式）時腳尖朝下，和頭的方向會互相抵消
+export function headFacing(landmarks, width, height) {
+    const pt = i => ({ x: landmarks[i].x * width, y: landmarks[i].y * height });
+    if (![P.NOSE, P.LEFT_SHOULDER, P.RIGHT_SHOULDER, P.LEFT_HIP, P.RIGHT_HIP].every(i => isVisible(landmarks[i]))) return null;
+    const ears = [P.LEFT_EAR, P.RIGHT_EAR].filter(i => isVisible(landmarks[i]));
+    if (!ears.length) return null;
+    const sc = { x: (pt(P.LEFT_SHOULDER).x + pt(P.RIGHT_SHOULDER).x) / 2, y: (pt(P.LEFT_SHOULDER).y + pt(P.RIGHT_SHOULDER).y) / 2 };
+    const hc = { x: (pt(P.LEFT_HIP).x + pt(P.RIGHT_HIP).x) / 2, y: (pt(P.LEFT_HIP).y + pt(P.RIGHT_HIP).y) / 2 };
+    const torso = Math.hypot(sc.x - hc.x, sc.y - hc.y);
+    if (torso < 1) return null;
+    const earX = ears.reduce((s, i) => s + pt(i).x, 0) / ears.length;
+    return (pt(P.NOSE).x - earX) / torso;
+}
+
 // 每一格更新一次，回傳 { view: 'side' | 'oblique' | 'front' | null, ratio, facing: 1 | -1 | 0 }
 // 比值先平滑再分類，而且有緩衝區，畫面上的文字不會一直跳
 export class ViewTracker {

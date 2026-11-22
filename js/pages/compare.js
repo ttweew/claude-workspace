@@ -204,7 +204,8 @@ async function run() {
         setStatus(runStatus, '算次數、角度中…');
         const analyses = {};
         for (const side of ['A', 'B']) {
-            analyses[side] = await analyzeRecording({ meta: { workout }, frames: frames[side].map(f => ({ t: f.t, raw: f.raw, world: f.world })) }, W, H, { workout });
+            // meta.model：用 YOLO 時照頭朝哪邊挑靠近鏡頭的那一側（11/22，和重播分析同一套，replay-core.js 看這個）
+            analyses[side] = await analyzeRecording({ meta: { workout, model: profileOf(keys[side]).file }, frames: frames[side].map(f => ({ t: f.t, raw: f.raw, world: f.world })) }, W, H, { workout });
         }
         result = { keys, rate, times, frames, analyses, info, workout, width: W, height: H, cut: cancelled,
             cmp: compareResults(analyses.A, analyses.B, workout) };

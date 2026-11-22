@@ -1,5 +1,5 @@
 // YOLO（11/21，讓使用者自己選模型）：瀏覽器端到端，假的 YOLO（harness.mjs 的 fakeLiteRt）、合成資料
-//   選 YOLO26n：深蹲照樣數、鏡頭畫面和總結寫出「不判斷腳跟離地」、錄製檔記 YOLO 的名字
+//   選 YOLO26n：深蹲照樣數、鏡頭畫面和總結寫出「不判斷腳跟離地」（AI 判斷那一句也寫，11/22）、錄製檔記 YOLO 的名字
 //   鏡頭開著換模型：MediaPipe lite → YOLO26n → lite，次數接著數；YOLO 的說明跟著出現、消失
 //   首頁選單分兩組、選了 YOLO 有說明；320 寬的手機、axe-core
 import test from 'node:test';
@@ -24,7 +24,7 @@ test.after(async () => {
 
 const reps = page => page.evaluate(() => Number(document.getElementById('hudReps').textContent) || 0);
 
-test('選 YOLO26n：深蹲 4 下照樣數；鏡頭畫面、總結寫出「不判斷腳跟離地」；錄製檔記 yolo26n-pose；用 CPU、背景運算', async () => {
+test('選 YOLO26n：深蹲 4 下照樣數；鏡頭畫面、總結、AI 判斷那一句寫出「不判斷腳跟離地」；用 CPU、背景運算', async () => {
     const { context, page } = await open(browser, SQUAT);
     await page.goto(site.base + 'index.html?model=yolo-n&workout=squat');
     await page.waitForFunction(() => /已就緒|失敗/.test(document.getElementById('poseStatus').textContent), null, { timeout: 60000 });
@@ -43,6 +43,8 @@ test('選 YOLO26n：深蹲 4 下照樣數；鏡頭畫面、總結寫出「不判
     const s = await summary(page);
     assert.match(s.lines[0], /^深蹲 4 下：/);
     assert.ok(s.lines.includes('這次用 YOLO26n 沒有腳跟、腳尖的點：不判斷「腳跟離地」'), s.lines.join(' / '));
+    // AI 判斷那一句（11/22）：量不到腳的錯不能默默當作做對，寫出每一下都沒判斷
+    assert.match(s.ai, /；每一下都量不到腳跟、腳尖，沒判斷「腳跟離地」。$/, s.ai);
     assert.deepEqual(page.errors, []);
     await context.close();
 });

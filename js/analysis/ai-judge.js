@@ -5,7 +5,7 @@
 import MODELS from './ai-model.js';
 import { predictModel } from './forest.js';
 import { itemFeatures } from './features.js';
-import { errorRule, errorShort } from './form.js';
+import { errorRule, errorShort, FORM_RULES } from './form.js';
 import { isWorkout, WORKOUTS } from './workouts.js';
 
 // 模型檔被改壞（不是這個格式）的不用：那個動作就沒有 AI 判斷
@@ -23,12 +23,30 @@ export function hasAiModel(workoutId) {
     return isWorkout(workoutId) && BY_WORKOUT.has(workoutId);
 }
 
+// 量不到腳時判斷不了的錯（11/22）：要看腳跟、腳尖的錯（form.js 標 feet 的規則：深蹲的「腳跟離地」、弓箭步的「膝超過腳尖」），
+// 這一下腳的數字量不到時（YOLO 沒有腳跟、腳尖的點；MediaPipe 的腳出了畫面、被擋住）AI 判斷不了，要寫出來，不能默默當作做對
+//   為什麼會默默當作做對：訓練資料裡腳的數字都量得到；量不到（null）時 forest.js 換成 MISSING（比每個門檻都小），
+//   每棵樹都走「腳沒問題」那一邊。11/22 試（合成受測者 I、J、K，訓練時沒看過）：故意墊腳跟的深蹲 15 下，
+//   拿掉腳的數字後 AI 全部判成做對（做對的把握平均 89%）；故意前膝超過腳尖的弓箭步 15 下也全部判成做對（93%）
+//   為什麼不另外訓練一個「不看腳」的模型：試過（不看腳的數字、不判腳的錯，A～H 訓練），I、J、K 每一下判的和現在一模一樣
+//   （做對、上身前傾都一樣，墊腳跟的那幾下一樣判成做對），多一個模型沒有用，所以改成把「這幾下沒判斷」寫出來
+// 回傳這一下判斷不了的錯誤代號（照規則的順序，例如 ['heel']）；腳的數字都有、這個動作沒有要看腳的錯、沒有模型時是空陣列
+export function blindErrors(workoutId, features) {
+    if (!hasAiModel(workoutId) || !Object.prototype.hasOwnProperty.call(FORM_RULES, workoutId)) return [];
+    const f = features && typeof features === 'object' ? features : {};
+    return FORM_RULES[workoutId].filter(r => r.feet).map(r => r.id).filter(id => {
+        const v = Object.prototype.hasOwnProperty.call(f, id) ? f[id] : null;
+        return !(typeof v === 'number' && Number.isFinite(v));
+    });
+}
+
 // 這一下的特徵（itemFeatures 或資料表的 features）→ { label（'good' 或錯誤代號）, confidence（投這一種的比例 0～1）,
-// good（投「做對」的比例 0～1，AI 動作評分用，11/10） }；沒有這個動作的模型回傳 null
+// good（投「做對」的比例 0～1，AI 動作評分用，11/10）, blind（量不到腳、判斷不了的錯，11/22：blindErrors） }；
+// 沒有這個動作的模型回傳 null
 export function aiJudgeFeatures(workoutId, features) {
     if (!hasAiModel(workoutId)) return null;
     const { label, probs } = predictModel(BY_WORKOUT.get(workoutId), features);
-    return { label, confidence: Math.max(...probs), good: probs[0] };
+    return { label, confidence: Math.max(...probs), good: probs[0], blind: blindErrors(workoutId, features) };
 }
 
 // 一下（tracker 的 item：重播分析、實測報表算的）→ AI 判斷
@@ -75,8 +93,9 @@ export function judgeReps(workoutId, reps) {
 // 一下的 AI 判斷寫成「腳跟離地（93%）」：重播分析的表格、運動中的提示（11/7）同一個寫法
 export const judgeCell = ai => judgeText(ai.label) + '（' + Math.round(ai.confidence * 100) + '%）';
 
-// 一組的 AI 判斷那一句（不含句號）：AI 判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下
+// 一組的 AI 判斷那一句（不含句號）：AI 判成哪幾種各幾下、和規則一樣幾下、不一樣的是第幾下、量不到腳的是哪幾下（11/22）
 // 例：「AI 判斷（示範：模型是用合成資料訓練的，不是真人）：做對 3 下、屁股太高 2 下；和規則一樣 3 下、不一樣 2 下（第 2、5 下）」
+//     「…：做對 5 下；和規則一樣 5 下；每一下都量不到腳跟、腳尖，沒判斷「腳跟離地」」（用 YOLO 時）
 // 重播分析和首頁的運動總結共用（11/7），同一個錄製檔兩邊一字不差；沒有判斷時回傳 ''
 export function aiLine(workoutId, reps, judged) {
     if (!hasAiModel(workoutId) || !Array.isArray(judged) || !judged.length || !Array.isArray(reps) || reps.length !== judged.length) return '';
@@ -88,7 +107,20 @@ export function aiLine(workoutId, reps, judged) {
     const differ = judged.map((j, i) => (j.ai.label !== j.rule ? reps[i].n : null)).filter(n => n !== null);
     return 'AI 判斷（' + (AI_MODEL.synthetic ? '示範：模型是用合成資料訓練的，不是真人' : '模型用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練')
         + '）：' + counts + '；和規則一樣 ' + (judged.length - differ.length) + ' ' + unit
-        + (differ.length ? '、不一樣 ' + differ.length + ' ' + unit + '（第 ' + differ.join('、') + ' ' + unit + '）' : '');
+        + (differ.length ? '、不一樣 ' + differ.length + ' ' + unit + '（第 ' + differ.join('、') + ' ' + unit + '）' : '')
+        + blindNote(workoutId, reps, judged, unit);
+}
+
+// 量不到腳的那幾下（aiJudgeFeatures 的 blind）：「；每一下都量不到腳跟、腳尖，沒判斷「腳跟離地」」，都量得到時 ''
+// YOLO 每一下都量不到；MediaPipe 只有腳出了畫面、被擋住的那幾下（「第 2、5 下…」）。種類照規則的順序，寫法和鏡頭畫面的說明一樣用「」
+function blindNote(workoutId, reps, judged, unit) {
+    const blind = j => (j && j.ai && Array.isArray(j.ai.blind) ? j.ai.blind : []);
+    const which = judged.map((j, i) => (blind(j).length ? i : -1)).filter(i => i >= 0);
+    if (!which.length) return '';
+    const kinds = FORM_RULES[workoutId].filter(r => which.some(i => blind(judged[i]).includes(r.id))).map(r => r.short);
+    const who = which.length === judged.length ? (judged.length === 1 ? '這一' + unit : '每一' + unit + '都')
+        : '第 ' + which.map(i => reps[i].n).join('、') + ' ' + unit;
+    return '；' + who + '量不到腳跟、腳尖，沒判斷「' + kinds.join('」「') + '」';
 }
 
 // ---------- AI 動作評分（11/10）：每一下 0～100 分，總結寫最好、最差的一下 ----------

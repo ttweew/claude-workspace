@@ -116,3 +116,17 @@ test('真的載入方法：MediaPipe 的 lite、full 都接得上（沒有 YOLO 
         await assert.rejects(openSource(key, () => {}, 0, { loaders: { mediapipe: async () => { throw new Error('假的網路錯誤'); } } }), /假的網路錯誤/);
     }
 });
+
+test('點畫面換人（11/22）：有這個功能的那一家（YOLO）轉過去、回傳 true；沒有的（MediaPipe）回傳 false；換一家之後跟著換', async () => {
+    const log = [];
+    const withFocus = (name) => async (onProgress, attempt, key) => {
+        const d = await fakeFamily(name, log)(onProgress, attempt, key);
+        d.focusAt = (x, y) => log.push(name + ':focus:' + x + ',' + y);
+        return d;
+    };
+    const src = await openSource('lite', () => {}, 0, { loaders: { mediapipe: fakeFamily('mp', log), yolo: withFocus('yolo') }, familyOf });
+    assert.equal(src.focusAt(0.5, 0.25), false, 'MediaPipe 一次只找一個人');
+    await src.useModel('yolo-n', () => {});
+    assert.equal(src.focusAt(0.5, 0.25), true);
+    assert.ok(log.includes('yolo:focus:0.5,0.25'));
+});

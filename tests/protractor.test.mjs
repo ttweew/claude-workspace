@@ -36,7 +36,7 @@ test('AI 的點：和網站算的角度一樣（同一張照片）；看不清�
     assert.equal(defaultJoint(null), 'LEFT_KNEE');
 });
 
-test('記下來：和鏡頭畫面「記下角度」同一個清單，寫明來源是照片；量的角度直接填進量角器那一欄、一起算統計；CSV 最後一欄是來源', () => {
+test('記下來：和鏡頭畫面「記下角度」同一個清單，寫明來源是照片；量的角度直接填進量角器那一欄、一起算統計；CSV 有來源那一欄', () => {
     clearSnapshots();
     const angles = { LEFT_KNEE: 95.06, RIGHT_KNEE: null, LEFT_HIP: 120.44, RIGHT_HIP: 121, LEFT_ELBOW: 170, RIGHT_ELBOW: 171 };
     addSnapshot(photoSnapshot(angles, 'side', 'LEFT_KNEE', 92.44, 1000));
@@ -48,9 +48,26 @@ test('記下來：和鏡頭畫面「記下角度」同一個清單，寫明來�
     assert.equal(list[1].angles.LEFT_KNEE, null);
     assert.deepEqual(stats(list), { n: 1, bias: 2.7, mae: 2.7, max: 2.7, sd: 0, within5: 100, within10: 100 });
     const csv = toCSV(list).trim().split('\r\n');
-    assert.ok(csv[0].endsWith(',來源'), csv[0]);
-    assert.deepEqual(csv.slice(1).map(l => l.split(',').pop()), ['照片', '照片', '鏡頭']);
+    // 來源是 10/22 加在最後的一欄；11/22 後面再加模型的四欄（準確度比賽），來源的位置不變
+    const col = csv[0].split(',').indexOf('來源');
+    assert.equal(col, 13, csv[0]);
+    assert.ok(csv[0].endsWith(',來源,模型,另一個模型,另一個模型的角度,另一個模型的差距'), csv[0]);
+    assert.deepEqual(csv.slice(1).map(l => l.split(',')[col]), ['照片', '照片', '鏡頭']);
     // 存的資料被改過：來源不是 photo 的當成鏡頭畫面記下的
     saveSnapshots([{ ...list[0], source: 'constructor' }]);
     assert.equal(loadSnapshots()[0].source, undefined);
+});
+
+test('記下這一筆（11/22 準確度比賽）：寫上算的模型；也用另一個模型算時另一個模型的角度也存（找不到人是空的）；認不得的模型不寫', () => {
+    const angles = { LEFT_KNEE: 92.36, RIGHT_KNEE: null };
+    const s = photoSnapshot(angles, 'side', 'LEFT_KNEE', 90.04, 5, { model: 'lite', other: { model: 'yolo-n', angles: { LEFT_KNEE: 100.44 } } });
+    assert.equal(s.model, 'lite');
+    assert.equal(s.other.model, 'yolo-n');
+    assert.equal(s.other.angles.LEFT_KNEE, 100.4);
+    assert.equal(s.other.angles.RIGHT_KNEE, null);
+    const none = photoSnapshot(angles, 'side', 'LEFT_KNEE', 90, 5, { model: 'lite', other: { model: 'yolo-n', angles: null } });
+    assert.equal(none.other.angles.LEFT_KNEE, null, '另一個模型找不到人');
+    const bad = photoSnapshot(angles, 'side', 'LEFT_KNEE', 90, 5, { model: 'constructor', other: { model: 'x', angles } });
+    assert.equal('model' in bad || 'other' in bad, false);
+    assert.equal('model' in photoSnapshot(angles, 'side', 'LEFT_KNEE', 90, 5), false, '以前的呼叫方式');
 });

@@ -9,12 +9,12 @@
 
 import { RepCounter, HoldTimer, REP_DEFAULTS, SHALLOW_QUICK_MS, bodyTilt, clearerAngle } from './reps.js';
 import { SquatCounter, SQUAT, DEPTH_TEXT as SQUAT_DEPTH } from './squat.js';
-import { clearerSide } from '../skeleton/landmarks.js';
+import { poseSide } from '../skeleton/landmarks.js';
 
 // 趴著：身體和地面的夾角在這個以內（伏地挺身最高點約 25°，棒式約 10°；站著約 90°）
 const LYING = 45;
 const lying = pose => {
-    const tilt = bodyTilt(pose.landmarks, pose.width, pose.height);
+    const tilt = bodyTilt(pose.landmarks, pose.width, pose.height, poseSide(pose));
     return tilt !== null && tilt <= LYING;
 };
 
@@ -48,7 +48,7 @@ export const PLANK = { HIP: 160, KNEE: 150 };
 export const PLANK_CONFIG = {
     position: pose => (lying(pose) ? null : '棒式：趴下撐好、側面對著鏡頭就開始計時'),
     good: pose => {
-        const side = clearerSide(pose.landmarks);
+        const side = poseSide(pose);
         const hip = pose.angles[side + '_HIP'], knee = pose.angles[side + '_KNEE'];
         return hip !== null && hip !== undefined && hip >= PLANK.HIP && (knee === null || knee === undefined || knee >= PLANK.KNEE);
     },

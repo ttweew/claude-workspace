@@ -9,7 +9,7 @@
 //   教練影片算出幾百 %）；以腳踝和小腿長為準穩定很多（受測者 B 站著時每 3 秒的標準差 0.3～2%）
 // 前後晃動：站直（兩膝都超過 160°，和腳跟離地取基準的站直一樣）最近 3 秒，重心位置的標準差
 
-import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
+import { P, isVisible, poseSide } from '../skeleton/landmarks.js';
 
 // [近端, 遠端, 重量比例, 重心離近端多遠（近端到遠端的比例）]，左右各一份
 // 前臂＋手合在一起：手的點（INDEX 等）常常看不到，Winter 的表也有「前臂＋手」這一項（重心在手肘到手腕的 0.682）
@@ -80,7 +80,7 @@ export function balanceOf(pose) {
     const ankle = mean(lm, both('ANKLE'));
     if (!com || !ankle) return null;
     // 小腿長：看得比較清楚的那一側，看不到換另一側
-    const first = clearerSide(lm);
+    const first = poseSide(pose);
     const side = [first, first === 'LEFT' ? 'RIGHT' : 'LEFT'].find(s => isVisible(lm[P[s + '_KNEE']]) && isVisible(lm[P[s + '_ANKLE']]));
     if (!side) return null;
     const knee = lm[P[side + '_KNEE']], ak = lm[P[side + '_ANKLE']];

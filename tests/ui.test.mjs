@@ -1,9 +1,11 @@
-// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡；提示音；示範動畫的姿勢；運算標籤的每秒格數（js/ai/fps.js）
+// 畫面元件（js/ui/）：大字儀表板左右兩組怎麼放、什麼時候變淡；提示音；示範動畫的姿勢；運算標籤的每秒格數（js/ai/fps.js）；
+// 點畫面的位置換回鏡頭畫面的座標（11/22，點畫面換人）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Hud } from '../js/ui/hud.js';
 import { POSES, angleAt } from '../js/ui/demo.js';
 import { FpsCounter } from '../js/ai/fps.js';
+import { videoRect, toScreen, fromScreen } from '../js/ui/labels.js';
 import { LANDMARKS, P } from '../js/skeleton/landmarks.js';
 
 // 測試用的假畫面元素：只做 hud.js 用到的部分
@@ -69,6 +71,20 @@ test('儀表板：四個角度都算不出來（或沒有人）時整個收起�
     assert.equal(root.classList.contains('empty'), false);
     hud.update(null);
     assert.equal(root.classList.contains('empty'), true);
+});
+
+test('儀表板（11/22）：用 YOLO 時照 pipeline 給的靠近鏡頭那一側，另一側變淡（兩側可信度一樣也分得出來）', () => {
+    const { hud, root } = makeHud();
+    hud.setMirrored(true);
+    const dim = () => root.querySelectorAll('hud-side').map(b => b.classList.contains('dim'));
+    hud.update(pose(0.9, 0.9), ANGLES, 'RIGHT');   // 靠近鏡頭的是右側：畫面左邊那組（左側）變淡
+    assert.deepEqual(dim(), [true, false]);
+    hud.update(pose(0.9, 0.9), ANGLES, 'LEFT');
+    assert.deepEqual(dim(), [false, true]);
+    hud.update(pose(0.9, 0.9), ANGLES);             // 沒有 near（MediaPipe）：照可信度，兩側一樣清楚都不變淡
+    assert.deepEqual(dim(), [false, false]);
+    hud.update(pose(0.9, 0.9), ANGLES, 'constructor');   // 不認得的值當作沒有
+    assert.deepEqual(dim(), [false, false]);
 });
 
 test('儀表板：側面拍時看得比較不清楚的那一側變淡；差距在門檻附近不會一直閃', () => {
@@ -164,4 +180,18 @@ test('示範動畫：動的時候骨頭長度不變，腳和手不會穿過地�
             for (const p of POSES[id](d).joints) assert.ok(p[1] <= 162, `${id} 關節 ${p} 在地面下`);
         }
     }
+});
+
+test('點畫面的位置 → 鏡頭原始畫面的比例座標（11/22，點畫面換人）：toScreen 反過來；前鏡頭鏡像；點在影像外面是 null', () => {
+    const rect = videoRect(400, 800, 640, 480);   // 直拿手機：影像上下補黑邊
+    for (const mirrored of [false, true]) {
+        for (const p of [{ x: 0.2, y: 0.3 }, { x: 0.9, y: 0.75 }, { x: 0, y: 1 }]) {
+            const s = toScreen(p, rect, mirrored);
+            const back = fromScreen(s.x, s.y, rect, mirrored);
+            assert.ok(Math.abs(back.x - p.x) < 1e-9 && Math.abs(back.y - p.y) < 1e-9, JSON.stringify({ p, back, mirrored }));
+        }
+    }
+    assert.equal(fromScreen(200, 10, rect, false), null, '上面的黑邊');
+    assert.equal(fromScreen(-1, 400, rect, false), null);
+    assert.equal(fromScreen(10, 10, { left: 0, top: 0, width: 0, height: 0 }, false), null, '影像還沒有大小');
 });
