@@ -23,6 +23,7 @@ claude-workspace/
 ├── help.html           使用說明
 ├── results.html        研究成果（使用說明底下：目前量到的數字整理成一頁，報告時打開；10/28）
 ├── sw.js               離線功能（Service Worker；瀏覽器規定要放在網站最外層）
+├── LICENSE             授權全文：GNU AGPL-3.0（11/22 起整個專案；README 的「授權」）
 ├── manifest.webmanifest  加到手機主畫面（10/29）：名稱、圖示、從主畫面打開沒有網址列、長按圖示的四個動作捷徑
 ├── icons/              主畫面圖示（192、512、Android 裁切用的 maskable 512、iPhone 的 180）
 ├── firestore.rules     雲端資料庫的安全規則（貼到 Firebase 主控台；docs/firebase-setup.md）
@@ -254,6 +255,7 @@ npm test
 | `tests/sw.test.mjs` | Service Worker（11/17）：AI 檔案指紋對才存、不對的照樣給網頁但不存、不在清單上的不存；存檔用 waitUntil 撐住（瀏覽器不讓用時照樣給網頁、照樣存）；清單涵蓋 MediaPipe 的檔案和兩個模型 |
 | `tests/app-check.test.mjs` | App Check（11/17）：網站金鑰的格式；沒通過（401、403、訊息寫 App Check）寫出原因，其他的照舊；開鏡頭先準備只載入一次、不問 Gemini；準備失敗之後重新載入；問之前先確認通行證（拿到才問、一直等到上限放棄、被拒絕馬上放棄，都不問） |
 | `tests/csp.test.mjs` | 內容安全政策（11/17）：每一頁（11/21 起七頁）一模一樣、放在最前面；不准 unsafe-inline 的程式、object、改 base；nomodule 那段的指紋；網站用到的外部網址都有列 |
+| `tests/license.test.mjs` | 授權（11/22，整個專案 AGPL-3.0）：根目錄的 LICENSE 是 AGPL-3.0 全文、和 `models/yolo/LICENSE` 一模一樣、package.json 寫 AGPL-3.0-only；首頁、使用說明、研究成果的頁尾有原始碼連結（AGPL 要求讓使用網站的人拿得到原始碼） |
 | `tests/share.test.mjs` | 分享這次的結果（11/14）：日期時間、照畫面上的順序、沒有的段落不寫、太長從後面拿掉（網址留著） |
 | `tests/auto-segments.test.mjs` | 重播分析的 AI 全自動分段（11/8 追加 3）：合成受測者 K 深蹲 → 伏地挺身 → 弓箭步各 10 下，分出來的每一段、每一段幾下和照 main.js 的做法跑的一樣（都數到 10 下）；重播分析只分自由模式錄的（和沒記動作的舊檔案），選了動作錄的、被改壞的動作名稱不分 |
 | `tests/train.test.mjs` | AI 模型和規則、DTW 比（11/3）：規則的判斷（報了好幾種取超過門檻最多的）、DTW 的門檻只看訓練資料、成績的每一種算法、模型學到的門檻；合成的三位受測者訓練＋比較；命令列（存模型、混到不訓練、用法） |

@@ -22,7 +22,7 @@
 
 - AGPL-3.0 要求：用這個模型提供網路服務時，要讓使用的人拿得到原始碼。這個網站的原始碼全部公開在 https://github.com/ttweew/claude-workspace （網站「使用說明」的常見問題也有連結）。
 - Ultralytics 的說法是：用了 YOLO 的整個專案都要用 AGPL-3.0 開放原始碼；不想開放要買他們的商業授權。
-- **整個專案要不要標成 AGPL-3.0，要組員和老師決定**（目前只有這個資料夾標了 AGPL-3.0）。不同意的話，把 `js/ai/model-choice.js` 的 `MODEL_CHOICES` 拿掉 `'yolo-n'`、`'yolo-s'`，再刪掉這個資料夾，網站就回到只有 MediaPipe。
+- **11/22 組員決定整個專案也用 AGPL-3.0**（根目錄的 [LICENSE](../../LICENSE)）。以後真的要拿掉 YOLO 的話：把 `js/ai/model-choice.js` 的 `MODEL_CHOICES` 拿掉 `'yolo-n'`、`'yolo-s'`，再刪掉這個資料夾，網站就回到只有 MediaPipe。
 
 換模型檔時，`sw.js` 的 `AI_SHA256`、`js/config.js` 的 `YOLO_FILES`（檔名、大小）、這份說明的表要一起改。
 
