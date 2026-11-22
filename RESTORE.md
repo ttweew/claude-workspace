@@ -221,3 +221,14 @@ for i in 0 1 2; do certutil -d sql:/root/.pki/nssdb -A -t "C,," -n "proxy$i" -i 
   - 自己訓練（放在 `$S/p6e2e`）：`venv/bin/python -I tools/yolo-dataset.py $S/p4e2e/pushup_x4.webm <full 的 rec_A.json> --out $S/p6e2e/datasets/feet3`；`draw_label.py <資料夾> <輸出.png> [第幾張] ['*_roi.jpg']` 把標記畫在圖上看對不對；`cd $S/p6e2e/train && venv/bin/python -I tools/yolo-train.py <data.yaml> --model $S/yolo/weights/yolo26n-pose.pt --epochs 30 --batch 8 --name feet30d`（CPU 約 7 分鐘）。
   - 除錯：`head_diff.py <yolo26n-pose.pt>`（17 點和 21 點的模型哪些參數形狀不一樣）、`check_transfer.py <tools/yolo-train.py> <yolo26n-pose.pt>`（搬完參數：前 17 點和官方一樣、新的 4 點等於腳踝）、`check_pt.py <best.pt> <資料夾>`（Ultralytics 自己的 predict：每個點和標記差多少）。
   - 放進網站的複本：`python3 -I make_site.py <網站資料夾> <best.tflite> $S/p6site`（加一個 `yolo-f`：feet: true、kpts: 21），`OUT=… node compare_real.mjs $S/p6site full yolo-f`，`node check_feet.mjs rec_A.json rec_B.json`（腳跟、腳尖看不看得到、和 MediaPipe 差幾像素）。11/21 結果：沒搬 17 點的參數 → 腳跟腳尖差 200 多像素；搬了但訓練資料只有整個畫面 → 70% 的格子找到人、差 23～25 像素（網站不框出人時 100%、3～4 像素）；加上框出人的那一塊 → 100%、3 下、差 4～8 像素。
+- 11/22 讓 YOLO 更好用（PR #147：挑靠近鏡頭的那一側、AI 判斷寫出量不到腳的錯、多人時跟著同一個人、準確度比賽）的實驗和真模型實測：`yolo1122/` 的檔案。程式裡的網站資料夾寫死成 `/home/user/claude-workspace` 或暫存區的 `wt_ai`、`wt_all`，換成要測的那一份。
+  - `side_check.mjs <資料夾>`（資料夾裡放模型對照頁存的兩份錄製檔）：兩個模型每一格左右兩側的可信度加總、網站照可信度挑哪一側、兩側的手肘角度。11/22：伏地挺身示範影片 MediaPipe lite 兩側 3.05、3.91，240 格都挑靠近鏡頭的右側；YOLO26n 3.87、3.93（差不到換邊的門檻 0.4），237 格都停在預設的左側（被身體擋住的那一側）。
+  - `facing_check.mjs <錄製檔…>`：pipeline 每一格判斷的面向，會不會左右跳。
+  - `heel_missing.mjs`：合成受測者 I、J、K（AI 模型沒看過）故意墊腳跟的深蹲、前膝超過腳尖的弓箭步，照常算一次 AI 判斷，再把腳的特徵改成 null（像 YOLO）算一次。11/22（改之前）：看不到腳時兩種都 15 下全判做對（把握 89%、93%）。
+  - `null_feet.mjs`：合成的錄製檔（MediaPipe，有腳跟腳尖）每一下腳的數字有沒有 null（11/22：沒有，AI 訓練時沒看過量不到腳的情況）。
+  - `nofeet_exp.mjs`：A～H 訓練、I、J、K 測試，測試時腳的特徵改成 null：一般的 AI 模型和「不看腳」的模型（不用腳的特徵、不判腳的錯）比。11/22：每一下判的一模一樣，所以網站沒有另外放模型，改成那一句寫出沒判斷的錯。
+  - `reanalyze.mjs <網站資料夾> <錄製檔…>`：同一份錄製檔用那一版網站的重播分析算次數、每一下最低的手肘（改之前、改之後各跑一次比）。11/22：伏地挺身示範（YOLO26n）改前改後都是 3 下、69／72／75°（被擋住那一側的手臂本來就被擋鬼點擋掉）。
+  - `arm_zoom.py <$S/yolo> <輸出.png>`（`$S/yolo/venv/bin/python -I`，要先有 11/21 `vid.mjs` 的 `vidout/`）：伏地挺身最低點兩個模型的手臂畫在同一張、放大。
+  - 兩個人的影片（別人的作品合成的，只放暫存區）：`mkdir -p $S/mp_real/vid && cd $S/mp_real/vid && ffmpeg -v error -y -stream_loop 2 -i $S/p4e2e/pushup_x4.webm -filter_complex "[0:v]split[a][b];[a]trim=0:16,setpts=PTS-STARTPTS,pad=1024:360:0:0:color=0x808080[ap];[b]trim=1:17,setpts=PTS-STARTPTS,hflip,scale=384:216[bs];[ap][bs]overlay=640:144[out]" -map "[out]" -r 30 -c:v libvpx -b:v 2M -an two_people.webm`：左邊是原本的人，右邊是同一段影片晚 1 秒、左右翻轉、縮小的另一個人（比較遠、比較小）。
+  - `two_people.mjs <網站資料夾> <影片>`（放在 `$S/mp_real`；真的 LiteRT、YOLO、MediaPipe，準備同上面 11/21 的 `real.mjs`）：模型對照頁 lite 和 YOLO26n 各數幾下；首頁示範模式選 YOLO26n，印骨架跟著誰，點另一個人、點空白處、點回來，存三張截圖。`TAPS=x1,y1,x2,y2` 是另一個人、原本的人在鏡頭畫面上的比例座標（11/22 用 `0.81,0.82,0.31,0.62`）；`SKIP_COMPARE=1` 跳過模型對照。11/22：兩個模型都 7 下；一開始跟著左邊的人，點右邊的人改跟他（之後 4 秒都在他身上），點空白處寫「點的地方沒有找到人」，點回左邊改回來。
+  - `what_at.mjs`：首頁開著鏡頭時，鏡頭畫面上幾個位置點下去會點到什麼（瀏覽器測試找「點了不會點到按鈕」的位置用）。
