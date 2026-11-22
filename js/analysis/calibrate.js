@@ -8,7 +8,7 @@
 // 不用另外按按鈕：做動作前本來就會先站好，網站趁那時候記下來；每次開鏡頭重新校正
 // 只在側面、斜側面拍時校正（正面看不出膝蓋和上身前後彎）
 
-import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
+import { P, isVisible, poseSide } from '../skeleton/landmarks.js';
 
 export const CALIBRATE = {
     holdMs: 1500,     // 站直不動要持續這麼久
@@ -81,7 +81,7 @@ export class Calibrator {
     sample(pose) {
         const view = pose.view && pose.view.view;
         if (view !== 'side' && view !== 'oblique') return null;
-        const side = clearerSide(pose.landmarks);
+        const side = poseSide(pose);
         const knees = [pose.angles.LEFT_KNEE, pose.angles.RIGHT_KNEE].filter(a => a !== null && a !== undefined);
         if (!knees.length || Math.min(...knees) < CALIBRATE.knee) return null;
         const tilt = phoneTilt(pose), torso = torsoAngle(pose, side);

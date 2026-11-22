@@ -3,7 +3,7 @@
 // 所以「AI 算的」就是鏡頭對著這個姿勢時網站會算出來的角度
 
 import { loadPose, openSource } from '../ai/pose-source.js';
-import { MODEL_KEYS, profileOf, shortName } from '../ai/models.js';
+import { MODEL_KEYS, profileOf, shortName, seesOcclusion } from '../ai/models.js';
 import { modelToLoad } from '../ai/model-choice.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
 import { JOINTS, isJoint, jointOf, pointAngle, aiPoints, startPoints, defaultJoint, photoSnapshot } from '../analysis/protractor.js';
@@ -55,6 +55,7 @@ function getDetector() {
 // 同一張照片給 AI 看 DETECT_TIMES 次，回傳最後一次的結果（pipeline 處理過；找不到人是 null）
 async function detectPose(detector, width, height) {
     const pipeline = new PosePipeline();
+    pipeline.nearByFacing = !seesOcclusion(detector.model);   // 用 YOLO 時照頭朝哪邊挑靠近鏡頭的那一側（11/22）
     let pose = null;
     for (let i = 0; i < DETECT_TIMES; i++) {
         // 以前從 100 開始：在主畫面跑 AI（?worker=0）時比暖機的時間早，AI 直接出錯（背景執行緒會自己調，沒發現）
@@ -72,7 +73,7 @@ otherPick.replaceChildren(new Option('不用', ''), ...MODEL_KEYS.filter(k => k 
 otherPick.addEventListener('change', () => {
     if (other) other.promise.then(d => d.close(), () => {});
     other = null;
-    if (photo) photo.other = null;
+    if (photo) photo.other = photo.otherKey = null;
     const key = otherPick.value;
     setStatus(otherStatus, '');
     if (MODEL_KEYS.includes(key)) {
@@ -96,6 +97,7 @@ async function runOther() {
         const pose = await detectPose(detector, shot.width, shot.height);
         if (other !== mine || photo !== shot) return;
         shot.other = pose;
+        shot.otherKey = mine.key;
         setStatus(otherStatus, pose ? '' : shortName(mine.key) + ' 在這張照片裡找不到人');
     } catch (err) {
         if (other === mine) setStatus(otherStatus, shortName(mine.key) + ' 用不了（' + err.message + '）', true);
@@ -128,7 +130,8 @@ async function loadPhoto(file) {
         canvas.height = height;
         canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
         if (bitmap.close) bitmap.close();
-        photo = { width, height, pose: null, other: null };
+        // otherKey：另一個模型看完這張照片了（11/22，記下時要知道 other 是「找不到人」還是「還沒看完」）
+        photo = { width, height, pose: null, other: null, otherKey: null };
         lines.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
         // AI 還在找的時候先收起來：圈還沒放好，按「記下」會記到上一張照片的位置（以前會出錯）
         points = null;
@@ -144,7 +147,7 @@ async function loadPhoto(file) {
         } catch (err) {
             message = 'AI 用不了（' + err.message + '）：還是可以自己把三個圈拖到關節上，「AI 算的」會空著';
         }
-        pickJoint(defaultJoint(photo.pose ? photo.pose.landmarks : null));
+        pickJoint(defaultJoint(photo.pose ? photo.pose.landmarks : null, photo.pose ? photo.pose.near : null));
         measureCard.hidden = false;
         setStatus(photoStatus, message, !photo.pose);
         // 選了另一個模型：這張照片也給它看
@@ -294,7 +297,12 @@ saveBtn.addEventListener('click', () => {
     const mine = points ? pointAngle(...points) : null;
     if (mine === null) return;
     const pose = photo.pose;
-    const n = addSnapshot(photoSnapshot(pose ? pose.angles : null, pose && pose.view ? pose.view.view : null, joint, mine));
+    // 準確度比賽（11/22）：記下是哪個模型算的；「也用另一個模型算」而且它看完這張照片了，另一個模型的角度也記（它找不到人時角度是空的）
+    const otherDone = other && photo.otherKey === other.key;
+    const n = addSnapshot(photoSnapshot(pose ? pose.angles : null, pose && pose.view ? pose.view.view : null, joint, mine, Date.now(), {
+        model: modelToLoad(),
+        other: otherDone ? { model: other.key, angles: photo.other ? photo.other.angles : null } : null
+    }));
     setStatus(saveStatus, '已記下第 ' + n + ' 筆（' + jointOf(joint).name + ' ' + mine.toFixed(1) + '°）。到使用說明「驗證實驗」看全部的統計、下載 CSV');
 });
 

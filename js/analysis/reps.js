@@ -7,7 +7,7 @@
 //   只在側面、斜側面拍時計算：正面拍的角度誤差太大（見 view.js），會提示使用者側身
 // HoldTimer：趴好就算開始這一次（棒式），姿勢對（一直線）的時候才計時；姿勢跑掉時暫停，起身就結束這一次
 
-import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
+import { P, isVisible, clearerSide, poseSide } from '../skeleton/landmarks.js';
 
 export const REP_DEFAULTS = {
     minRepMs: 500,    // 一下至少要這麼久（伏地挺身：10/20 實測受測者 B 故意屁股太高時一下只要 0.67 秒）
@@ -31,9 +31,9 @@ export function bodyTilt(landmarks, width, height, side = clearerSide(landmarks)
 }
 
 // 選一側的角度（和大字儀表板同一側：靠近鏡頭、看得比較清楚的那側）；那一側算不出來時用另一側
-// counter.side 會記住目前用哪一側，兩側差不多清楚時不會一直換
+// counter.side 會記住目前用哪一側，兩側差不多清楚時不會一直換；用 YOLO 時照頭朝哪邊（poseSide，11/22）
 export function clearerAngle(pose, counter, joint) {
-    counter.side = clearerSide(pose.landmarks, counter.side);
+    counter.side = poseSide(pose, counter.side);
     const other = counter.side === 'LEFT' ? 'RIGHT' : 'LEFT';
     const a = pose.angles[counter.side + '_' + joint];
     return a !== null && a !== undefined ? a : pose.angles[other + '_' + joint] ?? null;

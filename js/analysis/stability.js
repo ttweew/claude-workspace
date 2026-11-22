@@ -15,7 +15,7 @@
 //     真人站著就比示範動畫蹲一下還多，所以不能拿示範動畫的數字當門檻
 import { balanceOf } from './balance.js';
 import { hipSag, bendDegrees } from './form.js';
-import { clearerSide } from '../skeleton/landmarks.js';
+import { poseSide } from '../skeleton/landmarks.js';
 import { FATIGUE } from './fatigue.js';
 
 export const STABILITY = {
@@ -42,7 +42,7 @@ export function stabilityValue(workoutId, pose) {
         return b ? b.offset : null;
     }
     if (workoutId === 'plank') {
-        const sag = hipSag(pose, clearerSide(pose.landmarks));
+        const sag = hipSag(pose, poseSide(pose));
         return sag === null ? null : bendDegrees(sag);
     }
     return null;

@@ -5,6 +5,7 @@
 
 import { ANGLES } from './angles.js';
 import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
+import { isModelKey } from '../ai/models.js';
 
 // 可以量的關節：和網站算的一樣（膝、髖、肘，左右各一）；ids 是三個點，中間那個是關節
 export const JOINTS = ANGLES.map(([key, name, ids]) => ({ key, name, ids }));
@@ -37,8 +38,9 @@ export function startPoints(width, height) {
 }
 
 // 預設量哪個關節：看得比較清楚那一側的膝蓋（實驗 A 主要量膝蓋）；找不到人時左膝
-export function defaultJoint(landmarks) {
-    return (landmarks ? clearerSide(landmarks) : 'LEFT') + '_KNEE';
+// near：靠近鏡頭的那一側（用 YOLO 時 pipeline 照頭朝哪邊決定的，11/22）；有的話用它
+export function defaultJoint(landmarks, near = null) {
+    return (near === 'LEFT' || near === 'RIGHT' ? near : landmarks ? clearerSide(landmarks) : 'LEFT') + '_KNEE';
 }
 
 // 角度寫到小數第 1 位（和鏡頭畫面「記下角度」一樣）
@@ -47,8 +49,16 @@ const r1 = v => (v === null || v === undefined || !Number.isFinite(v) ? null : M
 // 存進驗證實驗 A 的一筆：格式和鏡頭畫面「記下角度」一樣（js/analysis/validate.js 的 makeSnapshot），多一個 source: 'photo'
 //   angles：AI 在這張照片上算的各關節角度（找不到人時都是 null，差距就空著）；view：AI 判斷的拍攝方向
 //   measured：使用者拖三個點量到的角度，直接填進「量角器」那一欄
-export function photoSnapshot(angles, view, key, measured, time = Date.now()) {
-    const out = {};
-    for (const j of JOINTS) out[j.key] = r1(angles ? angles[j.key] : null);
-    return { time, workout: '', view: view || null, joint: key, angles: out, measured: r1(measured), source: 'photo' };
+//   model：算 angles 的模型（11/22 準確度比賽）；other：「也用另一個模型算」時 { model, angles }（那個模型找不到人時角度都是 null）
+export function photoSnapshot(angles, view, key, measured, time = Date.now(), { model = null, other = null } = {}) {
+    const round = a => {
+        const out = {};
+        for (const j of JOINTS) out[j.key] = r1(a ? a[j.key] : null);
+        return out;
+    };
+    return {
+        time, workout: '', view: view || null, joint: key, angles: round(angles), measured: r1(measured), source: 'photo',
+        ...(isModelKey(model) ? { model } : {}),
+        ...(other && isModelKey(other.model) ? { other: { model: other.model, angles: round(other.angles) } } : {})
+    };
 }

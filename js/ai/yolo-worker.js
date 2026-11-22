@@ -3,19 +3,28 @@
 // 網站自己的程式（yolo-core.js）和放在網站裡的 LiteRT.js（vendor/litertjs/）用 import() 載入
 //
 // 和主畫面溝通的訊息（type）：
-//   收到：init（AI 引擎和模型檔，主畫面下載好了才送來，下載進度由主畫面顯示）、detect（一格畫面）
+//   收到：init（AI 引擎和模型檔，主畫面下載好了才送來，下載進度由主畫面顯示）、detect（一格畫面；focus：使用者點的位置，11/22）
 //   送出：ready（準備好了：用 GPU 還是 CPU、兩種各量到每格幾毫秒）、fatal（無法啟動）、
-//         result（找到的 17 個點；沒有人是 null）、detect-error
+//         result（找到的 17 個點；沒有人是 null；focus：點的那裡有沒有人 'ok'、沒有 'miss'、就是正在跟著的人 'same'）、detect-error
 //
 // 「先框出人」（js/ai/yolo-core.js 的 regionFor）：上一格找到人，這一格只看人附近（放大 25%），人在 320 裡變大、點比較準；
 // 找不到人就下一格看整個畫面
+// 畫面裡有好幾個人（11/22，yolo-core.js 的 pickPerson）：跟著同一個人（和上一格的框重疊最多的），不跳到旁邊分數比較高的人身上；
+// 跟丟了（被擋住、走出去）LOST_MS 內在原本位置附近大一點的範圍找回同一個人，超過就看整個畫面、改跟最大的（離手機最近的）；
+// 使用者點了畫面就改跟點的那個人
 
 let core = null;    // LiteRT.js：{ loadLiteRt, loadAndCompile, Tensor }
 let yc = null;      // js/ai/yolo-core.js
 let model = null;   // 編譯好的模型
-let box = null;     // 上一格找到的人（畫面像素 [x1, y1, x2, y2]），找不到是 null
+let box = null;     // 跟著的人在上一次找到時的框（畫面像素 [x1, y1, x2, y2]），還沒有人是 null
+let lostAt = null;  // 跟著的人從什麼時候開始找不到（ts）；找得到是 null
 let last = null;    // 上一格的 { ts, W, H }：隔太久、畫面大小變了（換了照片、換了鏡頭）就不沿用上一格的框
 const GAP_MS = 500; // 鏡頭每秒 30 格時兩格差約 33 毫秒；超過 0.5 秒（照片量角器一張一張算、切到背景回來）當作新的畫面
+// 跟丟多久就放掉、改跟最大的那個人：1 秒（擋住一下、蹲下去被桌子擋到都在 1 秒內；網站「看不到人」1.5 秒才作廢這一下，
+// reps.js 的 lostMs），比這個久大概是真的走出畫面了
+const LOST_MS = 1000;
+// 點的那個人和正在跟著的人的框重疊這麼多，就是同一個人（點在自己身上，例如肚子，不是關節）：不用從頭開始
+const SAME_FOCUS_IOU = 0.5;
 let canvas = null, ctx = null, input = null;
 let kpts = 17;      // 模型有幾個點：官方的 17；自己訓練、加腳跟腳尖的 21（js/ai/models.js 的 kpts）
 
@@ -138,30 +147,59 @@ async function init(m) {
     self.postMessage({ type: 'ready', mode: best.mode, gpuName: gpu ? gpu.name : '', gpuError, tried });
 }
 
-// 一格：m：{ id, bitmap, ts（送出這一格的時間，毫秒） }
+// 給模型看畫面的一塊（region，畫面像素）→ 找到的每一個人（yolo-core.js 的 decodeAll）
+async function peopleIn(bitmap, region, W, H) {
+    const S = yc.INPUT_SIZE;
+    const fit = yc.letterbox(region.rw, region.rh, S);
+    ctx.fillStyle = 'rgb(114, 114, 114)';
+    ctx.fillRect(0, 0, S, S);
+    ctx.drawImage(bitmap, region.rx, region.ry, region.rw, region.rh, fit.padX, fit.padY, fit.w, fit.h);
+    yc.toInput(ctx.getImageData(0, 0, S, S).data, S, input);
+    return yc.decodeAll(await runOnce(model), region, fit, W, H, S, kpts);
+}
+
+// 使用者點的位置（主畫面送來的，鏡頭原始畫面的比例座標 0～1）→ 畫面像素；不是兩個 0～1 的數字就當作沒點
+function focusOf(f, W, H) {
+    if (!f || typeof f !== 'object') return null;
+    const { x, y } = f;
+    return typeof x === 'number' && typeof y === 'number' && x >= 0 && x <= 1 && y >= 0 && y <= 1 ? [x * W, y * H] : null;
+}
+
+// 一格：m：{ id, bitmap, ts（送出這一格的時間，毫秒）, focus（使用者點的位置 { x, y }，可省略） }
 async function detect(m) {
     const bitmap = m.bitmap;
     try {
         if (!model) throw new Error('模型還沒準備好');
         const t0 = performance.now();
         const W = bitmap.width, H = bitmap.height;
-        const S = yc.INPUT_SIZE;
         const ts = typeof m.ts === 'number' && Number.isFinite(m.ts) ? m.ts : null;
-        if (!last || ts === null || ts - last.ts > GAP_MS || ts < last.ts || W !== last.W || H !== last.H) box = null;
+        if (!last || ts === null || ts - last.ts > GAP_MS || ts < last.ts || W !== last.W || H !== last.H) box = lostAt = null;
         last = ts === null ? null : { ts, W, H };
-        // 先框出人：上一格有人就只看人附近；沒有就看整個畫面
-        const region = yc.regionFor(box, W, H) || { rx: 0, ry: 0, rw: W, rh: H };
-        const fit = yc.letterbox(region.rw, region.rh, S);
-        ctx.fillStyle = 'rgb(114, 114, 114)';
-        ctx.fillRect(0, 0, S, S);
-        ctx.drawImage(bitmap, region.rx, region.ry, region.rw, region.rh, fit.padX, fit.padY, fit.w, fit.h);
-        yc.toInput(ctx.getImageData(0, 0, S, S).data, S, input);
-        const out = await runOnce(model);
-        const best = yc.decodeBest(out, region, fit, W, H, S, kpts);
-        box = best ? best.box : null;
-        self.postMessage({ type: 'result', id: m.id, k: best ? best.k : null, ms: performance.now() - t0 });
+        const focus = focusOf(m.focus, W, H);
+        // 先框出人：跟著的人上一格找得到就只看他附近；跟丟了 LOST_MS 以內看原本位置附近大一點的範圍（遠的、小的人在整個畫面裡找不到）；
+        // 還沒有人、跟丟太久、使用者點了畫面（要找點的那個人）就看整個畫面
+        const lostLong = lostAt !== null && !(ts - lostAt <= LOST_MS);
+        const region = (!focus && !lostLong && yc.regionFor(box, W, H, lostAt === null ? yc.ROI_GROW : yc.LOST_GROW)) || { rx: 0, ry: 0, rw: W, rh: H };
+        const people = await peopleIn(bitmap, region, W, H);
+        let chosen = focus ? yc.pickPerson(people, { focus }) : null;
+        // 點的人在整個畫面裡太小找不到（遠的、趴著的）：把點的那一塊放大再找一次（只有點了、第一次又沒找到的那一格多算一次）
+        if (focus && !chosen) {
+            const zoom = yc.regionAround(focus, W, H);
+            if (zoom) chosen = yc.pickPerson(await peopleIn(bitmap, zoom, W, H), { focus });
+        }
+        const focused = !focus ? undefined : !chosen ? 'miss'
+            : box && lostAt === null && yc.iou(chosen.box, box) >= SAME_FOCUS_IOU ? 'same' : 'ok';
+        // 沒點、或點的地方沒有人：照常跟著原本的人；跟丟太久（或還沒有人）就改跟最大的
+        if (!chosen) chosen = box && !lostLong ? yc.pickPerson(people, { prev: box }) : yc.pickPerson(people);
+        if (chosen) {
+            box = chosen.box;
+            lostAt = null;
+        } else if (box && lostAt === null) {
+            lostAt = ts === null ? -Infinity : ts;
+        }
+        self.postMessage({ type: 'result', id: m.id, k: chosen ? chosen.k : null, focus: focused, ms: performance.now() - t0 });
     } catch (err) {
-        box = null;
+        box = lostAt = null;
         self.postMessage({ type: 'detect-error', id: m.id, message: String(err && err.message || err) });
     } finally {
         bitmap.close();

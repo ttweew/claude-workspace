@@ -5,9 +5,9 @@ import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId
 import { videoFileSupported, looksLikeVideo, openVideoFile } from '../platform/video-source.js';
 import { loadPose } from '../ai/pose-source.js';
 import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
-import { shortName, hasFeet, profileOf, familyOf } from '../ai/models.js';
+import { shortName, hasFeet, profileOf, familyOf, seesOcclusion } from '../ai/models.js';
 import { drawSkeleton, drawBalance } from '../ui/draw.js';
-import { videoRect, updateLabels, hideLabels, nearestPoint } from '../ui/labels.js';
+import { videoRect, updateLabels, hideLabels, nearestPoint, fromScreen } from '../ui/labels.js';
 import { FpsCounter } from '../ai/fps.js';
 import { SpeedMeter, AutoFps, ADVICE, advise, median, loadSkipped, skipAdvice } from '../ai/advisor.js';
 import { PosePipeline } from '../skeleton/pipeline.js';
@@ -30,7 +30,7 @@ import { setupGrowth } from '../ui/growth-chart.js';
 import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
-import { clearerSide } from '../skeleton/landmarks.js';
+import { poseSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, autoList, AUTO_LIST_MAX, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
 import { repSeries } from '../analysis/rep-series.js';
@@ -815,12 +815,17 @@ function showResult(result, now) {
         updatePerfInfo();
         measureSecond();
     }
+    // 點畫面換人（11/22，YOLO）：點的那裡有人就從頭開始跟著他；沒有人就照常跟著原本的人，寫一句說明
+    if (result.focus === 'ok') personSwitched();
+    else if (result.focus === 'miss') showAutoNote('點的地方沒有找到人：點在人身上才會改跟他');
     // landmarks 就是 33 個關鍵點，每點有 x、y、z（0～1 的比例座標）
     // 畫面上用平滑後的點（不抖動）；原始的點保留在 raw，之後分析資料時使用
     const raw = result.landmarks;
     // world：以公尺為單位的 3D 座標（髖部中心為原點），錄製時保存
     const rawWorld = result.world;
     // 平滑 → 擋鬼點 → 角度 → 拍攝方向（js/skeleton/pipeline.js）；沒有人或是鬼骨架時為 null
+    // 用 YOLO 時照頭朝哪邊決定靠近鏡頭的那一側（11/22：YOLO 被擋住的那一側可信度也很高，見 pipeline.js）
+    pipeline.nearByFacing = !seesOcclusion(currentModel());
     const processed = pipeline.process(raw, now, video.videoWidth, video.videoHeight);
     keepPose(processed, now);
     if (processed) {
@@ -846,7 +851,7 @@ function showResult(result, now) {
         // 拍攝方向（view）之後做動作判斷時使用，目前顯示在數據面板
         lastPose = { ...processed, raw, rawWorld, shown, shownDerived, balance };
         showPoseLabels();
-        hud.update(landmarks, angles);
+        hud.update(landmarks, angles, processed.near);
         // 依拍到的部位提示怎麼站，全身入鏡時顯示綠色「已偵測到全身」
         const hint = framing.update(framingAdvice(landmarks), now);
         // 運動模式：站位沒問題時，換成計算次數的提示（例如正面拍時請側身、伏地挺身請趴下）
@@ -1603,8 +1608,8 @@ document.getElementById('snapBtn').addEventListener('click', () => {
         showSnapCount('還沒偵測到人，站進畫面再按');
         return;
     }
-    const side = clearerSide(lastPose.landmarks);
-    const n = addSnapshot(makeSnapshot(lastPose, workout.id, side + '_' + workout.hud[0]));
+    const side = poseSide(lastPose);
+    const n = addSnapshot(makeSnapshot(lastPose, workout.id, side + '_' + workout.hud[0], currentModel()));
     const joint = (side === 'LEFT' ? '左' : '右') + { KNEE: '膝', HIP: '髖', ELBOW: '肘' }[workout.hud[0]];
     const angle = lastPose.angles[side + '_' + workout.hud[0]];
     showSnapCount('第 ' + n + ' 筆：' + joint + ' ' + (angle === null ? '—' : Math.round(angle) + '°') + '（到使用說明「驗證實驗」和量角器比對）');
@@ -1662,13 +1667,37 @@ function shownAngles() {
 
 // 點畫面上任何一個點（包括臉、手指），顯示它的編號與名稱
 function pickPoint(event) {
-    if (!lastPose || event.target.closest('#toolbar, #infobar, #dataPanel')) return;
+    if (event.target.closest('#toolbar, #infobar, #dataPanel')) return;
     const bounds = stage.getBoundingClientRect();
     const rect = videoRect(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight);
-    const id = nearestPoint(event.clientX - bounds.left, event.clientY - bounds.top,
-        lastPose.shown, lastPose.shownDerived, rect, video.classList.contains('mirrored'), 40);
+    const x = event.clientX - bounds.left, y = event.clientY - bounds.top;
+    const mirrored = video.classList.contains('mirrored');
+    const id = lastPose ? nearestPoint(x, y, lastPose.shown, lastPose.shownDerived, rect, mirrored, 40) : null;
+    // 點的不是正在跟著的人的關節（11/22）：用 YOLO 時改跟著點的那個人（YOLO 一次找到畫面裡每一個人；MediaPipe 只找一個，focusAt 回傳 false）
+    // 下一格才知道點的地方有沒有人（showResult 的 result.focus）
+    if (id === null && pose && !switchingModel) {
+        const p = fromScreen(x, y, rect, mirrored);
+        if (p && pose.focusAt(p.x, p.y)) {
+            picked = null;
+            showPoseLabels();
+            return;
+        }
+    }
+    if (!lastPose) return;
     picked = id === null ? null : { id, until: performance.now() + 3000 };
     showPoseLabels();
+}
+
+// 點畫面換人（11/22，YOLO）：換成另一個人，平滑、擋鬼點、拍攝方向從頭開始（不要從原本的人身上滑過去），
+// 進行中的這一下作廢、重新校正（換了一個人，身體不一樣），已經做完的次數保留（和重開鏡頭一樣）
+function personSwitched() {
+    pipeline.reset();
+    worldStabilizer.reset();
+    framing.reset();
+    resetActivity();
+    resetGesture();
+    interruptCounter();
+    showAutoNote('改跟著你點的那個人');
 }
 
 // ---------- 鏡頭 ----------

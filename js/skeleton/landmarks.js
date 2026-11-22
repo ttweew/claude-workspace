@@ -88,3 +88,9 @@ export function clearerSide(landmarks, current = 'LEFT', margin = 0.4) {
     const other = current === 'LEFT' ? 'RIGHT' : 'LEFT';
     return score(other) > score(current) + margin ? other : current;
 }
+
+// 一格骨架（js/skeleton/pipeline.js 的結果）用哪一側（11/22）：pipeline 照頭朝哪邊決定了（pose.near，用 YOLO 時：
+// YOLO 被擋住的那一側可信度也很高，照可信度挑會挑到被擋住的那一側）就用它；不然照可信度（clearerSide，MediaPipe 和以前一樣）
+export function poseSide(pose, current = 'LEFT') {
+    return pose.near === 'LEFT' || pose.near === 'RIGHT' ? pose.near : clearerSide(pose.landmarks, current);
+}

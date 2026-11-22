@@ -1,7 +1,8 @@
-// YOLO 的前處理和讀輸出（js/ai/yolo-core.js，11/21）：補灰邊的數字、先框出人、模型輸出換回畫面上的位置
+// YOLO 的前處理和讀輸出（js/ai/yolo-core.js，11/21）：補灰邊的數字、先框出人、模型輸出換回畫面上的位置；
+// 畫面裡有好幾個人時跟著誰（11/22）：每一個人都讀出來、跟著同一個人、一開始挑最大的、點哪個人就跟哪個人
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { INPUT_SIZE, COLS, PERSON_SCORE, letterbox, regionFor, toInput, decodeBest } from '../js/ai/yolo-core.js';
+import { INPUT_SIZE, COLS, PERSON_SCORE, SAME_IOU, letterbox, regionFor, regionAround, toInput, decodeBest, decodeAll, iou, pickPerson } from '../js/ai/yolo-core.js';
 
 const S = INPUT_SIZE;
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -116,4 +117,85 @@ test('21 點的模型（11/21）：一列 69 個數字，21 個點都換回畫�
     });
     // 用 17 點去讀 21 點的輸出會讀錯：所以一定要照模型的點數（js/ai/models.js 的 kpts）
     assert.notEqual(decodeBest(d, region, fit, W, H, S, 17).score, 0.8);
+});
+
+// ---------- 畫面裡有好幾個人（11/22） ----------
+// 好幾個人的假輸出：people 是 [{ row, score, box, k }]（320 裡的像素），其他列分數 0.01
+function crowd(people, rows = 300) {
+    const d = new Float32Array(rows * COLS);
+    for (let r = 0; r < rows; r++) d[r * COLS + 4] = 0.01;
+    for (const p of people) {
+        const o = p.row * COLS;
+        d.set(p.box, o);
+        d[o + 4] = p.score;
+        (p.k || []).forEach(([x, y, c], j) => d.set([x, y, c], o + 6 + j * 3));
+    }
+    return d;
+}
+const pts = (x, y) => Array.from({ length: 17 }, () => [x, y, 0.9]);
+
+test('兩個框重疊多少（交集 ÷ 聯集）：一樣 1、沒碰到 0、一半', () => {
+    assert.equal(iou([0, 0, 10, 10], [0, 0, 10, 10]), 1);
+    assert.equal(iou([0, 0, 10, 10], [20, 20, 30, 30]), 0);
+    assert.equal(iou([0, 0, 10, 10], [10, 0, 20, 10]), 0, '只碰到邊');
+    assert.ok(near(iou([0, 0, 10, 10], [5, 0, 15, 10]), 50 / 150));
+    assert.equal(iou([0, 0, 10, 10], [NaN, 0, 10, 10]), 0);
+});
+
+test('讀出每一個人：分數高的在前、太低的不要、同一個人兩個框只留一個、座標換回整個畫面；最高分的和 decodeBest 一樣', () => {
+    const W = 640, H = 480, region = { rx: 0, ry: 0, rw: W, rh: H }, fit = letterbox(W, H);
+    const d = crowd([
+        { row: 5, score: 0.6, box: [10, 50, 60, 250], k: pts(30, 100) },
+        { row: 9, score: 0.9, box: [200, 60, 300, 270], k: pts(250, 150) },
+        { row: 12, score: 0.8, box: [202, 62, 300, 268], k: pts(251, 151) },   // 和 row 9 幾乎一樣：同一個人
+        { row: 20, score: PERSON_SCORE - 0.01, box: [100, 100, 120, 120], k: pts(110, 110) }
+    ]);
+    const people = decodeAll(d, region, fit, W, H);
+    assert.deepEqual(people.map(p => Math.round(p.score * 10) / 10), [0.9, 0.6]);
+    assert.ok(near(people[0].box[0], 400) && near(people[0].box[1], 40), '扣掉補的灰邊、放大回去');
+    assert.ok(near(people[1].k[0][0], 60 / W, 1e-5));
+    assert.deepEqual(decodeBest(d, region, fit, W, H), people[0]);
+    assert.deepEqual(decodeAll(null, region, fit, W, H), []);
+    assert.deepEqual(decodeAll(crowd([]), region, fit, W, H), []);
+});
+
+test('跟著誰：好幾個人時跟著和上一格重疊最多的（不跳到分數高的人身上）；都不重疊回傳 null；只有一個人時在附近就算', () => {
+    const me = { score: 0.7, box: [100, 100, 200, 400] }, other = { score: 0.95, box: [400, 120, 480, 380] };
+    // 只有一個人：和上一格的框不重疊，但中心離得不遠（不超過上一格框的對角線 316 像素，例如每秒格數很低、動很快）：還是他
+    const moved = { score: 0.8, box: [250, 120, 350, 420] };
+    assert.equal(pickPerson([moved], { prev: me.box }), moved);
+    // 只有一個人、但離很遠（中心差 500 像素）：不是原本的人（原本的人可能小到整個畫面找不到），先不跟
+    assert.equal(pickPerson([{ score: 0.9, box: [600, 100, 700, 400] }], { prev: me.box }), null);
+    // 好幾個人：跟著和上一格重疊最多的；分數比較高的旁人不會搶走
+    assert.equal(pickPerson([other, { ...me, box: [104, 98, 205, 402] }], { prev: me.box }).score, 0.7);
+    // 原本的人被擋住了（旁邊的人都不夠重疊）：null（跟丟了，背景執行緒等一下再找）
+    assert.equal(pickPerson([other, { score: 0.8, box: [205, 100, 300, 400] }], { prev: me.box }), null);
+    assert.ok(iou([205, 100, 300, 400], me.box) < SAME_IOU);
+    assert.equal(pickPerson([], { prev: me.box }), null);
+    assert.equal(pickPerson(null), null);
+});
+
+test('一開始（或跟丟太久）挑框最大的人（離手機最近），不是分數最高的；點畫面就跟著點的那個人', () => {
+    const near1 = { score: 0.7, box: [100, 50, 300, 450] }, far = { score: 0.95, box: [450, 150, 520, 320] };
+    assert.equal(pickPerson([far, near1]), near1);
+    // 點在遠的那個人身上：跟著他；點在兩個框都包住的地方：中心比較近的；點在沒有人的地方：null
+    assert.equal(pickPerson([far, near1], { focus: [480, 200] }), far);
+    const behind = { score: 0.9, box: [80, 40, 330, 470] };
+    assert.equal(pickPerson([near1, behind], { focus: [200, 250] }), near1);
+    assert.equal(pickPerson([far, near1], { focus: [600, 20] }), null);
+    // 點了畫面就不看上一格：點的是誰就跟誰
+    assert.equal(pickPerson([far, near1], { focus: [480, 200], prev: near1.box }), far);
+});
+
+test('點畫面換人：點的那一點附近放大找（遠的人在整個畫面裡太小）：邊長是短邊的一半、靠邊時往裡面挪、不超出畫面', () => {
+    const r = regionAround([830, 295], 1024, 360);
+    assert.ok(near(r.rw, 180) && near(r.rh, 180));
+    assert.ok(near(r.rx, 740) && near(r.ry, 180), '靠下面：整塊往上挪，不超出畫面');
+    const c = regionAround([320, 240], 640, 480);
+    assert.ok(near(c.rx, 200) && near(c.ry, 120) && near(c.rw, 240));
+    const corner = regionAround([5, 5], 640, 480);
+    assert.ok(near(corner.rx, 0) && near(corner.ry, 0));
+    assert.equal(regionAround([5, 5], 40, 40), null, '畫面太小');
+    assert.equal(regionAround([NaN, 5], 640, 480), null);
+    assert.equal(regionAround(null, 640, 480), null);
 });

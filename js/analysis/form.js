@@ -10,7 +10,7 @@
 // 只在動作進行中檢查（例如深蹲蹲下去時才看上身前傾，站直時不看）
 // 門檻依一般健身教學訂的，要請組員實際做做看再調整（docs/roadmap.md）
 
-import { P, isVisible, clearerSide } from '../skeleton/landmarks.js';
+import { P, isVisible, poseSide } from '../skeleton/landmarks.js';
 import { bodyTilt } from './reps.js';
 
 export const FORM_HOLD = { showMs: 400, hideMs: 600 };
@@ -100,7 +100,7 @@ export function kneePastToe(pose, side, facing) {
 // 每一格先算好要用的數字，規則只要比門檻；phoneTilt：個人校正的手機傾斜角度
 // heel（腳跟往上移多少）要看前面的格子，由 FormChecker 的 HeelBase 填上；這裡先是 null
 export function measure(pose, phoneTilt = 0) {
-    const side = clearerSide(pose.landmarks);
+    const side = poseSide(pose);
     const facing = pose.view ? pose.view.facing : 0;
     const front = frontLeg(pose, facing);
     const knees = [pose.angles.LEFT_KNEE, pose.angles.RIGHT_KNEE].filter(a => a !== null && a !== undefined);

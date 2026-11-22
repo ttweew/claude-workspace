@@ -1,7 +1,8 @@
 // 使用說明頁：離線功能（打開過的頁面沒有網路也能看）、實測任務卡、「檢查這支手機」、驗證實驗 A 的比對表
 import { setupOffline } from '../platform/offline.js';
 import { checkSupport, unsupportedAdvice } from '../platform/support.js';
-import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES, MEASURE_RANGE, validMeasure } from '../analysis/validate.js';
+import { loadSnapshots, saveSnapshots, clearSnapshots, stats, toCSV, JOINT_NAMES, MEASURE_RANGE, validMeasure, statsByModel, duels } from '../analysis/validate.js';
+import { profileOf } from '../ai/models.js';
 import { downloadBlob } from '../data/recorder.js';
 import { setupTaskCard } from '../ui/task-card.js';
 import { copyText } from '../ui/copy.js';
@@ -108,7 +109,9 @@ function showValidation() {
         jointCell.append(pick);
         const inputCell = document.createElement('td');
         inputCell.append(input);
-        tr.append(td(String(i + 1)), td(time + (s.source === 'photo' ? '（照片）' : '')), jointCell, site, inputCell, diff);
+        // 哪個模型算的（11/22）：寫在時間後面（照片量角器的「照片」也是）；11/22 以前記的沒有
+        const tags = [s.source === 'photo' ? '照片' : '', s.model ? profileOf(s.model).label : ''].filter(Boolean);
+        tr.append(td(String(i + 1)), td(time + (tags.length ? '（' + tags.join('・') + '）' : '')), jointCell, site, inputCell, diff);
         return tr;
     }));
     showStats(list);
@@ -120,6 +123,21 @@ function showStats(list) {
         ? '已填 ' + r.n + ' 筆：平均誤差 ' + r.mae + '°（平均差 ' + (r.bias > 0 ? '+' : '') + r.bias + '°，標準差 ' + r.sd + '°，最大 ' + r.max + '°）；'
             + r.within5 + '% 在 ±5° 以內、' + r.within10 + '% 在 ±10° 以內'
         : '填入量角器的角度後，這裡會算出平均差幾度';
+    // 準確度比賽（11/22）：每個模型各自的平均誤差（照片量角器「也用另一個模型算」的也算），同一張照片兩個模型誰比較準
+    // 只有一個模型、而且沒有另一個模型的資料時不寫（和以前一樣只有上面那一句）
+    const models = statsByModel(list);
+    const fights = duels(list);
+    const name = m => (m ? profileOf(m).label : '沒寫模型（11/22 以前記的）');
+    const lines = (models.length > 1 || fights.length ? models.map(m => name(m.model) + '：' + m.n + ' 筆，平均誤差 ' + m.mae + '°（平均差 '
+        + (m.bias > 0 ? '+' : '') + m.bias + '°），' + m.within5 + '% 在 ±5° 以內') : [])
+        .concat(fights.map(f => '同一張照片兩個模型都算了 ' + f.n + ' 張：' + name(f.a) + ' 比較準 ' + f.wins.a + ' 張、' + name(f.b) + ' 比較準 '
+            + f.wins.b + ' 張' + (f.wins.tie ? '、一樣 ' + f.wins.tie + ' 張' : '') + '；平均誤差 ' + name(f.a) + ' ' + f.maeA + '°、' + name(f.b) + ' ' + f.maeB + '°'));
+    $('valModels').hidden = !lines.length;
+    $('valModels').replaceChildren(...lines.map(text => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        return li;
+    }));
 }
 $('valCsv').addEventListener('click', () => {
     const d = new Date();

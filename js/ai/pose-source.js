@@ -7,6 +7,7 @@
 //   timings（下載、啟動、暖機各幾秒）、background（是不是在背景執行緒）、
 //   detect(畫面, 時間) → Promise { landmarks：33 點（MediaPipe 的順序，模型沒有的點 visibility 0）或 null, world：3D 座標或 null }、
 //   lostReason()（不能用的原因，能用是 ''）、restart()、useModel(key, onFraction)（同一家換大小）、close()
+//   可以沒有的：focusAt(x, y)（11/22，改跟著畫面上這一點的人；一次找到每一個人的模型才有，YOLO）
 import { loadPoseModel } from './pose.js';
 import { loadYolo } from './yolo.js';
 import { modelToLoad } from './model-choice.js';
@@ -44,6 +45,12 @@ export async function openSource(key, onProgress, attempt = 0, { loaders = LOADE
         detect: (video, timeMs) => current.detect(video, timeMs),
         lostReason: () => current.lostReason(),
         restart: () => current.restart(),
+        // 改跟著畫面上這一點的人（11/22）：這一家有這個功能（YOLO）回傳 true，沒有（MediaPipe 一次只找一個人）回傳 false
+        focusAt(x, y) {
+            if (typeof current.focusAt !== 'function') return false;
+            current.focusAt(x, y);
+            return true;
+        },
         async useModel(next, onFraction) {
             if (familyOf(next) === familyOf(current.model)) return current.useModel(next, onFraction);
             // 換一家：新的下載進度照樣回報；載入失敗時舊的照常能用

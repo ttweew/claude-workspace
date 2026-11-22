@@ -52,6 +52,14 @@ export function videoRect(viewW, viewH, videoW, videoH) {
     return { left: (viewW - w) / 2, top: (viewH - h) / 2, width: w, height: h };
 }
 
+// 螢幕上的位置 → 鏡頭原始畫面的比例座標（toScreen 反過來，11/22 點畫面換人用）；不在影像範圍裡回傳 null
+export function fromScreen(x, y, rect, mirrored) {
+    if (!(rect.width > 0) || !(rect.height > 0)) return null;
+    const u = (x - rect.left) / rect.width, v = (y - rect.top) / rect.height;
+    if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) return null;
+    return { x: mirrored ? 1 - u : u, y: v };
+}
+
 // 關鍵點在螢幕上的位置（已考慮鏡像）
 export function toScreen(point, rect, mirrored) {
     return {

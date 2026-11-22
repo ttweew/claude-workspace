@@ -4,6 +4,7 @@
 //   後鏡頭（請別人拍）沒有鏡像，本人的左邊在畫面右邊，兩組對調，數字永遠跟在身體同一邊
 // 看不到的一側顯示「—」，不顯示猜出來的數字
 // 側面拍時，離鏡頭遠的那一側常被身體擋住、數字比較不可靠：看得明顯比較不清楚的那一組變淡
+// （用 YOLO 時兩側可信度差不多，改成離鏡頭遠的那一組變淡：pipeline 照頭朝哪邊決定的 near，11/22）
 // 顯示哪兩個關節跟著運動模式換（js/analysis/workouts.js）：深蹲、弓箭步是膝、髖，伏地挺身是肘、髖，棒式是髖、膝
 
 import { P } from '../skeleton/landmarks.js';
@@ -55,10 +56,16 @@ export class Hud {
     }
 
     // landmarks：平滑後的 33 點；angles：computeAngles 的結果。沒有偵測到人時傳 null
-    update(landmarks, angles) {
+    // near：靠近鏡頭的那一側（js/skeleton/pipeline.js；用 YOLO 時才有），有的話另一側變淡
+    update(landmarks, angles, near = null) {
         if (!landmarks) {
             this.dim = null;
             this.show(null);
+            return;
+        }
+        if (near === 'LEFT' || near === 'RIGHT') {
+            this.dim = near === 'LEFT' ? 'RIGHT' : 'LEFT';
+            this.show(angles);
             return;
         }
         const diff = score(landmarks, 'LEFT') - score(landmarks, 'RIGHT');

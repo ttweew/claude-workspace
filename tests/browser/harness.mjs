@@ -140,8 +140,11 @@ export const fakeWorkerScript = frames => '(() => {\n' + fakeBody(frames) + '\ns
 //   輸出的格式和真的模型一樣（[300, 57]，320×320 裡的像素）：背景執行緒裁切、縮放畫面（drawImage 的參數）照實換算回去，
 //   網站「先框出人」、補灰邊、換回整個畫面的算法都一起測到
 //   量速度時（還沒畫畫面）回傳沒有人
+//   others（11/22，畫面裡有好幾個人）：另外站著不動的人 [{ dx, scale, score }]：第 0 格的姿勢以腳底為準縮小 scale 倍、往右移 dx（畫面寬的比例），
+//     分數 score；不在這次給模型看的那一塊裡（「先框出人」只看人附近）就找不到他，和真的模型一樣
 const COCO_FROM_33 = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-export const fakeLiteRt = frames => `const FRAMES = ${JSON.stringify(frames)};
+export const fakeLiteRt = (frames, others = []) => `const FRAMES = ${JSON.stringify(frames)};
+const OTHERS = ${JSON.stringify(others)};
 const COCO = ${JSON.stringify(COCO_FROM_33)};
 const used = self.__fakeUsed = [];
 let t0 = null, drawn = null, ts = null;
@@ -178,6 +181,15 @@ export async function loadAndCompile(model, options) {
             const xs = COCO.map(k => x(f[k][0])), ys = COCO.map(k => y(f[k][1]));
             out.set([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), 0.9, 0]);
             COCO.forEach((k, j) => out.set([xs[j], ys[j], f[k][3]], 6 + j * 3));
+            let row = 1;
+            for (const o of OTHERS) {
+                const g = FRAMES[0];
+                const ox = COCO.map(k => x(0.45 + (g[k][0] - 0.45) * o.scale + o.dx)), oy = COCO.map(k => y(0.93 - (0.93 - g[k][1]) * o.scale));
+                if (Math.max(...ox) < d.dx || Math.min(...ox) > d.dx + d.dw || Math.max(...oy) < d.dy || Math.min(...oy) > d.dy + d.dh) continue;
+                out.set([Math.min(...ox), Math.min(...oy), Math.max(...ox), Math.max(...oy), o.score, 0], row * 57);
+                COCO.forEach((k, j) => out.set([ox[j], oy[j], g[k][3]], row * 57 + 6 + j * 3));
+                row++;
+            }
             return [new Tensor(out)];
         },
         delete() {}
@@ -284,7 +296,8 @@ const MODEL = 'https://storage.googleapis.com/mediapipe-models/**';
 
 // 一個瀏覽環境（等於一個乾淨的瀏覽器分頁）：假 AI 播 frames；errors 收集網頁的程式錯誤
 // 擋在整個環境上（context.route），Service Worker 發出的請求也攔得到
-export async function open(browser, frames, { width = 1280, height = 900, mobile = false } = {}) {
+// yoloOthers：假的 YOLO 畫面裡另外站著的人（fakeLiteRt 的 others，11/22）
+export async function open(browser, frames, { width = 1280, height = 900, mobile = false, yoloOthers = [] } = {}) {
     const context = await browser.newContext({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile });
     const page = await context.newPage();
     page.errors = [];
@@ -304,7 +317,7 @@ export async function open(browser, frames, { width = 1280, height = 900, mobile
         await context.route(cdn, route => route.fulfill({ body: 'fake-engine', contentType: 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' } }));
     }
     await context.route('**/models/yolo/*.tflite*', route => route.fulfill({ body: 'fake-model', contentType: 'application/octet-stream' }));
-    await context.route('**/vendor/litertjs/litert-core.js*', route => route.fulfill({ body: fakeLiteRt(frames), contentType: 'text/javascript' }));
+    await context.route('**/vendor/litertjs/litert-core.js*', route => route.fulfill({ body: fakeLiteRt(frames, yoloOthers), contentType: 'text/javascript' }));
     await context.route('https://www.gstatic.com/firebasejs/**', route => {
         const file = new URL(route.request().url()).pathname.split('/').pop();
         const body = Object.prototype.hasOwnProperty.call(FAKE_FIREBASE, file) ? FAKE_FIREBASE[file] : null;

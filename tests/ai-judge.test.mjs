@@ -1,10 +1,10 @@
 // AI 判斷（11/4）：網站裡的 AI 模型（js/analysis/ai-model.js）和 js/analysis/ai-judge.js
 //   模型檔的格式、每個動作都有；網站裡的模型就是這套程式訓練出來的（改了特徵或合成資料要重新產生）；
-//   訓練時沒看過的合成受測者猜得準；規則的判斷換成同一個說法；被改壞的不會當掉
+//   訓練時沒看過的合成受測者猜得準；規則的判斷換成同一個說法；被改壞的不會當掉；量不到腳時寫出沒判斷（11/22）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import MODELS from '../js/analysis/ai-model.js';
-import { hasAiModel, aiJudge, aiJudgeFeatures, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, scoreAverage, aiLimit, explainRep, explainLine } from '../js/analysis/ai-judge.js';
+import { hasAiModel, aiJudge, aiJudgeFeatures, blindErrors, ruleJudge, judgeText, AI_MODEL, seenInTraining, judgeRep, judgeReps, judgeCell, aiLine, repScore, scoreLine, scoreAverage, aiLimit, explainRep, explainLine } from '../js/analysis/ai-judge.js';
 import { featureColumns, itemFeatures } from '../js/analysis/features.js';
 import { trainModel, modelClasses, predictModel } from '../js/analysis/forest.js';
 import { analyzeOne } from '../js/data/report-core.js';
@@ -201,4 +201,41 @@ test('AI 解釋（11/11）：AI 的界線和一格一格試的一樣；判成錯
     assert.equal(explainLine('squat', r.items, judged), 'AI 解釋（最差的第 ' + (worst + 1) + ' 下，判成' + judgeText(judged[worst].ai.label) + '）：' + explainRep('squat', r.items[worst], judged[worst].ai));
     assert.match(explainLine('plank', [{ n: 1, features: { sag: 0, pike: 1 } }], [{ ai: { label: 'good', good: 1 } }]), /^AI 解釋（第 1 次，判成做對）：/);
     for (const [id, reps, j] of [['free', r.items, judged], ['squat', r.items, judged.slice(1)], ['squat', [], []], ['squat', r.items, null]]) assert.equal(explainLine(id, reps, j), '');
+});
+
+// 11/22：用 YOLO（沒有腳跟、腳尖）時腳的數字量不到，AI 會走「腳沒問題」那一邊（墊腳跟的也判成做對），要寫出來沒判斷
+test('量不到腳（11/22，用 YOLO 時）：哪些錯判斷不了；那一句寫出哪幾下沒判斷；合成受測者 K 墊腳跟拿掉腳的數字', async () => {
+    // 判斷不了：要看腳的錯（form.js 的 feet），這一下的數字是 null、沒有、不是數字
+    assert.deepEqual(blindErrors('squat', { lean: 20, heel: null }), ['heel']);
+    assert.deepEqual(blindErrors('squat', { lean: 20 }), ['heel']);
+    assert.deepEqual(blindErrors('squat', { lean: 20, heel: '3' }), ['heel']);
+    assert.deepEqual(blindErrors('squat', { lean: 20, heel: Infinity }), ['heel']);
+    assert.deepEqual(blindErrors('squat', null), ['heel']);
+    assert.deepEqual(blindErrors('squat', { lean: null, heel: 3 }), [], '上身前傾不用看腳');
+    assert.deepEqual(blindErrors('lunge', { lean: 10, knee: NaN }), ['knee']);
+    for (const id of ['pushup', 'plank']) assert.deepEqual(blindErrors(id, {}), [], id + ' 沒有要看腳的錯');
+    for (const id of ['free', 'constructor', '__proto__', null]) assert.deepEqual(blindErrors(id, {}), []);
+    assert.deepEqual(aiJudgeFeatures('squat', { lean: 20, heel: null }).blind, ['heel']);
+    assert.deepEqual(aiJudgeFeatures('squat', { lean: 20, heel: 2 }).blind, []);
+    // 那一句：每一下都量不到（YOLO）、只有幾下（MediaPipe 腳出了畫面）、只有一下；都量得到時不寫
+    const reps = [1, 2, 3].map(n => ({ n }));
+    const j = (label, blind) => ({ ai: { label, confidence: 0.9, blind }, rule: 'good' });
+    const head = 'AI 判斷（示範：模型是用合成資料訓練的，不是真人）：';
+    assert.equal(aiLine('squat', reps, [j('good', ['heel']), j('good', ['heel']), j('good', ['heel'])]),
+        head + '做對 3 下；和規則一樣 3 下；每一下都量不到腳跟、腳尖，沒判斷「腳跟離地」');
+    assert.equal(aiLine('lunge', reps, [j('good', []), j('lean', ['knee']), j('good', [])]),
+        head + '做對 2 下、上身前傾 1 下；和規則一樣 2 下、不一樣 1 下（第 2 下）；第 2 下量不到腳跟、腳尖，沒判斷「膝超過腳尖」');
+    assert.equal(aiLine('squat', reps.slice(0, 1), [j('good', ['heel'])]), head + '做對 1 下；和規則一樣 1 下；這一下量不到腳跟、腳尖，沒判斷「腳跟離地」');
+    assert.equal(aiLine('squat', reps.slice(0, 1), [j('good', [])]), head + '做對 1 下；和規則一樣 1 下');
+    // 合成受測者 K（訓練時沒看過）故意墊腳跟的深蹲：腳的數字在時照常判成腳跟離地、不寫；
+    // 拿掉腳的數字（像 YOLO：規則也不判腳跟離地）→ AI 每一下都判成做對，那一句寫出每一下都沒判斷腳跟離地
+    const r = await analyzeOne(syntheticSet('K', 'squat', 'heel', 1).text);
+    const seen = judgeReps('squat', r.items);
+    assert.ok(seen.every(x => x.ai.blind.length === 0));
+    assert.ok(seen.filter(x => x.ai.label === 'heel').length >= 4, JSON.stringify(seen.map(x => x.ai.label)));
+    assert.doesNotMatch(aiLine('squat', r.items, seen), /量不到/);
+    const yolo = r.items.map(it => ({ ...it, errors: (it.errors || []).filter(e => e !== 'heel'), features: { ...it.features, heel: null } }));
+    const blind = judgeReps('squat', yolo);
+    assert.ok(blind.every(x => x.ai.label === 'good' && x.ai.blind.join() === 'heel'), JSON.stringify(blind.map(x => x.ai)));
+    assert.match(aiLine('squat', yolo, blind), /^AI 判斷（示範：模型是用合成資料訓練的，不是真人）：做對 5 下；和規則一樣 5 下；每一下都量不到腳跟、腳尖，沒判斷「腳跟離地」$/);
 });

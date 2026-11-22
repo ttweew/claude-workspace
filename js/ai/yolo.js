@@ -248,6 +248,7 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
     let pending = null;   // 送出去、還沒回來的那一格 { id, resolve, reject, timer }
     let dead = '';        // 背景執行緒停掉的原因
     let nextId = 0;
+    let focus = null;     // 使用者點的位置（11/22，focusAt）：跟著下一格送出去，送了就清掉
 
     function attach(w) {
         worker = w;
@@ -259,7 +260,8 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
             pending = null;
             if (p) clearTimeout(p.timer);
             if (!p || p.id !== m.id) return;
-            if (m.type === 'result') p.resolve({ landmarks: m.k ? cocoToLandmarks(m.k) : null, world: null });
+            // focus（11/22）：這一格帶了使用者點的位置時，點的地方有沒有人（'ok' 改跟他、'miss' 沒有人、'same' 就是正在跟著的人），main.js 寫出來
+            if (m.type === 'result') p.resolve({ landmarks: m.k ? cocoToLandmarks(m.k) : null, world: null, focus: ['ok', 'miss', 'same'].includes(m.focus) ? m.focus : undefined });
             else p.reject(new Error(m.message));
         };
         w.onerror = e => {
@@ -322,8 +324,10 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
                 const id = ++nextId;
                 pending = { id, resolve, reject };
                 watchDetect(id, performance.now());
+                const f = focus;
+                focus = null;
                 try {
-                    worker.postMessage({ type: 'detect', id, bitmap, ts: timeMs }, [bitmap]);
+                    worker.postMessage({ type: 'detect', id, bitmap, ts: timeMs, focus: f }, [bitmap]);
                 } catch (err) {
                     clearTimeout(pending.timer);
                     pending = null;
@@ -333,6 +337,11 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
             });
         },
         lostReason: () => dead,
+        // 改跟著畫面上這一點的人（11/22：YOLO 一次找到畫面裡每一個人，MediaPipe 沒有這個）：x、y 是鏡頭原始畫面的比例座標 0～1
+        // 下一格才找；結果在那一格的 focus（'ok' 找到、'miss' 那裡沒有人，照常跟著原本的人）
+        focusAt(x, y) {
+            focus = { x, y };
+        },
         // 重新啟動：換一個新的背景執行緒，引擎和模型檔都在記憶體裡，不用再下載
         async restart() {
             worker.terminate();

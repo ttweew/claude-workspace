@@ -5,6 +5,7 @@
 // 小物件會有幾十萬個，佔記憶體、手機上也慢；數字陣列還可以「整塊交給」主畫面，不用複製
 
 import { PosePipeline } from '../skeleton/pipeline.js';
+import { keyOfFile, seesOcclusion } from '../ai/models.js';
 import { ANGLES, angleAt, computeAngles, signedAngle } from '../analysis/angles.js';
 import { LANDMARKS, isVisible } from '../skeleton/landmarks.js';
 import { WorkoutTracker } from '../analysis/tracker.js';
@@ -157,6 +158,9 @@ export async function analyzeRecording(parsed, width, height, { workout = null, 
         balance: new Float32Array(n * BALANCE_FIELDS.length).fill(NaN)
     };
     const pipeline = new PosePipeline();
+    // 用 YOLO 錄的（meta.model，先比對清單）：照頭朝哪邊挑靠近鏡頭的那一側，和錄的時候畫面上一樣（11/22，js/skeleton/pipeline.js）；
+    // 不認得的名字（很舊的錄製檔、被改過）當作 MediaPipe
+    pipeline.nearByFacing = !seesOcclusion(keyOfFile(parsed.meta && parsed.meta.model));
     const stabilizer = new WorldStabilizer();
     const tracker = workout && workout !== 'free' ? new WorkoutTracker(workout) : null;
     // 錄製時已經校正好（meta.calibration）就沿用；沒有的話從錄影裡站直不動的那段自己校正

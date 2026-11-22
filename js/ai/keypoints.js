@@ -26,8 +26,8 @@ const NEAR = {
 // 模型的可信度 → MediaPipe 的 visibility：MediaPipe 0.65（MIN_VISIBILITY）以上算看得到；
 // YOLO 官方畫骨架時 0.25 以上就畫、MoveNet 的官方範例 0.3，這裡取 0.3 當「看得到」的界線
 // 兩段各自拉直：0～0.3 → 0～0.65、0.3～1 → 0.65～1，「看得到」的界線才會對齊
-// 11/21 側拍伏地挺身：YOLO 對被身體擋住的那一側也給約 0.9（MediaPipe 約 0.6），只靠這個分不出遠近，
-// 要用真人影片重訂（研究頁「進化的步驟」第 5 階段）
+// 11/21 側拍伏地挺身：YOLO 對被身體擋住的那一側也給約 0.9（MediaPipe 約 0.6），只靠這個分不出遠近：
+// 11/22 起用 YOLO 時改看頭朝哪邊決定靠近鏡頭的那一側（js/skeleton/pipeline.js 的 nearByFacing）；換算本身要用真人影片重訂
 export const SCORE_SEEN = 0.3;
 export function scoreToVisibility(score) {
     const s = typeof score === 'number' && Number.isFinite(score) ? Math.min(1, Math.max(0, score)) : 0;

@@ -11,15 +11,17 @@
 //   world：有沒有 3D 座標（world landmarks）
 //   file：錄製檔記的模型名字（meta.model；重播分析看這個認出是哪個模型）
 //   kpts：YOLO 的模型有幾個點（官方的 17；自己訓練、加腳跟腳尖的 21，tools/yolo-train.py；那時 feet 也改成 true）
+//   occlusion：被身體擋住的點，可信度會不會變低（11/22）。MediaPipe 會：側面拍時靠近鏡頭那一側比較高，網站照可信度挑一側算角度
+//     （js/skeleton/landmarks.js 的 clearerSide）；YOLO 不會（兩側都很有把握），改看頭朝哪邊決定（js/skeleton/pipeline.js）
 //
 // YOLO（11/21）：Ultralytics 的 YOLO26 姿勢模型，COCO 格式的 17 個點（js/ai/keypoints.js 換成 33 點）：
 //   沒有腳跟、腳尖、手指，也沒有 3D 座標。n 是最小的、s 大一號（比較準、每格約慢 1.6 倍）
 
 export const PROFILES = {
-    lite: { family: 'mediapipe', label: 'MediaPipe lite', short: 'lite', feet: true, hands: true, world: true, file: 'pose_landmarker_lite' },
-    full: { family: 'mediapipe', label: 'MediaPipe full', short: 'full', feet: true, hands: true, world: true, file: 'pose_landmarker_full' },
-    'yolo-n': { family: 'yolo', label: 'YOLO26n', short: 'YOLO26n', feet: false, hands: false, world: false, file: 'yolo26n-pose', kpts: 17 },
-    'yolo-s': { family: 'yolo', label: 'YOLO26s', short: 'YOLO26s', feet: false, hands: false, world: false, file: 'yolo26s-pose', kpts: 17 }
+    lite: { family: 'mediapipe', label: 'MediaPipe lite', short: 'lite', feet: true, hands: true, world: true, occlusion: true, file: 'pose_landmarker_lite' },
+    full: { family: 'mediapipe', label: 'MediaPipe full', short: 'full', feet: true, hands: true, world: true, occlusion: true, file: 'pose_landmarker_full' },
+    'yolo-n': { family: 'yolo', label: 'YOLO26n', short: 'YOLO26n', feet: false, hands: false, world: false, occlusion: false, file: 'yolo26n-pose', kpts: 17 },
+    'yolo-s': { family: 'yolo', label: 'YOLO26s', short: 'YOLO26s', feet: false, hands: false, world: false, occlusion: false, file: 'yolo26s-pose', kpts: 17 }
 };
 
 export const MODEL_KEYS = Object.keys(PROFILES);
@@ -44,6 +46,12 @@ export function familyOf(key) {
 export function hasFeet(key) {
     const p = profileOf(key);
     return p ? p.feet : true;
+}
+
+// 這個模型被擋住的點可信度會不會變低（occlusion）：不認得的名字當作會（以前只有 MediaPipe，很舊的錄製檔照以前的算法）
+export function seesOcclusion(key) {
+    const p = profileOf(key);
+    return p ? p.occlusion : true;
 }
 
 // 畫面上的短名字：不認得的名字原樣（只當文字顯示）
