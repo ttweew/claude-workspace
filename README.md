@@ -27,6 +27,7 @@ vendor/litertjs/      LiteRT.js（Google，Apache-2.0）：在瀏覽器裡執行
 tools/                命令列工具：訓練 AI 模型（train.mjs）、YOLO 轉檔（export-yolo.py）、兩個模型的校正（calibrate-models.mjs）、自己訓練 YOLO（yolo-dataset.py、yolo-train.py，見 docs/yolo-training.md）
 firestore.rules       雲端資料庫的安全規則（firebase.json：本機模擬器的設定）
 tests/                自動測試（npm test；雲端的安全規則：npm run test:rules）
+LICENSE               授權全文：GNU AGPL-3.0（11/22 起整個專案；見最後的「授權」）
 docs/                 文件：architecture.md（程式架構）、data-format.md（資料格式與驗證實驗）、
                       design-plan.md（版面規劃）、roadmap.md（日後改進）、firebase-setup.md（雲端同步）、
                       devlog.md（開發日誌，每天一段）、yolo-training.md（YOLO 的校正和自己訓練）
@@ -140,6 +141,6 @@ npm test
 | MediaPipe Tasks Vision、骨架模型（Google） | Apache-2.0 | 從 jsDelivr／unpkg、Google 的網址下載，不放在這裡 |
 | LiteRT.js（Google） | Apache-2.0 | `vendor/litertjs/`（改過一行，見那裡的 README.md）；AI 引擎從 jsDelivr／unpkg 下載 |
 | YOLO26 姿勢模型（Ultralytics） | **AGPL-3.0** | `models/yolo/`（全文、來源、轉檔方法見那裡的 README.md） |
-| 這個專案自己的程式 | 還沒決定（要組員和老師決定） | — |
+| 這個專案自己的程式 | **AGPL-3.0**（11/22 組員決定） | 根目錄的 [LICENSE](LICENSE) |
 
-AGPL-3.0 要求：用 YOLO 提供網路服務時，要讓使用的人拿得到原始碼（這個網站的原始碼全部公開在這個 GitHub 專案，使用說明頁也有連結）。Ultralytics 的說法是用了 YOLO 的整個專案都要用 AGPL-3.0 開放原始碼，所以如果要留著 YOLO，建議整個專案也標成 AGPL-3.0；不要的話，照 `models/yolo/README.md` 最後一段拿掉 YOLO。
+整個專案從 11/22 起用 **GNU AGPL-3.0**（全文：[LICENSE](LICENSE)）：用了 YOLO（Ultralytics 的說法是用了 YOLO 的整個專案都要用 AGPL-3.0 開放原始碼），組員決定整個專案一起標成 AGPL-3.0。可以自由使用、修改、再發布；用它提供網路服務（像這個網站）時，要讓使用的人拿得到原始碼：這個網站的原始碼全部公開在這個 GitHub 專案，首頁、使用說明、研究成果的頁尾都有「原始碼」連結。上表的套件和模型維持自己的授權（Apache-2.0 可以和 AGPL-3.0 一起用）。

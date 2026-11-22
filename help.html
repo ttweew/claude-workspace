@@ -365,7 +365,7 @@
                         <p>首頁「進階設定」的「AI 模型」可以選兩家的模型（開著鏡頭時點運算標籤也能換，不用重新整理）：<strong>MediaPipe</strong>（Google，預設）有 lite、full 兩種；<strong>YOLO</strong>（Ultralytics，實驗中）有 26n、26s 兩種，26s 比較準、每格約慢 1.6 倍（11/21 測試電腦的 CPU：26n 64 毫秒、26s 104 毫秒），建議用電腦。</p>
                         <p>差在哪：MediaPipe 找 33 個點，有腳跟、腳尖、手指，還有 3D 座標；YOLO 只有 17 個點（頭、肩、手肘、手腕、髖、膝、腳踝），沒有腳跟、腳尖、手指和 3D 座標。所以用 YOLO 時深蹲的「腳跟離地」、弓箭步的「前膝超過腳尖」不判斷，鏡頭畫面和總結都會寫出來（不會默默當作做對）；計次、角度、其他錯誤照常。YOLO 對被身體擋住的那一側也很有把握（MediaPipe 會說看不清楚），側拍時兩種模型算出來的角度可能差 10° 以上，還要用真人影片校正。第一次用 YOLO 要下載約 23 MB（26s 約 22 MB），之後存在手機裡。</p>
                         <p>想看兩個模型差多少：<a href="compare.html">模型對照</a>（重播分析底下）選一段側面拍的影片，兩個模型各算一次同一批畫面，並排比次數、每一下的角度、錯誤，可以下載兩份錄製檔；<a href="protractor.html">照片量角器</a>也可以「也用另一個模型算」，同一張照片兩個模型的角度並排。</p>
-                        <p>授權：YOLO 的模型是 <a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics</a> 以 GNU AGPL-3.0 授權公開的，執行它的 LiteRT.js（Google）是 Apache-2.0。AGPL-3.0 要求讓使用的人拿得到原始碼：這個網站的原始碼全部公開在 <a href="https://github.com/ttweew/claude-workspace" target="_blank" rel="noopener">GitHub</a>（模型檔和轉檔方法在 models/yolo/ 資料夾）。MediaPipe 是 Apache-2.0。</p>
+                        <p>授權：這個網站的程式從 11/22 起以 GNU AGPL-3.0 授權公開，原始碼全部在 <a href="https://github.com/ttweew/claude-workspace" target="_blank" rel="noopener">GitHub</a>（首頁、使用說明、研究成果最下面的「原始碼」也連得到；模型檔和轉檔方法在 models/yolo/ 資料夾）。YOLO 的模型是 <a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics</a> 以 AGPL-3.0 公開的；執行它的 LiteRT.js（Google）和 MediaPipe 是 Apache-2.0。AGPL-3.0 的意思：可以自由使用、修改、再發布，但用它提供網站服務時，要讓使用的人拿得到原始碼。</p>
                     </details>
                     <details>
                         <summary>骨架變紅、出現紅字是什麼意思？</summary>
@@ -445,7 +445,7 @@
         </main>
 
         <footer>
-            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品</p>
+            <p>&copy; 2026 AI 智慧運動分析系統 · 專題作品 · <a href="https://github.com/ttweew/claude-workspace" target="_blank" rel="noopener">原始碼（AGPL-3.0）</a></p>
         </footer>
     </div>
     <script type="module" src="js/pages/help.js"></script>
