@@ -10,6 +10,14 @@ export const MODEL_CHOICES = ['lite', 'full', 'auto', 'yolo-n', 'yolo-s'];
 const CHOICE_KEY = 'poseModel';
 const AUTO_KEY = 'autoModel';   // 自動判斷的結果（目前只會記 'lite'）
 
+// 哪一家（11/24，首頁選好動作之後「用哪一個 AI」只選 MediaPipe 還是 YOLO，js/ui/model-pick.js）：
+// 大小（lite、full、自動；YOLO26n、26s）還是在「進階設定」選。每一家記住上次選的大小，換回來時用它
+// （例如進階設定選了 full，在首頁改用 YOLO、再改回 MediaPipe：還是 full，不會變回 lite）
+export const FAMILIES = ['mediapipe', 'yolo'];
+const FAMILY_OF = { lite: 'mediapipe', full: 'mediapipe', auto: 'mediapipe', 'yolo-n': 'yolo', 'yolo-s': 'yolo' };
+const FAMILY_FIRST = { mediapipe: 'lite', yolo: 'yolo-n' };   // 這一家還沒選過：各自最快的那個
+const LAST_KEY = 'lastModel.';   // + 家：'lastModel.mediapipe'、'lastModel.yolo'
+
 function read(key) {
     try {
         return localStorage.getItem(key);
@@ -36,7 +44,20 @@ export function setModelChoice(value) {
     if (!MODEL_CHOICES.includes(value)) return;
     choice = value;
     write(CHOICE_KEY, value);
+    write(LAST_KEY + FAMILY_OF[value], value);
     if (value === 'auto') write(AUTO_KEY, null);
+}
+
+// 選項是哪一家：'mediapipe'、'yolo'；不認得的（存的資料、網址被改過）回傳 ''，不會拿去查物件
+export function familyOfChoice(value) {
+    return MODEL_CHOICES.includes(value) ? FAMILY_OF[value] : '';
+}
+// 首頁選了這一家要用哪一個：現在就是這一家 → 不變；不然用這一家上次選的，沒選過用最快的；不認得的家回傳 null
+export function choiceForFamily(family) {
+    if (!FAMILIES.includes(family)) return null;
+    if (familyOfChoice(choice) === family) return choice;
+    const last = read(LAST_KEY + family);
+    return familyOfChoice(last) === family ? last : FAMILY_FIRST[family];
 }
 
 // 自動判斷出這台裝置用 full 跟不上：記住，下次直接用 lite

@@ -84,12 +84,20 @@
 
             <div class="start-card">
                 <!-- 先選動作（10/19 組員回饋：很多人直接按「開啟鏡頭」，進了只看骨架的自由模式，不計次、沒有總結）：
-                     四個大按鈕按了就選好動作並開鏡頭（js/ui/start-pick.js 放進 #workoutGrid）。
-                     #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在那個動作的位置（標「上次」），自由模式時是最下面那一行小字 -->
+                     四個大按鈕按了選好動作（js/ui/start-pick.js 放進 #workoutGrid），下面出現「用哪一個 AI」和「開始」（11/24）。
+                     #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在 #readyBox 的最下面（「開始深蹲」），自由模式時是最下面那一行小字 -->
                 <!-- 實測模式開著時，最上面一條黃色提醒（10/21 使用者回饋：重要但不容易發現的地方要用醒目的顏色；用完忘了關，平常運動也會一直錄） -->
                 <p id="testOnNote" class="attn-bar" role="status" hidden></p>
                 <h2 id="pickTitle" class="pick-title">今天要做什麼運動？</h2>
                 <div id="workoutGrid" class="workout-grid" role="group" aria-labelledby="pickTitle"></div>
+                <!-- 選好動作之後（11/24 使用者：選了動作之後要有一個介面選 MediaPipe 還是 YOLO）：「用哪一個 AI 看你做深蹲？」
+                     兩張卡片由 js/ui/model-pick.js 放進 #modelPick，和「進階設定」的 AI 模型是同一個選擇；
+                     #startBtn（「開始深蹲」）由 js/ui/start-pick.js 放在最下面；自由模式（沒選動作）時整塊藏起來 -->
+                <div id="readyBox" class="ready-box" hidden>
+                    <fieldset id="modelPick" class="model-pick">
+                        <legend>用哪一個 AI？</legend>
+                    </fieldset>
+                </div>
                 <p id="freeLine" class="free-line">
                     <button id="startBtn" type="button" class="free-start">只看骨架（自由模式，不計次）</button>
                     <button id="freeBtn" type="button" class="free-start" hidden>只看骨架（自由模式，不計次）</button>
@@ -328,7 +336,7 @@
                     <li data-exercise="plank"><h3>棒式</h3></li>
                     <li data-exercise="lunge"><h3>弓箭步</h3></li>
                 </ul>
-                <p class="note">按卡片上的「開始」（或最上面的大按鈕）就會開鏡頭並計算次數（棒式計時）；開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時），用最上面「用哪一個 AI」選的模型；最上面的大按鈕是先選動作、選 AI，再按「開始」。開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
