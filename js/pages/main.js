@@ -30,7 +30,9 @@ import { setupGrowth } from '../ui/growth-chart.js';
 import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
-import { setupModelPick } from '../ui/model-pick.js';
+import { setupModelPick, choiceLabel } from '../ui/model-pick.js';
+import { setupModelScreen } from '../ui/model-screen.js';
+import { DemoFigure } from '../ui/demo.js';
 import { poseSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, autoList, AUTO_LIST_MAX, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
@@ -82,6 +84,13 @@ const cameraSelect = document.getElementById('cameraSelect');
 const statusText = document.getElementById('status');
 const poseStatus = document.getElementById('poseStatus');
 const modelStatus = document.getElementById('modelStatus');
+// 選好動作之後選 AI 的轉場畫面（11/24，js/ui/model-screen.js）
+const modelScreenEl = document.getElementById('modelScreen');
+const msTitle = document.getElementById('msTitle');
+const msStatus = document.getElementById('msStatus');
+const msGo = document.getElementById('msGo');
+let screenCamera = false;   // 轉場畫面按了「開始」：最下面那一行改寫開鏡頭的進度（showScreenStatus）
+let startPick = null;       // 首頁的四個大按鈕（js/ui/start-pick.js；載入的後段才建好，換模型時用它重寫「開始深蹲 · MediaPipe lite」）
 const modelProgress = document.getElementById('modelProgress');
 const modelHint = document.getElementById('modelHint');
 const perfBtn = document.getElementById('perfBtn');
@@ -256,6 +265,14 @@ keepBelowInfobar(document.getElementById('infobar'), stage);
 function setModelStatus(text) {
     if (modelStatus.textContent !== text) modelStatus.textContent = text;
     setPoseStatus(text);
+    showScreenStatus();
+}
+
+// 選 AI 的轉場畫面最下面那一行：平常寫 AI 模型的狀態（點了 YOLO 看得到下載進度），
+// 按了「開始」之後寫開鏡頭的進度、打不開的原因（首頁的 #status：被轉場畫面蓋住，看不到）
+function showScreenStatus() {
+    const text = screenCamera ? statusText.textContent : modelStatus.textContent;
+    if (msStatus.textContent !== text) msStatus.textContent = text;
 }
 
 // 鏡頭畫面左上角的狀態標籤；kind 決定顏色：'ok' 綠、'warn' 橘、'error' 紅，沒有則為預設深藍
@@ -1710,6 +1727,7 @@ async function startCamera(deviceId) {
     stopStream();
     // 第一次使用時瀏覽器會先問要不要允許相機，這段時間首頁要有回應，不要還寫著「尚未開啟鏡頭」
     if (stage.hidden) statusText.textContent = demo ? '正在開啟示範影片…' : '正在開啟鏡頭…（第一次使用請按「允許」使用相機）';
+    showScreenStatus();
     let stream;
     let source = null;   // 示範模式：正在播的影片
     try {
@@ -1729,6 +1747,8 @@ async function startCamera(deviceId) {
         const message = err.demo ? err.message : cameraErrorMessage(err);
         closeCamera();
         statusText.textContent = message;
+        // 從選 AI 的畫面按「開始」卻打不開：那個畫面留著，最下面寫原因（例如沒有允許使用相機），改好可以直接再按「開始」
+        showScreenStatus();
         return;
     }
     // 等待鏡頭的期間，使用者已經又切換或關閉鏡頭：這個舊的鏡頭直接關掉
@@ -1836,10 +1856,12 @@ const siteNav = document.querySelector('.site-nav');
 function showStage(on) {
     if (stage.hidden !== on) return;
     stage.hidden = !on;
+    const focused = document.activeElement;
+    // 從選 AI 的轉場畫面按「開始」：鏡頭畫面已經蓋上來了，那一層直接收掉（不播收起來的動畫），結束時回到的是首頁
+    if (on) modelScreen.close({ instant: true });
     page.inert = on;
     if (siteNav) siteNav.inert = on;
-    const focused = document.activeElement;
-    if (on && (focused === startBtn || focused === document.body)) stopBtn.focus();
+    if (on && (focused === startBtn || focused === document.body || modelScreenEl.contains(focused))) stopBtn.focus();
     if (!on && (stage.contains(focused) || focused === document.body)) startBtn.focus();
 }
 
@@ -2230,13 +2252,16 @@ function showModelNote() {
     modelNote.hidden = !text;
 }
 
-// 首頁選好動作之後「用哪一個 AI」（11/24，js/ui/model-pick.js）：和「進階設定」的 AI 模型是同一個選擇（chooseModel），
+// 選好動作之後的轉場畫面裡「用哪一個 AI」（11/24，js/ui/model-pick.js）：和「進階設定」的 AI 模型是同一個選擇（chooseModel），
 // 換一家時用那一家上次選的大小（js/ai/model-choice.js 的 choiceForFamily）
 const renderModelPick = setupModelPick({
     box: document.getElementById('modelPick'),
     onChoose: family => {
         const key = choiceForFamily(family);
+        // 換了 AI：最下面那一行改回寫 AI 的狀態（看得到 YOLO 的下載進度），不再是上一次開鏡頭失敗的原因
+        screenCamera = false;
         if (key && key !== getModelChoice()) chooseModel(key);
+        showScreenStatus();
     }
 });
 function showModelPick() {
@@ -2252,6 +2277,8 @@ function showModelPick() {
 
 function showModelChoice() {
     showModelPick();
+    // 首頁的「開始深蹲 · MediaPipe lite」跟著換
+    if (startPick) startPick.refresh();
     fillModelOptions(modelSelect);
     fillModelOptions(modelLive);
     showAdvancedTitle();
@@ -2622,20 +2649,51 @@ if (!document.fullscreenEnabled) {
     fullscreenBtn.hidden = true;
 }
 
-// 首頁「今天要做什麼運動？」的四個大按鈕（js/ui/start-pick.js）：按了選好動作，下面出現「用哪一個 AI」和「開始」（11/24）
-const readyBox = document.getElementById('readyBox');
-const setStartDisabled = setupStartPick({
+// 首頁「今天要做什麼運動？」的四個大按鈕（js/ui/start-pick.js）：按了選好動作，那顆按鈕放大成選 AI 的畫面（11/24，js/ui/model-screen.js）
+// 畫面裡：這個動作的示範動畫、「用哪一個 AI 看你做深蹲？」兩張卡片、「開始深蹲」（按 #startBtn：和以前一樣的開鏡頭流程）
+const msFigure = new DemoFigure(document.getElementById('msFigure'), 'squat');
+const modelScreen = setupModelScreen({
+    root: modelScreenEl,
+    back: document.getElementById('msBack'),
+    go: msGo,
+    onGo: () => {
+        screenCamera = true;
+        startBtn.click();
+    },
+    // 焦點放在選了的那張卡片的圓點：螢幕閱讀器先念「用哪一個 AI 看你做深蹲？」和選了哪一個，方向鍵直接換；換模型中（圓點不能按）放在「開始」
+    focusTarget: () => {
+        const checked = modelScreenEl.querySelector('#modelPick input:checked');
+        return checked && !checked.disabled ? checked : msGo;
+    },
+    // 打開時首頁和導覽列不能按（鏡頭畫面開著時本來就不能按）
+    setInert: on => {
+        page.inert = on || !stage.hidden;
+        if (siteNav) siteNav.inert = page.inert;
+    },
+    onOpen: () => {
+        const w = getWorkout();
+        msTitle.textContent = w.name;
+        msGo.textContent = '開始' + w.name;
+        msFigure.setExercise(w.id);
+        msFigure.start();
+        screenCamera = false;
+        showScreenStatus();
+    },
+    // 收起來就停掉示範動畫（看不到時不畫，省電）
+    onClose: () => msFigure.stop()
+});
+startPick = setupStartPick({
     grid: document.getElementById('workoutGrid'),
-    ready: readyBox,
+    quick: document.getElementById('quickLine'),
     freeLine: document.getElementById('freeLine'),
     startBtn,
     freeBtn: document.getElementById('freeBtn'),
-    // 小手機上四個大按鈕就占滿一個畫面：選好後把「用哪一個 AI」和「開始」捲進來（只捲到看得到，已經看得到就不動）
-    onPick: () => readyBox.scrollIntoView({ block: 'nearest' })
+    modelText: () => choiceLabel(getModelChoice()),
+    onPick: button => modelScreen.open(button)
 });
 if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
-    setStartDisabled(true);
+    startPick.setDisabled(true);
 }
 // 首頁的「智慧課表」卡片（11/14）：照運動紀錄和目標排一套；不能開鏡頭、實測模式開著（每一組由主持人選）時不能按
 planCard = setupPlanCard({

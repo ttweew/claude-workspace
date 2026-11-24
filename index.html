@@ -84,20 +84,15 @@
 
             <div class="start-card">
                 <!-- 先選動作（10/19 組員回饋：很多人直接按「開啟鏡頭」，進了只看骨架的自由模式，不計次、沒有總結）：
-                     四個大按鈕按了選好動作（js/ui/start-pick.js 放進 #workoutGrid），下面出現「用哪一個 AI」和「開始」（11/24）。
-                     #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在 #readyBox 的最下面（「開始深蹲」），自由模式時是最下面那一行小字 -->
+                     四個大按鈕按了選好動作（js/ui/start-pick.js 放進 #workoutGrid），轉場到選 AI 的畫面（#modelScreen，11/24）。
+                     #startBtn 一直是「用目前選的動作開鏡頭」：選的是某個動作時放在 #quickLine（「開始深蹲 · MediaPipe lite」），自由模式時是最下面那一行小字 -->
                 <!-- 實測模式開著時，最上面一條黃色提醒（10/21 使用者回饋：重要但不容易發現的地方要用醒目的顏色；用完忘了關，平常運動也會一直錄） -->
                 <p id="testOnNote" class="attn-bar" role="status" hidden></p>
                 <h2 id="pickTitle" class="pick-title">今天要做什麼運動？</h2>
                 <div id="workoutGrid" class="workout-grid" role="group" aria-labelledby="pickTitle"></div>
-                <!-- 選好動作之後（11/24 使用者：選了動作之後要有一個介面選 MediaPipe 還是 YOLO）：「用哪一個 AI 看你做深蹲？」
-                     兩張卡片由 js/ui/model-pick.js 放進 #modelPick，和「進階設定」的 AI 模型是同一個選擇；
-                     #startBtn（「開始深蹲」）由 js/ui/start-pick.js 放在最下面；自由模式（沒選動作）時整塊藏起來 -->
-                <div id="readyBox" class="ready-box" hidden>
-                    <fieldset id="modelPick" class="model-pick">
-                        <legend>用哪一個 AI？</legend>
-                    </fieldset>
-                </div>
+                <!-- 選過動作之後回到首頁（做完一組、或網址 ?workout= 指定了動作）：「開始深蹲 · MediaPipe lite」不用再選，直接用上次選的 AI 開始
+                     （js/ui/start-pick.js 把 #startBtn 放進來；要換 AI 再按一次上面的「深蹲」）；自由模式（沒選動作）時藏起來 -->
+                <p id="quickLine" class="quick-line" hidden></p>
                 <p id="freeLine" class="free-line">
                     <button id="startBtn" type="button" class="free-start">只看骨架（自由模式，不計次）</button>
                     <button id="freeBtn" type="button" class="free-start" hidden>只看骨架（自由模式，不計次）</button>
@@ -336,7 +331,7 @@
                     <li data-exercise="plank"><h3>棒式</h3></li>
                     <li data-exercise="lunge"><h3>弓箭步</h3></li>
                 </ul>
-                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時），用最上面「用哪一個 AI」選的模型；最上面的大按鈕是先選動作、選 AI，再按「開始」。開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
+                <p class="note">按卡片上的「開始」就會開鏡頭並計算次數（棒式計時），用上次選的 AI；想換 AI 就按最上面的大按鈕，選好動作會換到選 AI 的畫面。開鏡頭後也可以按右上角換動作、看示範。請側面對著鏡頭，全身入鏡。第一次使用可以先看<a href="help.html">使用說明</a>。</p>
             </section>
         </main>
 
@@ -345,6 +340,28 @@
             <!-- 加到主畫面（10/29，js/platform/install.js）：瀏覽器說可以安裝時才出現（Chrome、Edge）；iPhone 看使用說明 -->
             <button id="installBtn" class="install-btn" type="button" hidden>加到主畫面（像 App 一樣打開）</button>
         </footer>
+    </div>
+
+    <!-- 選好動作之後的轉場畫面（11/24 使用者：不要像設定一樣放在首頁，做一個轉場的特效讓我們選模型；js/ui/model-screen.js）：
+         按了首頁的「深蹲」，那顆按鈕放大成整個畫面，裡面依序浮上來：示範動畫、「用哪一個 AI 看你做深蹲？」兩張卡片
+         （js/ui/model-pick.js 放進 #modelPick，和「進階設定」的 AI 模型是同一個選擇）、「開始深蹲」（按 #startBtn 開鏡頭）
+         放在 .page 外面：打開時 .page 和導覽列設成 inert，這一層還能按（和 #stage 一樣）；鏡頭畫面（#stage）蓋在這一層上面 -->
+    <div id="modelScreen" class="model-screen" role="dialog" aria-modal="true" aria-labelledby="msTitle" hidden>
+        <div class="ms-inner">
+            <button id="msBack" type="button" class="ms-back ms-step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>換動作</button>
+            <div class="ms-hero ms-step">
+                <svg id="msFigure" class="ms-figure" viewBox="0 0 240 180" aria-hidden="true"></svg>
+                <h2 id="msTitle" class="ms-title">深蹲</h2>
+            </div>
+            <fieldset id="modelPick" class="model-pick ms-step">
+                <legend>用哪一個 AI？</legend>
+            </fieldset>
+            <!-- 下面那一行：AI 模型的狀態（換成 YOLO 時看得到下載進度）；按了「開始」之後是開鏡頭的進度、打不開的原因 -->
+            <div class="ms-foot ms-step">
+                <p id="msStatus" class="ms-status" role="status"></p>
+                <button id="msGo" type="button" class="start-go">開始深蹲</button>
+            </div>
+        </div>
     </div>
 
     <div id="stage" hidden>

@@ -77,7 +77,7 @@
                     </ul>
                     <h4>每位受測者（約 20 分鐘，照受測者卡的順序）</h4>
                     <ul class="task-list">
-                        <li><label><input type="checkbox" data-task="set-open"> <span>首頁按動作（深蹲、伏地挺身、弓箭步、棒式）再按「開始」，鏡頭畫面上方出現「實測 · 受測者 A」和這個動作的 3 組按鈕</span></label></li>
+                        <li><label><input type="checkbox" data-task="set-open"> <span>首頁按動作（深蹲、伏地挺身、弓箭步、棒式），在選 AI 的畫面按「開始」，鏡頭畫面上方出現「實測 · 受測者 A」和這個動作的 3 組按鈕</span></label></li>
                         <li><label><input type="checkbox" data-task="set-each"> <span>每一組：唸受測者卡上這一組的做法 → 按這一組的按鈕 → 倒數完（聽到「開始」）受測者開始做 → 做完按「這組做完」，這一組存進「錄製檔」、按鈕打勾。中途要停一下就按「❚❚ 暫停」，暫停時做的不算</span></label></li>
                         <li><label><input type="checkbox" data-task="set-redo"> <span>次數做錯、中途停下來：同一組再按一次重錄，之後以最後一個檔案為準（檔名後面是時間）</span></label></li>
                         <li><label><input type="checkbox" data-task="set-count"> <span>一個動作 3 組都打勾後按「結束」，總結下面「實際做了幾下？」填受測者總共做了幾下（照卡片做是 20 下，有重錄就加上去；棒式不用填）</span></label></li>
@@ -334,7 +334,7 @@
                     </details>
                     <details>
                         <summary>聽不到提示音？</summary>
-                        <p>先確認工具列的「音量」不是「關」，再把手機音量調大。iPhone 側邊的靜音開關打開時，網頁的聲音可能也會被關掉。瀏覽器規定要先按過按鈕才能出聲，按首頁的「開始」（例如「開始深蹲」）開鏡頭之後才會有聲音。</p>
+                        <p>先確認工具列的「音量」不是「關」，再把手機音量調大。iPhone 側邊的靜音開關打開時，網頁的聲音可能也會被關掉。瀏覽器規定要先按過按鈕才能出聲，按「開始」（例如「開始深蹲」）開鏡頭之後才會有聲音。</p>
                     </details>
                     <details>
                         <summary>畫面不夠順，可以每秒 60 格嗎？</summary>
@@ -363,7 +363,7 @@
                     <!-- 選骨架模型（11/21，js/ai/models.js 的能力表、models/yolo/README.md 的授權） -->
                     <details id="modelFaq">
                         <summary>可以換別的 AI 模型嗎？MediaPipe 和 YOLO 差在哪？</summary>
-                        <p>首頁選好動作（例如深蹲）之後，下面的「用哪一個 AI 看你做深蹲？」就可以選 MediaPipe 或 YOLO，卡片上寫了這個動作用那一家時有什麼不一樣，選好再按「開始深蹲」。大小在「進階設定」的「AI 模型」選（開著鏡頭時點運算標籤也能換，不用重新整理）：<strong>MediaPipe</strong>（Google，預設）有 lite、full 兩種；<strong>YOLO</strong>（Ultralytics，實驗中）有 26n、26s 兩種，26s 比較準、每格約慢 1.6 倍（11/21 測試電腦的 CPU：26n 64 毫秒、26s 104 毫秒），建議用電腦。</p>
+                        <p>首頁按動作（例如深蹲），會換到「用哪一個 AI 看你做深蹲？」的畫面，選 MediaPipe 或 YOLO（卡片上寫了這個動作用那一家時有什麼不一樣），選好按「開始深蹲」；之後回到首頁，大按鈕下面的「開始深蹲 · MediaPipe lite」直接用上次選的開始。大小在「進階設定」的「AI 模型」選（開著鏡頭時點運算標籤也能換，不用重新整理）：<strong>MediaPipe</strong>（Google，預設）有 lite、full 兩種；<strong>YOLO</strong>（Ultralytics，實驗中）有 26n、26s 兩種，26s 比較準、每格約慢 1.6 倍（11/21 測試電腦的 CPU：26n 64 毫秒、26s 104 毫秒），建議用電腦。</p>
                         <p>差在哪：MediaPipe 找 33 個點，有腳跟、腳尖、手指，還有 3D 座標；YOLO 只有 17 個點（頭、肩、手肘、手腕、髖、膝、腳踝），沒有腳跟、腳尖、手指和 3D 座標。所以用 YOLO 時深蹲的「腳跟離地」、弓箭步的「前膝超過腳尖」不判斷，鏡頭畫面和總結都會寫出來（不會默默當作做對；運動總結的 AI 判斷也會寫出哪幾下量不到腳跟、腳尖，沒判斷這種錯）；計次、角度、其他錯誤照常。YOLO 對被身體擋住的那一側也很有把握（MediaPipe 會說看不清楚），所以用 YOLO 時網站改看頭朝哪邊、用靠近鏡頭的那一側算角度；側拍時兩種模型算出來的角度可能差 10° 以上，還要用真人影片校正。第一次用 YOLO 要下載約 23 MB（26s 約 22 MB），之後存在手機裡。</p>
                         <p>想看兩個模型差多少：<a href="compare.html">模型對照</a>（重播分析底下）選一段側面拍的影片，兩個模型各算一次同一批畫面，並排比次數、每一下的角度、錯誤，可以下載兩份錄製檔；<a href="protractor.html">照片量角器</a>也可以「也用另一個模型算」，同一張照片兩個模型的角度並排；按「記下這一筆」兩個模型的角度都會存，下面「驗證實驗」會分模型算平均誤差、寫出同一張照片哪個模型比較準（準確度比賽，11/22）。</p>
                         <p>授權：這個網站的程式從 11/22 起以 GNU AGPL-3.0 授權公開，原始碼全部在 <a href="https://github.com/ttweew/claude-workspace" target="_blank" rel="noopener">GitHub</a>（首頁、使用說明、研究成果最下面的「原始碼」也連得到；模型檔和轉檔方法在 models/yolo/ 資料夾）。YOLO 的模型是 <a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics</a> 以 AGPL-3.0 公開的；執行它的 LiteRT.js（Google）和 MediaPipe 是 Apache-2.0。AGPL-3.0 的意思：可以自由使用、修改、再發布，但用它提供網站服務時，要讓使用的人拿得到原始碼。</p>

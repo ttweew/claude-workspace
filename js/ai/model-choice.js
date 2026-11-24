@@ -10,7 +10,7 @@ export const MODEL_CHOICES = ['lite', 'full', 'auto', 'yolo-n', 'yolo-s'];
 const CHOICE_KEY = 'poseModel';
 const AUTO_KEY = 'autoModel';   // 自動判斷的結果（目前只會記 'lite'）
 
-// 哪一家（11/24，首頁選好動作之後「用哪一個 AI」只選 MediaPipe 還是 YOLO，js/ui/model-pick.js）：
+// 哪一家（11/24，選好動作之後的轉場畫面「用哪一個 AI」只選 MediaPipe 還是 YOLO，js/ui/model-pick.js、model-screen.js）：
 // 大小（lite、full、自動；YOLO26n、26s）還是在「進階設定」選。每一家記住上次選的大小，換回來時用它
 // （例如進階設定選了 full，在首頁改用 YOLO、再改回 MediaPipe：還是 full，不會變回 lite）
 export const FAMILIES = ['mediapipe', 'yolo'];
