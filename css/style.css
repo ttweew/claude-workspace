@@ -182,8 +182,9 @@ h1 .accent {
     border-radius: var(--radius);
     background: var(--surface);
 }
-/* 今天要做什麼運動？（js/ui/start-pick.js）：四個大按鈕 2×2，按了就開鏡頭；自由模式是最下面一行小字
-   #startBtn 用 .workout-btn.current（上次選的動作，綠底）或 .free-start（自由模式）的樣子 */
+/* 今天要做什麼運動？（js/ui/start-pick.js）：四個大按鈕 2×2，按了選好動作（白框、右上角「已選」）；自由模式是最下面一行小字
+   選好動作後下面出現「用哪一個 AI」和「開始深蹲」（11/24）：#startBtn 用 .start-go（白底大按鈕）或 .free-start（自由模式）的樣子
+   白底只給最重要的一個動作（開始），選了的動作用白框，兩個不會搶 */
 .pick-title {
     margin: 0 0 12px;
     color: var(--text);
@@ -230,29 +231,130 @@ h1 .accent {
     font-size: 13px;
     line-height: 1.4;
 }
-/* 上次選的動作：綠底，右上角「上次」 */
+/* 選了的動作：白框（2 像素）、右上角白底打勾（不只靠顏色：有勾、框線變粗） */
 .workout-btn.current {
     border-color: var(--chalk);
-    background: var(--chalk);
-    color: var(--chalk-ink);
+    box-shadow: inset 0 0 0 1px var(--chalk);
 }
 .workout-btn.current:hover {
     border-color: #FFFFFF;
-    background: #FFFFFF;
-}
-.workout-btn.current .wb-sub {
-    color: rgba(21, 22, 24, 0.72);
 }
 .wb-tag {
     position: absolute;
     top: 8px;
-    right: 10px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--chalk);
+    color: var(--chalk-ink);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 22px;
+    text-align: center;
+}
+/* 選好動作之後（11/24，js/ui/model-pick.js）：「用哪一個 AI 看你做深蹲？」兩張卡片（單選）＋「開始深蹲」 */
+.ready-box {
+    display: grid;
+    gap: 12px;
+    margin: 14px 0 0;
+}
+.model-pick {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.model-pick legend {
+    margin: 0 0 8px;
+    padding: 0;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+}
+.model-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: var(--surface-2);
+    cursor: pointer;
+}
+.model-opt:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+}
+/* 選了的那張：白框（圓點本來就看得到選了哪一個；iOS 15.3 以前不支援 :has，只是沒有白框） */
+.model-opt:has(input:checked) {
+    border-color: var(--chalk);
+    box-shadow: inset 0 0 0 1px var(--chalk);
+}
+.model-opt input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0;
+    accent-color: var(--chalk);
+    cursor: pointer;
+}
+.model-opt input:focus-visible {
+    outline: 3px solid var(--info);
+    outline-offset: 2px;
+}
+.model-opt input:disabled, .model-opt:has(input:disabled) {
+    cursor: progress;
+}
+.mo-body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.mo-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.mo-name {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+.mo-tag {
     padding: 0 8px;
     border-radius: 999px;
-    background: rgba(21, 22, 24, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
     font-size: 12px;
     font-weight: 700;
     line-height: 20px;
+}
+.mo-sub {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+/* 開始深蹲：選好動作和 AI 之後按的，整頁最重要的一個動作（白底黑字） */
+.start-go {
+    min-height: 52px;
+    padding: 10px 16px;
+    border: 1px solid var(--chalk);
+    border-radius: 12px;
+    background: var(--chalk);
+    color: var(--chalk-ink);
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.start-go:hover {
+    border-color: #FFFFFF;
+    background: #FFFFFF;
 }
 .free-line {
     display: flex;
@@ -277,7 +379,7 @@ h1 .accent {
 .free-start:hover {
     border-color: rgba(255, 255, 255, 0.25);
 }
-.workout-btn:disabled, .free-start:disabled {
+.workout-btn:disabled, .free-start:disabled, .start-go:disabled {
     opacity: 0.5;
     cursor: default;
     transform: none;

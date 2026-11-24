@@ -75,3 +75,39 @@ test('YOLO（11/21）：選了會記住、網址也能指定；自動只在 Medi
     m = await load('?model=yolo-x');
     assert.equal(m.getModelChoice(), 'auto', '不認得的網址參數不理（用記住的）');
 });
+
+test('首頁選好動作後的「用哪一個 AI」（11/24）：只選哪一家；換回來時用那一家上次選的大小，沒選過用最快的', async () => {
+    store.clear();
+    let m = await load();
+    assert.deepEqual(m.FAMILIES, ['mediapipe', 'yolo']);
+    assert.equal(m.choiceForFamily('mediapipe'), 'lite', '現在就是這一家：不變');
+    assert.equal(m.choiceForFamily('yolo'), 'yolo-n', '沒選過 YOLO：最快的 26n');
+    m.setModelChoice('full');   // 進階設定選了 full
+    m.setModelChoice(m.choiceForFamily('yolo'));
+    assert.equal(m.getModelChoice(), 'yolo-n');
+    assert.equal(m.choiceForFamily('mediapipe'), 'full', '換回 MediaPipe 還是 full，不會變回 lite');
+    m.setModelChoice('yolo-s');
+    m.setModelChoice(m.choiceForFamily('mediapipe'));
+    m = await load();
+    assert.equal(m.getModelChoice(), 'full', '重新整理後還記得');
+    assert.equal(m.choiceForFamily('yolo'), 'yolo-s', 'YOLO 上次選的 26s 也記得');
+    m.setModelChoice('auto');
+    m.setModelChoice('yolo-n');
+    assert.equal(m.choiceForFamily('mediapipe'), 'auto');
+    assert.equal(m.familyOfChoice('auto'), 'mediapipe');
+    assert.equal(m.familyOfChoice('yolo-s'), 'yolo');
+});
+
+test('「用哪一個 AI」：存的資料、家的名字被改過時不會拿去查物件', async () => {
+    store.clear();
+    store.set('lastModel.yolo', 'lite');            // 別家的
+    store.set('lastModel.mediapipe', 'constructor');
+    const m = await load();
+    assert.equal(m.choiceForFamily('yolo'), 'yolo-n');
+    assert.equal(m.choiceForFamily('mediapipe'), 'lite');
+    for (const bad of ['constructor', '__proto__', 'toString', '', null, undefined, 'YOLO']) {
+        assert.equal(m.choiceForFamily(bad), null, String(bad));
+        assert.equal(m.familyOfChoice(bad), '', String(bad));
+    }
+    assert.equal(m.getModelChoice(), 'lite', '查不認得的家不會改到現在的選擇');
+});

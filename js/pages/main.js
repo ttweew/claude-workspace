@@ -4,7 +4,7 @@ import { SHOW_LABELS_AT_START, DEBUG, PREDICT, FPS_CHOICES, firstDownloadBytes }
 import { isCameraSupported, openCamera, stopCamera, shouldMirror, activeDeviceId, listCameras, cameraErrorMessage, cameraFrameRate, maxFrameRate, getFrameRate, setFrameRate, getFpsChoice, isAutoFps, setAutoRate, changeFrameRate } from '../platform/camera.js';
 import { videoFileSupported, looksLikeVideo, openVideoFile } from '../platform/video-source.js';
 import { loadPose } from '../ai/pose-source.js';
-import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad } from '../ai/model-choice.js';
+import { MODEL_CHOICES, getModelChoice, setModelChoice, rememberAutoModel, autoRemembered, modelToLoad, choiceForFamily } from '../ai/model-choice.js';
 import { shortName, hasFeet, profileOf, familyOf, seesOcclusion } from '../ai/models.js';
 import { drawSkeleton, drawBalance } from '../ui/draw.js';
 import { videoRect, updateLabels, hideLabels, nearestPoint, fromScreen } from '../ui/labels.js';
@@ -30,6 +30,7 @@ import { setupGrowth } from '../ui/growth-chart.js';
 import { setupCoach } from '../ui/coach-view.js';
 import { coachFacts } from '../analysis/coach.js';
 import { setupStartPick } from '../ui/start-pick.js';
+import { setupModelPick } from '../ui/model-pick.js';
 import { poseSide } from '../skeleton/landmarks.js';
 import { summarize, compare, describe, autoList, AUTO_LIST_MAX, saveSession, loadHistory, clearHistory, setActual, parseActual, countAccuracy, countsReps, ACTUAL_MAX } from '../analysis/session.js';
 import { historyCsv, historyFileName } from '../data/history-csv.js';
@@ -1635,6 +1636,7 @@ function showWorkout() {
     showPoseLabels();
     showTestBar();
     showModelNote();
+    showModelPick();
 }
 onWorkoutChange(next => {
     // 實測的一組還在倒數就換動作：這一組作廢（要做的錯誤是上一個動作的）。錄製中不能換動作（setWorkoutLocked）
@@ -2228,7 +2230,28 @@ function showModelNote() {
     modelNote.hidden = !text;
 }
 
+// 首頁選好動作之後「用哪一個 AI」（11/24，js/ui/model-pick.js）：和「進階設定」的 AI 模型是同一個選擇（chooseModel），
+// 換一家時用那一家上次選的大小（js/ai/model-choice.js 的 choiceForFamily）
+const renderModelPick = setupModelPick({
+    box: document.getElementById('modelPick'),
+    onChoose: family => {
+        const key = choiceForFamily(family);
+        if (key && key !== getModelChoice()) chooseModel(key);
+    }
+});
+function showModelPick() {
+    const yolo = choiceForFamily('yolo');
+    renderModelPick({
+        workoutId: getWorkout().id,
+        current: getModelChoice(),
+        variants: { mediapipe: choiceForFamily('mediapipe'), yolo },
+        mb: firstDownloadBytes(yolo) / 1e6,
+        disabled: switchingModel
+    });
+}
+
 function showModelChoice() {
+    showModelPick();
     fillModelOptions(modelSelect);
     fillModelOptions(modelLive);
     showAdvancedTitle();
@@ -2599,12 +2622,16 @@ if (!document.fullscreenEnabled) {
     fullscreenBtn.hidden = true;
 }
 
-// 首頁「今天要做什麼運動？」的四個大按鈕（js/ui/start-pick.js）
+// 首頁「今天要做什麼運動？」的四個大按鈕（js/ui/start-pick.js）：按了選好動作，下面出現「用哪一個 AI」和「開始」（11/24）
+const readyBox = document.getElementById('readyBox');
 const setStartDisabled = setupStartPick({
     grid: document.getElementById('workoutGrid'),
+    ready: readyBox,
     freeLine: document.getElementById('freeLine'),
     startBtn,
-    freeBtn: document.getElementById('freeBtn')
+    freeBtn: document.getElementById('freeBtn'),
+    // 小手機上四個大按鈕就占滿一個畫面：選好後把「用哪一個 AI」和「開始」捲進來（只捲到看得到，已經看得到就不動）
+    onPick: () => readyBox.scrollIntoView({ block: 'nearest' })
 });
 if (!isCameraSupported()) {
     statusText.textContent = '此瀏覽器不支援鏡頭功能，請改用新版 Chrome、Safari 或 Edge';
