@@ -3,7 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PICKS, startLook, FREE_TEXT } from '../js/ui/start-pick.js';
-import { pickTexts } from '../js/ui/model-pick.js';
+import { pickTexts, choiceLabel } from '../js/ui/model-pick.js';
+import { insetFrom } from '../js/ui/model-screen.js';
 import { unjudgedRules } from '../js/analysis/form.js';
 import { shouldAskCloud, loadAsked, saveAsked } from '../js/ui/cloud-ask.js';
 import { cleanDone, progressText } from '../js/ui/task-card.js';
@@ -13,15 +14,39 @@ test('四個大按鈕：計次、計時的動作都有，自由模式不在裡�
     assert.deepEqual(PICKS.slice().sort(), Object.keys(WORKOUTS).filter(id => id !== 'free').sort());
 });
 
-test('「用目前的動作開鏡頭」的按鈕（#startBtn）：選了動作寫「開始深蹲」（11/24 起放在「用哪一個 AI」下面），自由模式是最下面的小字', () => {
+test('「用目前的動作開鏡頭」的按鈕（#startBtn）：選過動作寫「開始深蹲 · MediaPipe lite」（11/24 起回到首頁直接用上次選的 AI），自由模式是最下面的小字', () => {
     for (const id of PICKS) {
-        const look = startLook(id);
+        const look = startLook(id, 'MediaPipe lite');
         assert.equal(look.place, id);
-        assert.equal(look.text, '開始' + WORKOUTS[id].name);
+        assert.equal(look.text, '開始' + WORKOUTS[id].name + ' · MediaPipe lite');
+        // 沒給 AI 的名字（或不是字串）：只寫「開始深蹲」，不會寫出 undefined
+        for (const none of [undefined, '', null, 42]) assert.equal(startLook(id, none).text, '開始' + WORKOUTS[id].name, String(none));
     }
-    assert.deepEqual(startLook('free'), { place: 'free', text: FREE_TEXT });
+    assert.equal(startLook('squat', 'YOLO26n').text, '開始深蹲 · YOLO26n');
+    assert.deepEqual(startLook('free', 'MediaPipe lite'), { place: 'free', text: FREE_TEXT });
     // 認不得的代號（網址、存的資料被改過）：當作自由模式，不會拿去查物件
     for (const bad of ['constructor', 'toString', '', undefined, null, 42]) assert.equal(startLook(bad).place, 'free', String(bad));
+});
+
+test('AI 的名字（卡片、首頁的「開始深蹲 · …」同一個）：照進階設定選的大小；自動寫「MediaPipe（自動）」；被改過的值是空字串', () => {
+    assert.deepEqual(['lite', 'full', 'auto', 'yolo-n', 'yolo-s'].map(choiceLabel),
+        ['MediaPipe lite', 'MediaPipe full', 'MediaPipe（自動）', 'YOLO26n', 'YOLO26s']);
+    for (const bad of ['constructor', '__proto__', 'toString', '', null, undefined, 42]) assert.equal(choiceLabel(bad), '', String(bad));
+});
+
+test('選 AI 的轉場畫面從按的那顆按鈕展開：剪裁的起點就是按鈕的位置；按鈕超出畫面時夾在畫面裡；量不到時從正中間', () => {
+    // 320×640 的手機，按鈕在左上（上 100、左 20、寬 130、高 76）：上、右、下、左各剪掉多少
+    assert.equal(insetFrom({ top: 100, left: 20, right: 150, bottom: 176 }, 320, 640), 'inset(100px 170px 464px 20px round 12px)');
+    // 往下捲過頭：按鈕上面一段在畫面外，從畫面最上面開始
+    assert.equal(insetFrom({ top: -30, left: 20, right: 150, bottom: 46 }, 320, 640), 'inset(0px 170px 594px 20px round 12px)');
+    // 整顆在畫面下面（收起前首頁被捲走了）：縮到畫面最下面那一條
+    assert.equal(insetFrom({ top: 700, left: 20, right: 150, bottom: 776 }, 320, 640), 'inset(640px 170px 0px 20px round 12px)');
+    // 小數點（字型、縮放）：四捨五入成整數像素
+    assert.equal(insetFrom({ top: 99.6, left: 20.4, right: 150.5, bottom: 176.2 }, 320, 640), 'inset(100px 170px 464px 20px round 12px)');
+    for (const bad of [null, undefined, {}, { top: NaN, left: 0, right: 10, bottom: 10 }, { top: '1', left: 0, right: 10, bottom: 10 }]) {
+        assert.equal(insetFrom(bad, 320, 640), 'inset(320px 160px round 12px)', JSON.stringify(bad));
+    }
+    assert.equal(insetFrom({ top: 0, left: 0, right: 10, bottom: 10 }, 0, 0), 'inset(0px 0px round 12px)', '畫面大小量不到');
 });
 
 test('運動完問雲端同步：只有接上 Firebase、還沒打開、這次有總結、沒問過才問', () => {
@@ -67,10 +92,10 @@ test('用哪一個 AI：深蹲用 YOLO 不判斷「腳跟離地」，弓箭步�
     const [mp, yolo] = t.options;
     assert.deepEqual([mp.family, mp.label, mp.tag, mp.checked], ['mediapipe', 'MediaPipe lite', '推薦', true]);
     assert.deepEqual([yolo.family, yolo.label, yolo.tag, yolo.checked], ['yolo', 'YOLO26n', '實驗', false]);
-    assert.match(mp.sub, /每一種錯誤都判斷/);
-    assert.match(yolo.sub, /點一下就能換人/);
-    assert.match(yolo.sub, /不判斷「腳跟離地」/);
-    assert.match(yolo.sub, /第一次用要下載約 23 MB/);
+    // 卡片上一條一行的重點；sub 是接成一句（螢幕閱讀器、瀏覽器測試用）
+    assert.deepEqual(mp.points, ['網站一直在用的，比較快', '看得到腳跟、腳尖', '每一種錯誤都判斷']);
+    assert.deepEqual(yolo.points, ['畫面裡有好幾個人時，點一下就能換人', '沒有腳跟、腳尖，不判斷「腳跟離地」', '第一次用要下載約 23 MB']);
+    assert.equal(yolo.sub, yolo.points.join('；'));
     assert.match(pickTexts('lunge', 'lite', FAST, 23).options[1].sub, /不判斷「膝超過腳尖」/);
 });
 

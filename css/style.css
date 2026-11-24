@@ -182,9 +182,9 @@ h1 .accent {
     border-radius: var(--radius);
     background: var(--surface);
 }
-/* 今天要做什麼運動？（js/ui/start-pick.js）：四個大按鈕 2×2，按了選好動作（白框、右上角「已選」）；自由模式是最下面一行小字
-   選好動作後下面出現「用哪一個 AI」和「開始深蹲」（11/24）：#startBtn 用 .start-go（白底大按鈕）或 .free-start（自由模式）的樣子
-   白底只給最重要的一個動作（開始），選了的動作用白框，兩個不會搶 */
+/* 今天要做什麼運動？（js/ui/start-pick.js）：四個大按鈕 2×2，按了轉場到選 AI 的畫面（11/24，下面的 .model-screen）
+   上次選的動作：白框、右上角打勾，下面一行「開始深蹲 · MediaPipe lite」（.quick-start）直接開始；自由模式是最下面一行小字（.free-start）
+   白底的大按鈕只給轉場畫面裡的「開始深蹲」（最重要的一個動作），首頁上的都是框線，不會搶 */
 .pick-title {
     margin: 0 0 12px;
     color: var(--text);
@@ -253,12 +253,31 @@ h1 .accent {
     line-height: 22px;
     text-align: center;
 }
-/* 選好動作之後（11/24，js/ui/model-pick.js）：「用哪一個 AI 看你做深蹲？」兩張卡片（單選）＋「開始深蹲」 */
-.ready-box {
-    display: grid;
-    gap: 12px;
-    margin: 14px 0 0;
+/* 選過動作之後回到首頁（做完一組、網址 ?workout=）：「開始深蹲 · MediaPipe lite」用上次選的 AI 直接開始；字粗一點、框線亮一點，比「只看骨架」顯眼 */
+.quick-line {
+    display: flex;
+    margin: 10px 0 0;
 }
+.quick-start {
+    flex: 1 1 100%;
+    min-height: 48px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    cursor: pointer;
+}
+.quick-start:hover {
+    border-color: var(--chalk);
+    background: rgba(255, 255, 255, 0.04);
+}
+/* 選 AI 的轉場畫面裡（11/24，js/ui/model-pick.js）：「用哪一個 AI 看你做深蹲？」兩張卡片（單選） */
 .model-pick {
     display: grid;
     gap: 8px;
@@ -266,6 +285,10 @@ h1 .accent {
     margin: 0;
     padding: 0;
     border: 0;
+}
+/* 換模型中焦點暫時放在整組上（js/ui/model-pick.js；卡片已經變灰，看得出在等），不畫框 */
+.model-pick:focus {
+    outline: none;
 }
 .model-pick legend {
     margin: 0 0 8px;
@@ -334,12 +357,29 @@ h1 .accent {
     font-weight: 700;
     line-height: 20px;
 }
-.mo-sub {
-    color: var(--muted);
-    font-size: 13px;
+/* 每張卡片三、四條重點，一條一行，前面一個小圓點；字用 --muted-2（比 --muted 亮：10/21 使用者回饋灰字在黑底上不顯眼） */
+.mo-points {
+    display: grid;
+    gap: 2px;
+    color: var(--muted-2);
+    font-size: 14px;
     line-height: 1.45;
 }
-/* 開始深蹲：選好動作和 AI 之後按的，整頁最重要的一個動作（白底黑字） */
+.mo-point {
+    position: relative;
+    padding-left: 12px;
+}
+.mo-point::before {
+    content: '';
+    position: absolute;
+    top: 0.62em;
+    left: 1px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+}
+/* 開始深蹲：轉場畫面裡選好 AI 之後按的，最重要的一個動作（白底黑字） */
 .start-go {
     min-height: 52px;
     padding: 10px 16px;
@@ -379,11 +419,133 @@ h1 .accent {
 .free-start:hover {
     border-color: rgba(255, 255, 255, 0.25);
 }
-.workout-btn:disabled, .free-start:disabled, .start-go:disabled {
+.workout-btn:disabled, .free-start:disabled, .quick-start:disabled, .start-go:disabled {
     opacity: 0.5;
     cursor: default;
     transform: none;
 }
+
+/* ---------- 選 AI 的轉場畫面（11/24，js/ui/model-screen.js）----------
+   按了首頁的「深蹲」：那顆按鈕放大成整個畫面（clip-path 從按鈕的位置展開；--ms-from 是 JS 量的按鈕位置），
+   底色從按鈕的顏色（--surface-2）變成頁面的底色；裡面的東西晚一點、依序浮上來（.ms-step，一個比一個晚 0.05 秒）
+   展開 0.38 秒：太短看不出是從按鈕長出來的，超過半秒會覺得在等；收起來 0.3 秒（已經決定要回去了，快一點） */
+.model-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 25;   /* 導覽列（20）上面、鏡頭畫面（#stage，30）下面：按了「開始」鏡頭畫面直接蓋上來 */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface-2);
+    clip-path: var(--ms-from, inset(50% round 12px));
+    transition: clip-path 0.38s cubic-bezier(0.3, 0, 0.2, 1), background-color 0.38s ease;
+}
+.model-screen.open {
+    clip-path: inset(0 round 0);
+    background: var(--bg);
+}
+.model-screen.closing {
+    transition-duration: 0.3s;
+}
+/* 內容：手機滿版（左右留 16px），電腦最寬 520px 置中；「開始」固定在最下面（小手機要捲動時也一直看得到） */
+.ms-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 520px;
+    min-height: 100%;
+    margin: 0 auto;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+}
+.ms-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 8px 16px 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+.ms-back:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+.ms-back svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.ms-hero {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    text-align: center;
+}
+/* 示範動畫（js/ui/demo.js，和「支援的運動」卡片同一個）：小手機上最高 22% 的畫面高，卡片和「開始」才放得下 */
+.ms-figure {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    max-height: 22vh;
+}
+.ms-title {
+    margin: 0;
+    color: var(--text);
+    font-size: 26px;
+    line-height: 1.25;
+}
+/* 矮的手機（320×640 這種）：動畫小一點、間隔小一點，兩張卡片和「開始」才一次看得到，不用捲（11/24 截圖：不縮要多捲 44 像素） */
+@media (max-height: 700px) {
+    .ms-inner {
+        gap: 10px;
+    }
+    .ms-figure {
+        max-height: 16vh;
+    }
+}
+.model-screen .model-pick legend {
+    font-size: 17px;
+}
+.ms-foot {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    gap: 8px;
+    margin-top: auto;
+    padding: 10px 0 max(16px, env(safe-area-inset-bottom));
+    background: var(--bg);
+}
+.ms-status {
+    min-height: 1.45em;
+    margin: 0;
+    color: var(--muted-2);
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: center;
+}
+.ms-step {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.model-screen.open .ms-step {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.3s ease var(--ms-delay, 0s), transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) var(--ms-delay, 0s);
+}
+.ms-step:nth-child(1) { --ms-delay: 0.12s; }
+.ms-step:nth-child(2) { --ms-delay: 0.17s; }
+.ms-step:nth-child(3) { --ms-delay: 0.22s; }
+.ms-step:nth-child(4) { --ms-delay: 0.27s; }
 /* 智慧課表（11/14，js/ui/plan-card.js）：四個大按鈕下面一張卡片：左邊名稱＋說明、右邊「開始課表」，下面一行這次排的；
    「怎麼排的」點開才看到每一項的理由和勾選（平常只占三行，四個大按鈕還是第一眼看到的） */
 .plan-box {
@@ -654,6 +816,10 @@ button:focus-visible, select:focus-visible {
     .free-start {
         padding: 8px 10px;
         font-size: 14px;
+    }
+    .quick-start {
+        padding: 8px 10px;
+        font-size: 15px;
     }
 }
 .voice-modes input:checked + span {
@@ -3348,6 +3514,10 @@ code {
         animation: none;
     }
     #modelProgress .fill, #modelProgress.hide, .workout-btn, .switch-pick input, .switch-pick input::before {
+        transition: none;
+    }
+    /* 選 AI 的轉場畫面：不展開、不浮上來，直接出現（js/ui/model-screen.js 也直接加 open） */
+    .model-screen, .model-screen .ms-step, .model-screen.open .ms-step {
         transition: none;
     }
 }
