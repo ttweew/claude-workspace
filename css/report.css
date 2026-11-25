@@ -68,3 +68,55 @@
     outline: 3px solid var(--info);
     outline-offset: 2px;
 }
+/* 老師的四個指標（11/25，js/pages/report.js 的 metricsTable）：表格和「每一組」同一種（css/replay.css 的 .stats）
+   每一列的名字（動作、AI 模型、規則）靠左；合計那一列粗一點、上面多一條線，看得出是加起來的 */
+.metrics-title {
+    margin: 14px 0 6px;
+    font-size: 15px;
+}
+.metrics-title:first-child {
+    margin-top: 4px;
+}
+.metrics-table tbody th {
+    font-weight: 600;
+    text-align: left;
+}
+.metrics-table tr.total th, .metrics-table tr.total td {
+    border-top: 2px solid var(--line);
+    font-weight: 700;
+}
+#aiMetrics {
+    margin: 8px 0 4px;
+}
+/* 手機：列的名字（「計次的動作合計」「棒式（一組算一格）」）可以換行，讓出位置給四個指標，少捲一點 */
+@media (max-width: 480px) {
+    .metrics-table tbody th {
+        min-width: 4.5em;
+        white-space: normal;
+    }
+}
+/* 電腦上兩張表（MediaPipe、YOLO 錄的）的每一欄對齊，方便上下比；手機上照字的寬度排、在自己的框裡左右捲 */
+@media (min-width: 481px) {
+    .metrics-table {
+        table-layout: fixed;
+    }
+    .metrics-table th:first-child {
+        width: 24%;
+    }
+}
+/* 「這四個指標怎麼算」：平常收起來（和重播分析的「AI 為什麼這樣判」一樣） */
+.metrics-help {
+    margin: 10px 0 0;
+    font-size: 14px;
+}
+.metrics-help summary {
+    cursor: pointer;
+    color: var(--info);
+}
+.metrics-help summary:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+}
+.metrics-help .report-summary {
+    margin-top: 8px;
+}

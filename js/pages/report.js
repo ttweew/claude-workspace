@@ -2,8 +2,11 @@
 // 重算在背景執行緒（js/data/report-worker.js），一次一個檔案，主畫面不會卡；背景執行緒開不起來就在主畫面算
 // 比對、加總在 js/data/test-report.js；zip 在 js/data/unzip.js
 // AI 模型的資料（11/2）：同一批檔案的每一下（量到的數字＋這組要做的），js/data/dataset.js 做成 CSV
+// 老師的四個指標（11/25）：規則判斷的抓到、漏掉、誤報、沒事和精確率、召回率、準確率、F1（js/data/metrics.js），MediaPipe、YOLO 錄的分開
 
-import { setResult, markRedos, sortReport, summarizeReport, ratioText, countedText, verdictText, reportCsv } from '../data/test-report.js';
+import { setResult, markRedos, sortReport, summarizeReport, ratioText, countedText, verdictText, reportCsv,
+    ruleTables, labelCounts, modelText, FAMILY_NAME } from '../data/test-report.js';
+import { scores, percentText } from '../data/metrics.js';
 import { readZip } from '../data/unzip.js';
 import { analyzeOne } from '../data/report-core.js';
 import { datasetRows, datasetCsv, datasetFileName, datasetSummary } from '../data/dataset.js';
@@ -19,6 +22,7 @@ const phoneRow = $('phoneRow'), phoneBtn = $('phoneBtn'), phoneNote = $('phoneNo
 const result = $('result'), reportSummary = $('reportSummary'), reportTable = $('reportTable');
 const badFiles = $('badFiles'), badList = $('badList'), csvBtn = $('csvBtn');
 const aiDataCard = $('aiDataCard'), aiDataSummary = $('aiDataSummary'), aiDataBtn = $('aiDataBtn');
+const metricsCard = $('metricsCard'), metricsTables = $('metricsTables'), aiMetrics = $('aiMetrics');
 
 const MAX_BYTES = 400 * 1024 * 1024;   // 一個檔案最大 400 MB（和重播分析一樣）
 let rows = [];
@@ -108,9 +112,10 @@ async function analyzeAll(sources, bad) {
         try {
             if (s.blob.size > MAX_BYTES) throw new Error('檔案太大（超過 400 MB）');
             const r = await analyzeFile(s.blob);
-            const row = setResult(r.info, r.items, r.kind, r.startedAt, s.name);
+            const row = setResult(r.info, r.items, r.kind, r.startedAt, s.name, r.model);
             // AI 模型的資料：這一組的每一下（重錄的組下載時不放進去，見 dataset()）
-            row.dataset = datasetRows(r.info, r.items, { file: s.name, synthetic: r.synthetic });
+            // blind：錄的模型判斷不了這組要做的錯誤（YOLO 沒有腳）：AI 模型猜對幾列、四個指標都不算（下載的 CSV 照樣有，CSV 只寫 DATASET_HEAD 那幾欄）
+            row.dataset = datasetRows(r.info, r.items, { file: s.name, synthetic: r.synthetic }).map(d => Object.assign(d, { blind: row.blind }));
             rows.push(row);
         } catch (err) {
             failed.push({ name: s.name, why: err instanceof SyntaxError || /JSON/.test(err.message) ? '檔案內容不完整或格式不正確' : err.message });
@@ -204,6 +209,7 @@ function show(failed) {
     }
     reportSummary.replaceChildren(...lines);
     csvBtn.hidden = !rows.length;
+    showMetrics();
     showDataset(li);
 
     const head = document.createElement('tr');
@@ -224,7 +230,9 @@ function show(failed) {
         td(workoutName(r.workout));
         const cond = td(r.conditionName);
         const file = document.createElement('small');
-        file.textContent = r.name + (r.redo ? '（重錄，不算）' : '');
+        // 檔名後面寫錄的時候用哪個 AI 模型（四個指標 MediaPipe、YOLO 分開算，看得出這組算在哪一張）
+        const model = modelText(r.model);
+        file.textContent = r.name + (model ? ' · ' + model : '') + (r.redo ? '（重錄，不算）' : '');
         cond.append(file);
         td(r.expected + ' ' + r.unit);
         td(countedText(r), r.kind === 'reps' && !r.countOk);
@@ -236,6 +244,59 @@ function show(failed) {
 
     badFiles.hidden = !failed.length;
     badList.replaceChildren(...failed.map(f => li(f.name + '：' + f.why)));
+}
+
+// ---------- 老師的四個指標（11/18 白板，11/25 放進報表） ----------
+// 一張表：第一欄是名字（動作，或 AI 模型／規則），接著四個指標、再來四格；手機上比畫面寬，框可以用鍵盤捲動（和「每一組」一樣）
+// 四個指標放前面：320 寬的手機一打開就看得到（11/25 截圖：四格放前面時，四個指標全部在畫面外，要往右捲才看得到）
+// region 的名字（label）每一張都不一樣：螢幕閱讀器才分得出來（axe-core 的 landmark-unique）
+const METRIC_HEAD = ['精確率', '召回率', '準確率', 'F1', '抓到', '漏掉', '誤報', '沒事'];
+function metricsTable(label, first, lines) {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    wrap.tabIndex = 0;
+    wrap.setAttribute('role', 'region');
+    wrap.setAttribute('aria-label', label);
+    const table = document.createElement('table');
+    table.className = 'stats metrics-table';
+    const cell = (tag, text, scope) => { const c = document.createElement(tag); c.textContent = text; if (scope) c.scope = scope; return c; };
+    const head = document.createElement('tr');
+    head.append(cell('th', first, 'col'), ...METRIC_HEAD.map(h => cell('th', h, 'col')));
+    const thead = document.createElement('thead');
+    thead.append(head);
+    const tbody = document.createElement('tbody');
+    for (const l of lines) {
+        const tr = document.createElement('tr');
+        if (l.workout === 'total') tr.className = 'total';
+        const c = l.counts;
+        tr.append(cell('th', l.label, 'row'), ...[l.precision, l.recall, l.accuracy, l.f1].map(x => cell('td', percentText(x))),
+            ...[c.tp, c.fn, c.fp, c.tn].map(n => cell('td', String(n))));
+        tbody.append(tr);
+    }
+    table.append(thead, tbody);
+    wrap.append(table);
+    return wrap;
+}
+
+function showMetrics() {
+    const groups = ruleTables(rows);
+    metricsCard.hidden = !groups.length;
+    metricsTables.replaceChildren(...groups.flatMap(g => {
+        const title = document.createElement('h3');
+        title.className = 'metrics-title';
+        title.textContent = FAMILY_NAME[g.family] + ' 錄的';
+        const parts = [title];
+        if (g.lines.length) parts.push(metricsTable('四個指標：' + FAMILY_NAME[g.family] + ' 錄的', '動作', g.lines));
+        // YOLO 判斷不了的錯誤：不算進來（沒有判斷，不是漏掉），寫出是哪幾組
+        if (g.skipped.length) {
+            const note = document.createElement('p');
+            note.className = 'note';
+            note.textContent = FAMILY_NAME[g.family] + ' 沒有腳跟、腳尖的點，判斷不了：'
+                + g.skipped.map(k => workoutName(k.workout) + '「' + k.name + '」' + k.sets + ' 組').join('、') + '，沒有算進來（沒有判斷，不是漏掉）';
+            parts.push(note);
+        }
+        return parts;
+    }));
 }
 
 // ---------- AI 模型的資料 ----------
@@ -256,14 +317,24 @@ function showDataset(li) {
     }
     // AI 模型（11/4，js/analysis/ai-judge.js）：訓練時沒看過的受測者，AI 模型和規則各猜對幾列（猜每一下是做對，還是哪一種錯）
     // 訓練時看過的不算（先看過考題，猜對也不算數）
-    const judged = data.filter(r => hasAiModel(r.workout) && !seenInTraining(r.subject, r.synthetic));
+    const judged = data.filter(r => hasAiModel(r.workout) && !seenInTraining(r.subject, r.synthetic) && !r.blind);
     const seen = [...new Set(data.filter(r => seenInTraining(r.subject, r.synthetic)).map(r => r.subject))].sort();
+    // 四個指標（11/25）：同一批列，AI 模型和規則各數一次四格（故意做錯的那一下猜對那一種錯才算抓到）
+    const aiPairs = [], rulePairs = [];
     if (judged.length) {
-        const ai = judged.filter(r => aiJudgeFeatures(r.workout, r.features).label === r.condition).length;
-        const rule = judged.filter(r => ruleJudge(r.workout, r.ruleErrors, r.features) === r.condition).length;
+        for (const r of judged) {
+            aiPairs.push({ truth: r.condition, guess: aiJudgeFeatures(r.workout, r.features).label });
+            rulePairs.push({ truth: r.condition, guess: ruleJudge(r.workout, r.ruleErrors, r.features) });
+        }
+        const ai = aiPairs.filter(p => p.guess === p.truth).length;
+        const rule = rulePairs.filter(p => p.guess === p.truth).length;
         lines.push(li('AI 模型（' + (AI_MODEL.synthetic ? '示範：用合成資料訓練的' : '用 ' + AI_MODEL.subjects.length + ' 位受測者的實測資料訓練的')
             + '）猜對 ' + ratioText(ai, judged.length) + ' 列，規則 ' + ratioText(rule, judged.length) + ' 列（猜每一下是做對，還是哪一種錯）'));
     }
+    const line = (label, counts) => ({ label, counts, ...scores(counts) });
+    aiMetrics.replaceChildren(...(judged.length
+        ? [metricsTable('四個指標：AI 模型和規則', '方法', [line('AI 模型', labelCounts(aiPairs)), line('規則', labelCounts(rulePairs))])]
+        : []));
     if (seen.length) lines.push(li('受測者 ' + seen.join('、') + ' 的資料訓練 AI 模型時看過，不算進 AI 模型猜對幾列'));
     const redos = rows.filter(r => r.redo).length;
     if (redos) lines.push(li('重錄的 ' + redos + ' 組沒有放進來（以最後一次為準）'));

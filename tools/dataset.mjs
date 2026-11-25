@@ -21,8 +21,9 @@ export async function buildDataset(sources) {
     for (const s of sources) {
         try {
             const r = await analyzeOne(s.text);
-            const set = setResult(r.info, r.items, r.kind, r.startedAt, s.name);
-            set.dataset = datasetRows(r.info, r.items, { file: s.name, synthetic: r.synthetic });
+            const set = setResult(r.info, r.items, r.kind, r.startedAt, s.name, r.model);
+            // blind：錄的模型判斷不了這組要做的錯誤（YOLO 沒有腳；實測報表一樣標，四個指標不算這些列；CSV 只寫 DATASET_HEAD 那幾欄）
+            set.dataset = datasetRows(r.info, r.items, { file: s.name, synthetic: r.synthetic }).map(d => Object.assign(d, { blind: set.blind }));
             sets.push(set);
         } catch (err) {
             failed.push({ name: s.name, why: err instanceof SyntaxError ? '檔案內容不完整或格式不正確' : err.message });

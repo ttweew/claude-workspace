@@ -5,6 +5,7 @@
 import { parseRecording, needsFrameSize, analyzeRecording } from './replay-core.js';
 import { testInfo } from './test-mode.js';
 import { WORKOUTS } from '../analysis/workouts.js';
+import { keyOfFile } from '../ai/models.js';
 
 export async function analyzeOne(text) {
     const parsed = parseRecording(text);
@@ -19,6 +20,8 @@ export async function analyzeOne(text) {
         startedAt: Number.isFinite(started) ? started : 0,
         // 合成的實測檔（tests/synthetic-sets.mjs，不是真人）：AI 模型的資料表另外標出來
         synthetic: parsed.meta.synthetic === true,
+        // 錄的時候用哪個 AI 模型（meta.model 是模型的檔名，先比對清單；不認得的是空字串，報表當作 MediaPipe）：四個指標分開算
+        model: keyOfFile(parsed.meta.model),
         // 只留比對、AI 模型的資料要用的（每一下的錯誤、棒式的秒數、上面那些數字）：角度曲線那些大陣列不傳回主畫面
         items: r.reps.map(it => ({
             errors: Array.isArray(it.errors) ? it.errors : [], seconds: it.seconds,
