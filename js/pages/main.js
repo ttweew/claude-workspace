@@ -56,6 +56,7 @@ import { setupInstall } from '../platform/install.js';
 import { unsupportedAdvice, describeDevice } from '../platform/support.js';
 import { phoneReport } from '../ui/phone-info.js';
 import { copyText } from '../ui/copy.js';
+import { setupSpeedCard } from '../ui/speed-card.js';
 import { keepBelowInfobar } from '../ui/infobar-space.js';
 import { loadTestMode, conditionsFor, testMeta, testFileName } from '../data/test-mode.js';
 import { setupTestCard } from '../ui/test-card.js';
@@ -184,6 +185,9 @@ const fps = new FpsCounter();        // AI 每秒算幾格
 const cameraFps = new FpsCounter();  // 鏡頭每秒送來幾格（AI 最多只能算這麼多格）
 let lastCameraFrame = null;          // 上一次看到的鏡頭畫面（算鏡頭格數用）
 const recentMs = [];                 // 最近 30 格 AI 每格花幾毫秒（運算標籤點開時顯示）
+let speedCard = null;                // 測 AI 速度（11/25，js/ui/speed-card.js）：輪流用四個模型各量一次
+let speedOn = false;                 // 正在測 AI 速度：不跳速度建議、不自動調、不能錄影、不能換模型和每秒格數
+let speedStatus = null;              // 測速換模型時：下載進度也寫在卡片上
 const speedMeter = new SpeedMeter(); // 速度建議：量這台裝置實際跑多快
 let measureFrom = 0;                 // 從這個時間 3 秒後才開始量（剛開鏡頭、從背景回來的幾秒比較慢，不準）
 let lastPersonAt = -Infinity;        // 最近一次畫面裡有人的時間
@@ -264,6 +268,7 @@ keepBelowInfobar(document.getElementById('infobar'), stage);
 // 首頁與鏡頭畫面同時顯示 AI 模型的載入狀態
 function setModelStatus(text) {
     if (modelStatus.textContent !== text) modelStatus.textContent = text;
+    if (speedStatus) speedStatus(text);
     setPoseStatus(text);
     showScreenStatus();
 }
@@ -668,6 +673,7 @@ function measuring() {
 
 // 每一格：AI 這格花了幾毫秒（送出畫面到結果回來）
 function measureFrame(ms, person) {
+    if (speedCard) speedCard.frame(ms, person);
     recentMs.push(ms);
     if (recentMs.length > 30) recentMs.shift();
     if (!person) return;
@@ -681,7 +687,8 @@ function measureFrame(ms, person) {
 function measureSecond() {
     const ms = median(secondMs);
     secondMs.length = 0;
-    if (!measuring() || performance.now() - lastPersonAt > 500 || !ms) return;
+    // 測 AI 速度的時候（js/ui/speed-card.js）一直在換模型：不給建議、不自動調（測完換回原本的模型會重新量）
+    if (speedOn || !measuring() || performance.now() - lastPersonAt > 500 || !ms) return;
     if (adviceDone) {
         if (!isAutoFps()) return;
         const rate = autoFps.second({ aiFps: fps.value, cameraFps: cameraFps.value, msPerFrame: ms }, getFrameRate(), cameraMaxFps);
@@ -1165,7 +1172,8 @@ gestureToggle.addEventListener('change', () => {
     try { localStorage.setItem(GESTURE_KEY, gestureOn ? '1' : '0'); } catch (err) { /* 不能存就這次有效 */ }
     resetGesture();
 });
-const gestureAllowed = () => gestureOn && !testSet && !(testMode.on && conditionsFor(workout.id).length > 0);
+// 測 AI 速度的時候不能錄影，手勢也先不用
+const gestureAllowed = () => gestureOn && !testSet && !speedOn && !(testMode.on && conditionsFor(workout.id).length > 0);
 
 // 每一格（showResult）：舉著 0.5 秒以上寫「✋ 再舉 1.2 秒開始錄影」，舉滿 2 秒就和錄影控制列的大圓鈕一樣
 // （還沒錄就開始、倒數中取消、錄製中結束），講出來（或嗶一聲），畫面上寫 2.5 秒
@@ -1606,13 +1614,81 @@ phoneInfoBtn.addEventListener('click', () => {
         cameraFps: currentStream ? cameraFps.value : 0,
         cameraMax: cameraMaxFps,
         size: currentStream && video.videoWidth ? video.videoWidth + '×' + video.videoHeight : '',
-        fpsSetting: isAutoFps() ? '自動，目前 ' + getFrameRate() + ' 格' : '每秒 ' + getFrameRate() + ' 格',
+        fpsSetting: fpsSettingText(),
         luma: lightMeter.luma,
         wake: !currentStream ? '' : !isWakeLockSupported() ? '這個瀏覽器無法保持螢幕亮著' : isScreenKeptOn() ? '螢幕保持亮著' : '螢幕可能自動變暗',
         baseline: tracker.baseline
     });
     copyText(text, phoneInfoBtn, phoneInfoStatus);
 });
+// 每秒格數的設定（複製手機資訊、測 AI 速度的文字）
+function fpsSettingText() {
+    return isAutoFps() ? '自動，目前 ' + getFrameRate() + ' 格' : '每秒 ' + getFrameRate() + ' 格';
+}
+
+// ---------- 測 AI 速度（11/25，js/ui/speed-card.js）：輪流用四個模型各量一次，組員用自己的手機按一下、複製結果 ----------
+const speedBtn = document.getElementById('speedBtn');
+speedCard = setupSpeedCard({
+    root: document.getElementById('speedTest'),
+    text: document.getElementById('speedText'),
+    clock: document.getElementById('speedClock'),
+    table: document.getElementById('speedTable'),
+    note: document.getElementById('speedNote'),
+    go: document.getElementById('speedGo'),
+    copy: document.getElementById('speedCopy'),
+    close: document.getElementById('speedClose'),
+    copyStatus: document.getElementById('speedCopyStatus'),
+    // 關卡片時焦點回到工具列的「數據」（「測 AI 速度」在數據面板裡，打開卡片時面板收起來了）
+    opener: dataBtn
+}, {
+    blocked: () => !currentStream ? '先開鏡頭再測'
+        : !pose ? 'AI 還在準備，等一下再按'
+        : poseBroken ? 'AI 無法使用，請關閉鏡頭重開'
+        : switchingModel || restarting ? 'AI 正在換模型，等一下再按'
+        : recorder.recording || recCountdown.counting ? '錄影中不能測：先停止錄影' : '',
+    broken: () => !pose || poseBroken,
+    current: () => currentModel(),
+    switchTo: speedSwitch,
+    compute: () => ({ compute: pose ? pose.computeMode : '', detail: pose ? pose.computeDetail : '' }),
+    onRunning(on) {
+        speedOn = on;
+        hideAdvice();
+        hideAutoNote();
+        fpsLive.disabled = on || recorder.recording;
+        showModelChoice();
+        // 測完重新量速度建議：換回原本的模型時已經重新量了；沒換（其他模型都載入失敗）也重新量，才不會混到別的模型的數字
+        if (!on) resetSpeedMeter();
+    },
+    reportInfo: () => ({
+        device: describeDevice(),
+        ua: navigator.userAgent,
+        screen: { width: screen.width, height: screen.height, dpr: window.devicePixelRatio || 1 },
+        size: currentStream && video.videoWidth ? video.videoWidth + '×' + video.videoHeight : '',
+        cameraFps: currentStream ? cameraFps.value : 0,
+        cameraMax: cameraMaxFps,
+        fpsSetting: fpsSettingText()
+    })
+});
+// 先收起數據面板（和按「錄影」一樣）：小手機上面板會蓋住卡片的按鈕（11/25 瀏覽器測試 320 寬抓到），人也看得到自己
+speedBtn.addEventListener('click', () => {
+    if (!dataPanel.hidden) toggleDataPanel();
+    speedCard.open();
+});
+
+// 測速換模型（不改使用者選的模型）：剛好在換模型、AI 重新啟動時先等它好（最多 30 秒）；換好回傳 ''，失敗回傳原因
+async function speedSwitch(key, onStatus) {
+    for (let waited = 0; pose && !poseBroken && (switchingModel || restarting) && waited < 30000; waited += 200) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    if (!pose || poseBroken) return 'AI 無法使用';
+    if (switchingModel || restarting) return 'AI 一直在忙';
+    speedStatus = onStatus;
+    try {
+        return await switchPoseModel(key, '');
+    } finally {
+        speedStatus = null;
+    }
+}
 
 // ---------- 驗證實驗：記下角度（js/analysis/validate.js） ----------
 // 擺好姿勢不動時按，記下現在的關節角度；預設比對看得比較清楚那一側的主要關節（深蹲是膝蓋、伏地挺身是手肘）
@@ -1810,6 +1886,8 @@ async function startCamera(deviceId) {
 // 只停止鏡頭串流（切換鏡頭時使用，畫面維持全螢幕）
 // 錄製中也一併停止：換了鏡頭，解析度與角度都不同，不能接在同一份資料裡
 function stopStream() {
+    // 換鏡頭、畫面轉向時鏡頭會重開：測到一半的 AI 速度不準了，停下來（卡片留著寫原因）
+    if (speedCard) speedCard.stop('鏡頭重開了');
     cancelCountdown();
     hideRecNotice();
     if (recorder.recording) stopRecording();
@@ -1867,6 +1945,7 @@ function showStage(on) {
 
 // 關閉鏡頭並回到首頁
 function closeCamera() {
+    if (speedCard) speedCard.close('關掉鏡頭了');
     cameraRequest++;
     stopStream();
     finishSession();
@@ -1998,6 +2077,10 @@ function showTestBar() {
 }
 
 function startTestSet(condition) {
+    if (speedOn) {
+        testBar.idle('正在測 AI 速度：等測完（約 1 分鐘）再選這一組');
+        return;
+    }
     if (recorder.recording || (recCountdown.counting)) {
         // 用數據面板自己在錄（不是實測的一組）：先停掉那一段
         testBar.idle('正在錄製（不是實測的一組）：先按「錄影」的結束鈕或「數據」→「停止錄製」');
@@ -2271,7 +2354,7 @@ function showModelPick() {
         current: getModelChoice(),
         variants: { mediapipe: choiceForFamily('mediapipe'), yolo },
         mb: firstDownloadBytes(yolo) / 1e6,
-        disabled: switchingModel
+        disabled: switchingModel || speedOn
     });
 }
 
@@ -2282,8 +2365,8 @@ function showModelChoice() {
     fillModelOptions(modelSelect);
     fillModelOptions(modelLive);
     showAdvancedTitle();
-    modelSelect.disabled = switchingModel;
-    modelLive.disabled = switchingModel || recorder.recording;
+    modelSelect.disabled = switchingModel || speedOn;
+    modelLive.disabled = switchingModel || recorder.recording || speedOn;
     const choice = getModelChoice();
     modelPickHint.hidden = choice === 'lite';
     modelPickHint.textContent = choice === 'full'
@@ -2324,13 +2407,14 @@ modelLive.addEventListener('change', () => chooseModel(modelLive.value));
 
 // 選的模型和正在用的不一樣：換（AI 還在載入、重新啟動或正在換時，等它好了再換）
 function checkModel() {
-    if (!pose || switchingModel || restarting || poseBroken) return;
+    if (!pose || switchingModel || restarting || poseBroken || speedOn) return;
     if (pose.model !== modelToLoad()) switchPoseModel(modelToLoad(), '');
 }
 
 // 換模型：note 是自動調整時要短暫顯示的說明
+// 換好回傳 ''，沒換成回傳原因（測 AI 速度的表格寫出來；其他地方不用看）
 async function switchPoseModel(key, note) {
-    if (!pose || switchingModel || restarting) return;
+    if (!pose || switchingModel || restarting) return 'AI 正在忙';
     switchingModel = true;
     restarting = true;
     streamGeneration++;
@@ -2341,6 +2425,7 @@ async function switchPoseModel(key, note) {
     const from = shortName(pose.model);
     const to = shortName(key);
     setModelStatus('換成 ' + to + ' 模型中…');
+    let failed = '';
     try {
         await pose.useModel(key, fraction => setModelStatus('換成 ' + to + ' 模型：下載 ' + Math.round(fraction * 100) + '%'));
         setModelStatus('AI 模型已就緒（' + to + ' 模型）');
@@ -2350,9 +2435,11 @@ async function switchPoseModel(key, note) {
             switchingModel = false;
             showModelChoice();
             giveUpPose();
-            return;
+            return 'AI 無法使用';
         }
         setModelStatus('換成 ' + to + ' 模型失敗，繼續用 ' + from + '（請檢查網路）');
+        // 這個瀏覽器跑不了（YOLO 要背景畫布）照實寫；其他多半是網路（下載不到、下載停住）
+        failed = err.unsupported && typeof err.message === 'string' ? err.message : '下載或啟動失敗（請檢查網路）';
     }
     failures = 0;
     pipeline.reset();
@@ -2361,10 +2448,16 @@ async function switchPoseModel(key, note) {
     switchingModel = false;
     showModelChoice();
     updatePerfInfo();
+    return failed;
 }
 showModelChoice();
 
 function startCountdown() {
+    // 測 AI 速度的時候不錄：測到一半會換模型，錄製檔記的模型就不對了（js/ui/speed-card.js）
+    if (speedOn) {
+        speedCard.say('測速中不能錄影：等測完（約 1 分鐘），或按「停止」');
+        return;
+    }
     const seconds = Number(countdownSelect.value) || 0;
     if (!seconds) {
         startRecording();

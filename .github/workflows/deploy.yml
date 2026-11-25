@@ -15,12 +15,13 @@ concurrency:
   group: pages
   cancel-in-progress: true
  
+# 分成兩段：build 準備網站、上傳；deploy 等 build 做完才發布（GitHub 官方範本的另一種寫法）
+# 為什麼：以前同一段裡上傳完 0.3 秒就發布，11/24、11/25 連續好幾次發布時找不到剛上傳的檔案
+#   （記錄寫「上傳成功」，下一步卻「Found 0 artifact(s)」：GitHub 還沒登記好）；分兩段之後，發布要等 build 整段結束、
+#   新的一段開起來才開始，中間有好幾秒，上傳的檔案已經登記好了
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       # 在每個 CSS、JS 檔名後面加上這次的版本號（commit 編號前 8 碼），例如 js/pages/main.js?v=1a2b3c4d
@@ -42,5 +43,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4

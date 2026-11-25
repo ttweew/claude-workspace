@@ -39,7 +39,7 @@ export const YOLO_FILES = {
 };
 
 // 第一次用這個模型要下載多少（首頁「第一次使用需下載約 … MB」）：AI 引擎＋模型檔
-const MEDIAPIPE_ENGINE_SIZE = 11.8e6;
+export const MEDIAPIPE_ENGINE_SIZE = 11.8e6;
 export function firstDownloadBytes(key) {
     if (Object.prototype.hasOwnProperty.call(YOLO_FILES, key)) return LITERT_ENGINE_SIZE + YOLO_FILES[key].size;
     return MEDIAPIPE_ENGINE_SIZE + MODELS[Object.prototype.hasOwnProperty.call(MODELS, key) ? key : 'lite'].size;

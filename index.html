@@ -474,6 +474,24 @@
                     </div>
                 </div>
             </div>
+            <!-- 測 AI 速度（11/25，js/ui/speed-card.js）：數據面板按「測 AI 速度」打開。進度念出來（#speedText）；
+                 秒數、下載進度一直在變，不給螢幕閱讀器念（#speedClock） -->
+            <div id="speedTest" hidden>
+                <div class="speed-card" role="group" aria-labelledby="speedTitle">
+                    <p><strong id="speedTitle">測 AI 速度</strong><span id="speedText" role="status"></span><span id="speedClock" aria-hidden="true"></span></p>
+                    <table id="speedTable" class="speed-table" aria-labelledby="speedTitle" hidden>
+                        <thead><tr><th scope="col">模型</th><th scope="col">每格</th><th scope="col">每秒</th><th scope="col">運算</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <p id="speedNote" class="speed-note" hidden>每格：AI 算一格要幾毫秒，越少越快。每秒：AI 每秒算幾格，不會超過鏡頭的格數。</p>
+                    <div class="advice-actions">
+                        <button id="speedGo" type="button">開始</button>
+                        <button id="speedCopy" type="button" hidden>複製結果</button>
+                        <button id="speedClose" type="button">取消</button>
+                    </div>
+                    <span id="speedCopyStatus" role="status"></span>
+                </div>
+            </div>
             <!-- AI 自動辨識動作（11/8，js/analysis/activity.js）：自由模式時 AI 看最近 3 秒的骨架猜你在做哪個動作，一鍵切換過去
                  換了動作才唸（aria-live 只在猜的動作那段字）；把握幾 % 每 0.5 秒會變，不給螢幕閱讀器唸 -->
             <div id="activity" hidden>
@@ -539,6 +557,8 @@
                 <!-- 複製手機資訊（10/20）：系統、瀏覽器、AI 每格幾毫秒、每秒幾格；實測時每支手機按一下貼到筆記（js/ui/phone-info.js） -->
                 <button id="phoneInfoBtn" type="button" title="系統、瀏覽器、AI 速度，實測時貼到筆記">複製手機資訊</button>
                 <span id="phoneInfoStatus" role="status"></span>
+                <!-- 測 AI 速度（11/25，js/ui/speed-card.js）：輪流用四個 AI 模型各算約 10 秒，看這支手機跑多快；結果可以複製 -->
+                <button id="speedBtn" type="button" aria-controls="speedTest" title="輪流用四個 AI 模型各算約 10 秒，比較這支手機跑多快">測 AI 速度</button>
                 <!-- 收合表格：只留上面這一列（錄製、下載），畫面上的人不會被擋住 -->
                 <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="panelBody">收合表格</button>
             </div>
