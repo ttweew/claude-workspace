@@ -2730,6 +2730,96 @@ code {
     opacity: 0.5;
     cursor: not-allowed;
 }
+/* 測 AI 速度（11/25，js/ui/speed-card.js）：和速度建議一樣自己一行、深色圓角卡片（不用 .advice-card：
+   速度建議橫拿時移到下方中間，這張有表格比較高，放下面會蓋住人）；開著時先不顯示速度建議、AI 自動辨識 */
+#infobar > #speedTest {
+    /* 和實測控制列一樣排在第二行以後（右上角「示範」按鈕的下面）：用得到右邊留給按鈕的 84px，320 寬的手機上表格才放得下 */
+    flex: 0 0 calc(100% + 84px);
+    /* 疊在數據面板上面：測的時候又打開數據面板，小手機上面板會蓋到卡片，「停止」要按得到 */
+    position: relative;
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: none;
+}
+.speed-card {
+    max-width: 380px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 200, 87, 0.6);
+    border-radius: 12px;
+    background: rgba(19, 20, 22, 0.92);
+    pointer-events: auto;
+}
+.speed-card p {
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+.speed-card strong {
+    display: block;
+    color: #FFC857;
+}
+#speedClock {
+    margin-left: 6px;
+    color: var(--muted-2);
+    font-variant-numeric: tabular-nums;
+}
+.speed-table {
+    width: 100%;
+    margin: 0 0 6px;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+.speed-table[hidden], .speed-note[hidden] {
+    display: none;
+}
+.speed-table th, .speed-table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    text-align: right;
+    vertical-align: top;
+}
+.speed-table thead th {
+    color: var(--muted-2);
+    font-size: 12px;
+    font-weight: 600;
+}
+.speed-table th:first-child {
+    padding-left: 0;
+    text-align: left;
+    white-space: nowrap;
+}
+.speed-table small {
+    display: block;
+    color: var(--muted-2);
+    font-size: 12px;
+}
+.speed-table .speed-miss {
+    color: var(--attn);
+    text-align: left;
+}
+/* 小手機：模型的名字可以換行（MediaPipe／lite）、格子留白少一點，四欄才放得進卡片 */
+@media (max-width: 400px) {
+    .speed-table th, .speed-table td {
+        padding: 4px 4px;
+    }
+    .speed-table th:first-child {
+        white-space: normal;
+    }
+}
+.speed-note {
+    color: var(--muted-2);
+    font-size: 12px;
+}
+#speedCopyStatus:not(:empty) {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+}
+#stage:has(#speedTest:not([hidden])) :is(#advice, #activity) {
+    display: none;
+}
 /* ---------- 錄影控制列（10/20，js/ui/rec-bar.js）：像手機相機，下方中間 ----------
    中間紅色大圓鈕（錄的時候變方塊）、右邊暫停（還沒錄時放倒數設定）、左邊「錄製檔」像相簿縮圖、上面錄了多久 */
 #recBar {
