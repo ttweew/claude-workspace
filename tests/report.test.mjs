@@ -2,7 +2,9 @@
 // 只用合成資料：受測者的真人錄製檔不放進專案
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setResult, markRedos, summarizeReport, ratioText, countedText, verdictText, reportCsv } from '../js/data/test-report.js';
+import { setResult, markRedos, summarizeReport, ratioText, countedText, verdictText, reportCsv, ruleTables, labelCounts, modelText } from '../js/data/test-report.js';
+import { scores, percentText, addCounts, cleanCounts } from '../js/data/metrics.js';
+import { readFileSync } from 'node:fs';
 import { readZip } from '../js/data/unzip.js';
 import { makeZip } from '../js/data/zip.js';
 import { analyzeOne } from '../js/data/report-core.js';
@@ -120,4 +122,115 @@ test('一個實測檔重算：和重播分析同一套算法；不是實測模�
     await assert.rejects(analyzeOne(JSON.stringify(rec)), /不是實測/);
     rec.meta.test = { subject: 'A', condition: 'constructor' };
     await assert.rejects(analyzeOne(JSON.stringify(rec)), /不是實測/);
+});
+
+// ---------- 老師的四個指標（11/18 白板，11/25 放進實測報表；js/data/metrics.js） ----------
+const pct = c => { const x = scores(c); return [x.precision, x.recall, x.accuracy, x.f1].map(percentText); };
+
+test('四個指標：10/20 真人實測（抓到 49、漏掉 1、誤報 7、沒事 43）和 11/18 手算的一字不差', () => {
+    assert.deepEqual(pct({ tp: 49, fn: 1, fp: 7, tn: 43 }), ['87.5%', '98%', '92%', '92.5%']);
+    // F1 和「2 × 精確率 × 召回率 ÷（精確率＋召回率）」一樣
+    const x = scores({ tp: 49, fn: 1, fp: 7, tn: 43 });
+    assert.ok(Math.abs(x.f1 - 2 * x.precision * x.recall / (x.precision + x.recall)) < 1e-12);
+    // 百分比：小數一位、整數不寫 .0
+    assert.deepEqual([1, 0, 2 / 3, 0.9995, 0.12345].map(percentText), ['100%', '0%', '66.7%', '100%', '12.3%']);
+});
+
+test('四個指標：分母是 0 時寫「—」，不寫 NaN；被改過的數字當作 0', () => {
+    // 這批沒有故意做錯的組：沒有召回率、F1；一下都沒報：沒有精確率
+    assert.deepEqual(pct({ tp: 0, fn: 0, fp: 0, tn: 10 }), ['—', '—', '100%', '—']);
+    // 真的做錯的全部漏掉：精確率算不出來，召回率、F1 是 0（不是「—」）
+    assert.deepEqual(pct({ tp: 0, fn: 5, fp: 0, tn: 5 }), ['—', '0%', '50%', '0%']);
+    assert.deepEqual(pct({}), ['—', '—', '—', '—']);
+    for (const bad of [{ tp: NaN, fn: -3, fp: '5', tn: Infinity }, null, undefined, 'x']) {
+        assert.deepEqual(cleanCounts(bad), { tp: 0, fn: 0, fp: 0, tn: 0 }, JSON.stringify(bad));
+        assert.ok(!pct(bad).some(t => /NaN|Infinity|undefined/.test(t)), JSON.stringify(bad));
+    }
+    assert.deepEqual(addCounts({ tp: 1, fn: 2, fp: 3, tn: 4 }, { tp: 10, fn: NaN }), { tp: 11, fn: 2, fp: 3, tn: 4 });
+    assert.deepEqual([null, undefined, NaN, '50%', Infinity].map(percentText), ['—', '—', '—', '—', '—']);
+});
+
+test('四個指標：每個動作一列＋合計（計次的動作），棒式一組一格；重錄的不算；YOLO 判斷不了的組不算進來、另外列出', () => {
+    const rows = markRedos([
+        // MediaPipe（檔案沒寫模型的當作 MediaPipe）
+        setResult(info('squat', 'good'), reps('', '', 'heel', '', '', '', '', '', '', ''), 'reps', 1, 'a.json', 'lite'),
+        setResult(info('squat', 'good'), reps('lean', 'lean', '', '', '', '', '', '', '', ''), 'reps', 0, 'old.json', 'lite'),   // 比較早：重錄，不算
+        setResult(info('squat', 'lean'), reps('lean', 'lean', 'lean', '', 'lean'), 'reps', 2, 'b.json', ''),
+        setResult(info('squat', 'heel'), reps('heel', 'heel', '', 'heel', 'heel'), 'reps', 3, 'c.json', 'full'),
+        setResult(info('lunge', 'good'), reps('', '', '', '', '', '', '', '', '', ''), 'reps', 4, 'd.json', 'full'),
+        setResult(info('lunge', 'knee'), reps('knee', 'knee', 'knee', 'knee', 'knee'), 'reps', 5, 'e.json', 'lite'),
+        setResult(info('plank', 'good'), [{ seconds: 30, errors: ['pike'] }], 'hold', 6, 'f.json', 'lite'),
+        setResult(info('plank', 'sag'), [{ seconds: 10, errors: ['sag'] }], 'hold', 7, 'g.json', 'lite'),
+        // YOLO：深蹲故意腳跟離地的組判斷不了（沒有腳跟），不算進來
+        setResult(info('squat', 'good', 'B'), reps('', '', '', '', '', '', '', '', '', 'lean'), 'reps', 8, 'h.json', 'yolo-n'),
+        setResult(info('squat', 'lean', 'B'), reps('lean', 'lean', 'lean', 'lean', 'lean'), 'reps', 9, 'i.json', 'yolo-s'),
+        setResult(info('squat', 'heel', 'B'), reps('', '', '', '', ''), 'reps', 10, 'j.json', 'yolo-n')
+    ]);
+    const [mp, yolo] = ruleTables(rows);
+    assert.equal(mp.family, 'mediapipe');
+    assert.deepEqual(mp.lines.map(l => [l.label, l.counts]), [
+        ['深蹲', { tp: 8, fn: 2, fp: 1, tn: 9 }],         // 前傾抓到 4／5、腳跟 4／5；做對的 10 下誤報 1 下（重錄的那組不算）
+        ['弓箭步', { tp: 5, fn: 0, fp: 0, tn: 10 }],
+        ['合計', { tp: 13, fn: 2, fp: 1, tn: 19 }],
+        ['棒式（以組計）', { tp: 1, fn: 0, fp: 1, tn: 0 }]
+    ]);
+    assert.deepEqual(mp.skipped, []);
+    assert.deepEqual(pct(mp.lines[2].counts), ['92.9%', '86.7%', '91.4%', '89.7%']);
+    assert.equal(mp.lines[2].precision, 13 / 14);
+    assert.equal(yolo.family, 'yolo');
+    assert.deepEqual(yolo.lines.map(l => [l.label, l.counts]), [['深蹲', { tp: 5, fn: 0, fp: 1, tn: 9 }]]);
+    assert.deepEqual(yolo.skipped, [{ workout: 'squat', condition: 'heel', name: '故意腳跟離地', sets: 1 }]);
+    // 只有 MediaPipe 的時候只有一張；沒有可以算的（全部是重錄、或全部判斷不了）時列不出來，但判斷不了的照樣寫
+    assert.deepEqual(ruleTables(rows.filter(r => r.family === 'mediapipe')).map(g => g.family), ['mediapipe']);
+    const onlyBlind = ruleTables([setResult(info('lunge', 'knee'), reps('', ''), 'reps', 0, 'k.json', 'yolo-n')]);
+    assert.deepEqual(onlyBlind.map(g => [g.family, g.lines.length, g.skipped.length]), [['yolo', 0, 1]]);
+    assert.deepEqual(ruleTables([]), []);
+});
+
+test('錄的模型：檔案記的模型名字被改過時當作 MediaPipe；只有要看腳的錯誤在 YOLO 時不算；CSV 多一欄模型', () => {
+    for (const bad of ['constructor', '__proto__', 'yolo-x', 'YOLO26n', '', null, undefined, 42]) {
+        const r = setResult(info('squat', 'heel'), reps('heel'), 'reps', 0, 'x.json', bad);
+        assert.deepEqual([r.model, r.family, r.blind], ['', 'mediapipe', false], String(bad));
+    }
+    const pick = (workout, condition, model) => setResult(info(workout, condition), reps(''), workout === 'plank' ? 'hold' : 'reps', 0, 'x.json', model).blind;
+    assert.deepEqual(['heel', 'lean', 'good'].map(c => pick('squat', c, 'yolo-n')), [true, false, false]);
+    assert.deepEqual(['knee', 'lean'].map(c => pick('lunge', c, 'yolo-s')), [true, false]);
+    assert.deepEqual(['sag', 'pike'].map(c => pick('pushup', c, 'yolo-n')), [false, false]);
+    assert.equal(pick('squat', 'heel', 'full'), false);
+    // 「自動」是設定（在 full 和 lite 之間換），錄製檔記的是當時真的在用的那一個，所以不是模型的名字
+    assert.deepEqual(['lite', 'full', 'yolo-n', 'yolo-s', 'auto', '', 'constructor'].map(modelText),
+        ['MediaPipe lite', 'MediaPipe full', 'YOLO26n', 'YOLO26s', '', '', '']);
+    const csv = reportCsv([setResult(info('squat', 'lean'), reps('lean'), 'reps', 0, 'y.json', 'yolo-n')]);
+    const [head, line] = csv.split('\r\n');
+    assert.ok(head.endsWith('重錄（不算）,模型,檔名,開始錄'), head);
+    assert.ok(line.endsWith(',YOLO26n,y.json,'), line);
+});
+
+test('AI 模型、規則猜每一下的四格：故意做錯的那一下猜對那一種錯才算抓到', () => {
+    const pairs = [
+        { truth: 'lean', guess: 'lean' }, { truth: 'lean', guess: 'heel' }, { truth: 'lean', guess: 'good' },
+        { truth: 'good', guess: 'good' }, { truth: 'good', guess: 'lean' }, { truth: 'heel', guess: 'heel' }
+    ];
+    assert.deepEqual(labelCounts(pairs), { tp: 2, fn: 2, fp: 1, tn: 1 });
+    assert.deepEqual(labelCounts([]), { tp: 0, fn: 0, fp: 0, tn: 0 });
+});
+
+test('研究成果頁的四個指標和四格算出來的一樣（改了數字忘了改另一個會被抓到）', () => {
+    const html = readFileSync(new URL('../results.html', import.meta.url), 'utf8');
+    const start = html.indexOf('id="metricsTitle"');
+    assert.ok(start > 0, '研究成果頁有「老師的四個指標」');
+    const part = html.slice(start, html.indexOf('</section>', start)).replace(/<[^>]+>/g, '');
+    const num = re => Number(part.match(re)[1]);
+    const c = { tp: num(/抓到 (\d+)/), fn: num(/漏掉 (\d+)/), fp: num(/誤報 (\d+)/), tn: num(/沒事 (\d+)/) };
+    assert.deepEqual(c, { tp: 49, fn: 1, fp: 7, tn: 43 });
+    const shown = [...html.slice(start).matchAll(/<span class="stat-value">([^<]+)<\/span><span class="stat-label">(精確率|召回率|準確率|F1)/g)].slice(0, 4);
+    assert.deepEqual(shown.map(m => m[2]), ['精確率', '召回率', '準確率', 'F1']);
+    assert.deepEqual(shown.map(m => m[1]), pct(c));
+    // 說明裡的分母：網站說「做錯」的（抓到＋誤報）、真的做錯的（抓到＋漏掉）、全部、判對的（抓到＋沒事）
+    assert.match(part, new RegExp('網站說「做錯」的 ' + (c.tp + c.fp) + ' 下，真的做錯 ' + c.tp + ' 下'));
+    assert.match(part, new RegExp('真的做錯的 ' + (c.tp + c.fn) + ' 下，抓到 ' + c.tp + ' 下'));
+    assert.match(part, new RegExp((c.tp + c.fn + c.fp + c.tn) + ' 下裡判對 ' + (c.tp + c.tn) + ' 下'));
+    // 和最上面「一眼看完」的 49／50、7／50 是同一批
+    assert.ok(html.includes('<span class="stat-value">' + c.tp + '／' + (c.tp + c.fn) + '</span>'));
+    assert.ok(html.includes('<span class="stat-value">' + c.fp + '／' + (c.fp + c.tn) + '</span>'));
 });

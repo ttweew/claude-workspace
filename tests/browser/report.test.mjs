@@ -8,6 +8,10 @@ import { launch, serve, open, violations } from './harness.mjs';
 import { syntheticSubject, syntheticSet } from '../synthetic-sets.mjs';
 import { buildDataset } from '../../tools/dataset.mjs';
 import { datasetCsv } from '../../js/data/dataset.js';
+import { analyzeOne } from '../../js/data/report-core.js';
+import { setResult, markRedos, ruleTables, labelCounts, FAMILY_NAME } from '../../js/data/test-report.js';
+import { percentText, scores as scoresOf } from '../../js/data/metrics.js';
+import { hasAiModel, aiJudgeFeatures, ruleJudge, seenInTraining } from '../../js/analysis/ai-judge.js';
 
 let browser, site;
 test.before(async () => {
@@ -74,6 +78,65 @@ test('實測報表：只有一位受測者時提醒訓練和測試要用不同�
         '只有 1 位受測者：AI 模型要拿一些人來學、另外的人來考（同一個人不能兩邊都有，不然等於先看過考題），至少要 2 位',
         '深蹲：做對 10 下、故意腳跟離地 5 下、故意上身前傾 5 下'
     ]);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+});
+
+// 老師的四個指標（11/25）：一張表的每一列（名字、四個指標、四格），和畫面上的表格比
+const metricRows = lines => lines.map(l => [l.label, ...[l.precision, l.recall, l.accuracy, l.f1].map(percentText),
+    ...[l.counts.tp, l.counts.fn, l.counts.fp, l.counts.tn].map(String)]);
+const readTables = (page, selector) => page.$$eval(selector + ' table', tables => tables.map(t =>
+    [...t.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(c => c.textContent))));
+
+test('實測報表：老師的四個指標（MediaPipe、YOLO 錄的分開算；YOLO 判斷不了的組另外寫；AI 模型和規則並排；和 node 算的一樣）', async () => {
+    // K：訓練 AI 模型時沒看過的合成受測者；Y 的深蹲改成「用 YOLO 錄的」（meta.model 換成 YOLO26n 的檔名）
+    const yolo = syntheticSubject('Y', ['squat']).map(f => {
+        const j = JSON.parse(f.text);
+        j.meta.model = 'yolo26n-pose';
+        return { name: f.name, text: JSON.stringify(j) };
+    });
+    const files = [...syntheticSubject('K', ['squat', 'lunge', 'plank']), ...yolo];
+    const { context, page } = await open(browser, [], { width: 320, height: 640, mobile: true });
+    await page.goto(site.base + 'report.html');
+    assert.equal(await page.isVisible('#metricsCard'), false);
+    await page.setInputFiles('#fileInput', files.map(f => ({ name: f.name, mimeType: 'application/json', buffer: Buffer.from(f.text) })));
+    await page.waitForFunction(() => /^(已分析|沒有可以分析)/.test(document.getElementById('loadStatus').textContent), null, { timeout: 120000 });
+    assert.equal(await page.textContent('#loadStatus'), '已分析 ' + files.length + ' 組');
+
+    // node 用同一套程式（重播分析的算法＋test-report.js）算一次
+    const sets = [];
+    for (const f of files) {
+        const r = await analyzeOne(f.text);
+        sets.push(setResult(r.info, r.items, r.kind, r.startedAt, f.name, r.model));
+    }
+    const groups = ruleTables(markRedos(sets));
+    assert.deepEqual(groups.map(g => g.family), ['mediapipe', 'yolo']);
+    assert.deepEqual(await page.$$eval('#metricsTables h3', els => els.map(el => el.textContent)), ['MediaPipe 錄的', 'YOLO 錄的']);
+    assert.deepEqual(await readTables(page, '#metricsTables'), groups.map(g => metricRows(g.lines)));
+    // MediaPipe：深蹲、弓箭步、合計、棒式；YOLO：只有深蹲（故意腳跟離地那組判斷不了，寫出來、不算漏掉）
+    assert.deepEqual(groups[0].lines.map(l => l.label), ['深蹲', '弓箭步', '合計', '棒式（以組計）']);
+    assert.deepEqual(groups[1].lines.map(l => l.label), ['深蹲']);
+    assert.deepEqual(await page.$$eval('#metricsTables .note', els => els.map(el => el.textContent)),
+        ['YOLO 沒有腳跟、腳尖的點，判斷不了：深蹲「故意腳跟離地」1 組，沒有算進來（沒有判斷，不是漏掉）']);
+    // 每一組的表格：檔名後面寫用哪個模型（看得出算在哪一張）
+    const smalls = await page.$$eval('#reportTable small', els => els.map(el => el.textContent));
+    assert.equal(smalls.filter(t => t.endsWith(' · YOLO26n')).length, yolo.length);
+
+    // AI 模型和規則：同一批每一下（訓練時沒看過的 K、Y；YOLO 判斷不了的那組不算）
+    const data = (await buildDataset(files)).rows.filter(r => hasAiModel(r.workout) && !seenInTraining(r.subject, r.synthetic) && !r.blind);
+    assert.ok(data.length > 0 && data.some(r => r.subject === 'Y') && !data.some(r => r.subject === 'Y' && r.condition === 'heel'));
+    const count = guess => labelCounts(data.map(r => ({ truth: r.condition, guess: guess(r) })));
+    const line = (label, c) => ({ label, counts: c, ...scoresOf(c) });
+    const expectedAi = metricRows([
+        line('AI 模型', count(r => aiJudgeFeatures(r.workout, r.features).label)),
+        line('規則', count(r => ruleJudge(r.workout, r.ruleErrors, r.features)))
+    ]);
+    assert.deepEqual(await readTables(page, '#aiMetrics'), [expectedAi]);
+
+    // 「這四個指標怎麼算」打開；手機寬度不左右超出（表格在自己的框裡捲動）；整頁 axe-core 0 個問題
+    await page.click('.metrics-help summary');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    assert.deepEqual(await violations(page), []);
     assert.deepEqual(page.errors, []);
     await context.close();
 });

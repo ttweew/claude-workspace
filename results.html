@@ -93,7 +93,17 @@
                     <li><strong>做對被報錯：</strong>50 下有 7 下，都是 A：弓箭步 5 下「前膝超過腳尖」（A 是斜側面拍）、深蹲 2 下「腳跟離地」。A 是不是真的做了，要看 A 的影片。棒式做對的 2 組都沒有被報錯。</li>
                     <li><strong>疲勞分析（10/28）：</strong>正常做的 7 組（每組 10～13 下），前段和後段自然的差別最多是每下秒數 1.30 倍、最低角度 9.6°、相似度 8 分；網站的門檻取這個的 1.5 倍，重算後正常做的 6 組都是「差不多」，A 弓箭步做對那組是「錯誤變多」（就是上面那 5 下）。</li>
                 </ul>
-                <p class="note"><strong>怎麼試：</strong>實測模式錄的檔案丟進<a href="report.html">實測報表</a>，一次算出上面這些；方法在<a href="help.html#experiments">使用說明的驗證實驗</a>。</p>
+                <!-- 老師 11/18 白板上的四個指標：把「這一下有沒有做錯」當成是非題（js/data/metrics.js 同一套算法；
+                     tests/report.test.mjs 拿這裡的四格算一次，和下面的百分比核對，改了數字忘了改另一個會被抓到） -->
+                <h3 id="metricsTitle">老師的四個指標（11/18）</h3>
+                <p class="prose">把每一下當成一題是非題「這一下有沒有做錯」：故意做錯的 50 下<strong>抓到 49</strong>、<strong>漏掉 1</strong>；做對的 50 下<strong>誤報 7</strong>、<strong>沒事 43</strong>。</p>
+                <div class="stat-grid">
+                    <div class="stat"><span class="stat-value">87.5%</span><span class="stat-label">精確率：網站說「做錯」的 56 下，真的做錯 49 下（越高越少冤枉人）</span></div>
+                    <div class="stat"><span class="stat-value">98%</span><span class="stat-label">召回率：真的做錯的 50 下，抓到 49 下（越高越少漏掉）</span></div>
+                    <div class="stat"><span class="stat-value">92%</span><span class="stat-label">準確率：100 下裡判對 92 下</span></div>
+                    <div class="stat"><span class="stat-value">92.5%</span><span class="stat-label">F1：精確率和召回率合成一個分數，兩個都高才會高</span></div>
+                </div>
+                <p class="note"><strong>怎麼試：</strong>實測模式錄的檔案丟進<a href="report.html">實測報表</a>，一次算出上面這些（四個指標在「老師的四個指標」那一張，MediaPipe、YOLO 錄的分開算）；方法在<a href="help.html#experiments">使用說明的驗證實驗</a>。</p>
             </section>
 
             <section id="angle" aria-labelledby="angleTitle">
