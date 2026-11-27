@@ -1,0 +1,49 @@
+<!doctype html><meta charset="utf-8"><title>raw</title><body>
+<script type="module">
+// 看模型原始輸出（11/27 診斷）：全灰的畫面、真人照片，CPU 和 GPU（預設、fp32、fp16）各算一次
+import * as core from '/vendor/litertjs/litert-core.js';
+const out = window.__out = {};
+try {
+  const q = new URLSearchParams(location.search);
+  const engine = q.get('engine') || 'litert_wasm_internal';
+  const modelPath = q.get('model') || '/models/yolo/yolo26n-pose-320.tflite';
+  await core.loadLiteRt('/__raw/wasm/' + engine + '.js');
+  const S = 320;
+  const bytes = new Uint8Array(await (await fetch(modelPath)).arrayBuffer());
+  async function run(compiled, input) {
+    const t = new core.Tensor(input, [1, 3, S, S]);
+    const outs = await compiled.run(t);
+    const d = await outs[0].data();
+    t.delete(); for (const o of outs) o.delete();
+    return d;
+  }
+  const gray = new Float32Array(3 * S * S).fill(114 / 255);
+  const img = new Image(); img.src = '/__raw/pose.jpg'; await img.decode();
+  const c = new OffscreenCanvas(S, S); const g = c.getContext('2d');
+  g.fillStyle = 'rgb(114,114,114)'; g.fillRect(0, 0, S, S);
+  const scale = Math.min(S / img.width, S / img.height); const w = img.width * scale, h = img.height * scale;
+  g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+  const rgba = g.getImageData(0, 0, S, S).data; const pic = new Float32Array(3 * S * S);
+  for (let i = 0; i < S * S; i++) { pic[i] = rgba[i * 4] / 255; pic[S * S + i] = rgba[i * 4 + 1] / 255; pic[2 * S * S + i] = rgba[i * 4 + 2] / 255; }
+  const zero = new Float32Array(3 * S * S);
+  function stats(d) {
+    const cols = 57, rows = d.length / cols; let maxScore = -Infinity, nz = 0, sumAbsCoord = 0, people = 0;
+    for (let r = 0; r < rows; r++) { const s = d[r * cols + 4]; if (s > maxScore) maxScore = s; if (s >= 0.25) people++; for (let j = 0; j < 4; j++) sumAbsCoord += Math.abs(d[r * cols + j]); }
+    for (const v of d) if (v !== 0) nz++;
+    let sumK = 0; for (let r = 0; r < rows; r++) for (let j = 0; j < 17; j++) sumK += Math.abs(d[r * cols + 6 + j * 3]);
+    return { len: d.length, maxScore: +maxScore.toFixed(5), people, nonzero: nz, meanAbsCoord: +(sumAbsCoord / (rows * 4)).toFixed(2), meanAbsKx: +(sumK / (rows * 17)).toFixed(2), row0: Array.from(d.slice(0, 7)).map(v => +v.toFixed(3)) };
+  }
+  const variants = [['wasm', { accelerator: 'wasm' }], ['webgpu', { accelerator: 'webgpu' }], ['webgpu-fp32', { accelerator: 'webgpu', gpuOptions: { precision: 'fp32' } }], ['webgpu-fp16', { accelerator: 'webgpu', gpuOptions: { precision: 'fp16' } }]];
+  for (const [name, opts] of variants) {
+    try {
+      const m = await core.loadAndCompile(bytes, opts);
+      const pd = await run(m, pic);
+      let best = 0; for (let r = 1; r < pd.length / 57; r++) if (pd[r * 57 + 4] > pd[best * 57 + 4]) best = r;
+      const top = Array.from(pd.slice(best * 57, best * 57 + 57));
+      out[name] = { gray: stats(await run(m, gray)).maxScore, pic: stats(pd).maxScore, top: { box: top.slice(0, 4).map(v => +v.toFixed(1)), score: +top[4].toFixed(3), k: Array.from({ length: 17 }, (_, j) => top.slice(6 + j * 3, 9 + j * 3).map(v => +v.toFixed(2))) } };
+      m.delete();
+    } catch (e) { out[name] = 'ERR ' + String(e && e.message || e).slice(0, 200); }
+  }
+} catch (e) { out.error = String(e && (e.stack || e.message) || e).slice(0, 600); }
+out.done = true;
+</script>
