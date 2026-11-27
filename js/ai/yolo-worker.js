@@ -4,14 +4,21 @@
 //
 // 和主畫面溝通的訊息（type）：
 //   收到：init（AI 引擎和模型檔，主畫面下載好了才送來，下載進度由主畫面顯示）、detect（一格畫面；focus：使用者點的位置，11/22）
-//   送出：ready（準備好了：用 GPU 還是 CPU、兩種各量到每格幾毫秒）、fatal（無法啟動）、
-//         result（找到的 17 個點；沒有人是 null；focus：點的那裡有沒有人 'ok'、沒有 'miss'、就是正在跟著的人 'same'）、detect-error
+//   送出：ready（準備好了：用 GPU 還是 CPU、兩種各量到每格幾毫秒；gpuWrong：GPU 和 CPU 對答案對不起來；checking：用 GPU、前幾格還在對答案）、
+//         fatal（無法啟動）、result（找到的 17 個點；沒有人是 null；focus：點的那裡有沒有人 'ok'、沒有 'miss'、就是正在跟著的人 'same'）、
+//         detect-error、mode（11/27，前幾格對完答案：mode 'GPU' checked 對過了；mode 'CPU' gpuWrong 對不起來，改用 CPU）
 //
 // 「先框出人」（js/ai/yolo-core.js 的 regionFor）：上一格找到人，這一格只看人附近（放大 25%），人在 320 裡變大、點比較準；
 // 找不到人就下一格看整個畫面
 // 畫面裡有好幾個人（11/22，yolo-core.js 的 pickPerson）：跟著同一個人（和上一格的框重疊最多的），不跳到旁邊分數比較高的人身上；
 // 跟丟了（被擋住、走出去）LOST_MS 內在原本位置附近大一點的範圍找回同一個人，超過就看整個畫面、改跟最大的（離手機最近的）；
 // 使用者點了畫面就改跟點的那個人
+//
+// GPU 和 CPU 對答案（11/27，yolo-core.js 的 outputLooksSame、compareRuns）：組員的手機選 YOLO 完全沒有骨架，MediaPipe 正常；
+// 手機的 GPU 算錯（這台測試電腦的軟體 GPU 強制用半精度時，每個數字都是 0）不會報錯，以前也看不出來。現在：
+//   GPU 一律用一般精度（fp32：和 CPU、電腦上算的一樣；半精度在手機上比較快，但會算錯的就是它）
+//   啟動時：全灰的畫面 GPU 和 CPU 各算一次，差太多（例如全部是 0）就不用 GPU
+//   用 GPU 時：前幾格畫面裡有人時同一格也給 CPU 算（這幾格用 CPU 的結果），找到同一個人才放心只用 GPU，對不起來就改用 CPU
 
 let core = null;    // LiteRT.js：{ loadLiteRt, loadAndCompile, Tensor }
 let yc = null;      // js/ai/yolo-core.js
@@ -27,6 +34,11 @@ const LOST_MS = 1000;
 const SAME_FOCUS_IOU = 0.5;
 let canvas = null, ctx = null, input = null;
 let kpts = 17;      // 模型有幾個點：官方的 17；自己訓練、加腳跟腳尖的 21（js/ai/models.js 的 kpts）
+// 用 GPU、還在對答案：{ model（CPU 編好的模型）, same（一樣的格數）, differ（不一樣的格數）}；用 CPU、對完了是 null
+let checker = null;
+// 3 格有清楚的人、兩邊一樣 → 放心只用 GPU（每秒 10 格的手機約 0.3 秒）；
+// 2 格不一樣 → 改用 CPU（GPU 算錯時每一格都不一樣，兩格就夠確定；偶爾一格不一樣（擋住、剛好在畫面邊緣）不會馬上換）
+const CHECK_SAME = 3, CHECK_DIFFER = 2;
 
 self.onmessage = event => {
     const m = event.data;
@@ -59,19 +71,22 @@ async function runOnce(compiled) {
     }
 }
 
-// 編譯一種運算方式，跑幾次量每格幾毫秒；回傳 { compiled, ms }，不能用時丟出錯誤
+// 編譯一種運算方式，跑幾次量每格幾毫秒；回傳 { compiled, ms, out（最後一次的輸出，全灰的畫面）}，不能用時丟出錯誤
+// GPU 指定一般精度（fp32，11/27）：不指定時 LiteRT.js 在支援半精度的 GPU（手機都支援）上用半精度，可能整片算錯
 async function tryAccelerator(bytes, accelerator) {
-    const compiled = await core.loadAndCompile(new Uint8Array(bytes), { accelerator });
+    const options = accelerator === 'webgpu' ? { accelerator, gpuOptions: { precision: 'fp32' } } : { accelerator };
+    const compiled = await core.loadAndCompile(new Uint8Array(bytes), options);
     try {
         const times = [];
+        let out = null;
         for (let i = 0; i < TRIES; i++) {
             const t0 = performance.now();
-            const out = await runOnce(compiled);
+            out = await runOnce(compiled);
             times.push(performance.now() - t0);
             // 算出來的數字壞掉（GPU 驅動有問題時會整片 NaN）：這種運算方式不能用
             if (!out || out.length < yc.colsOf(kpts) || !Number.isFinite(out[4])) throw new Error(accelerator + ' 算出來的數字不對');
         }
-        return { compiled, ms: median(times.slice(1)) };
+        return { compiled, ms: median(times.slice(1)), out };
     } catch (err) {
         compiled.delete();
         throw err;
@@ -123,28 +138,33 @@ async function init(m) {
 
     // 選運算方式：有真的 GPU 時 WebGPU、CPU（WebAssembly）兩種都量，用快的那個（11/21：沒有手機的實測數字，
     // 有的手機 GPU 反而比 CPU 慢，量了才知道）；GPU 不能用、算錯就用 CPU
-    const gpu = m.cpuOnly ? null : await realGpu();
+    // 先量 CPU（11/27）：它算的全灰畫面是 GPU 的標準答案（CPU 的算法電腦上測過、和真人實測對過）
     const tried = {};
-    let best = null, gpuError = '';
+    const cpu = await tryAccelerator(modelBytes, 'wasm');
+    tried.CPU = Math.round(cpu.ms);
+    const gpu = m.cpuOnly ? null : await realGpu();
+    let best = { ...cpu, mode: 'CPU' }, gpuError = '', gpuWrong = false;
     if (gpu) {
         try {
             const r = await tryAccelerator(modelBytes, 'webgpu');
             tried.GPU = Math.round(r.ms);
-            best = { ...r, mode: 'GPU' };
+            if (!yc.outputLooksSame(r.out, cpu.out, kpts)) {
+                // 算得出數字，但和 CPU 差太多（例如全部是 0：什麼都沒算，所以特別快）：不能用
+                gpuWrong = true;
+                r.compiled.delete();
+            } else if (r.ms < cpu.ms) {
+                best = { ...r, mode: 'GPU' };
+            } else {
+                r.compiled.delete();
+            }
         } catch (err) {
             gpuError = String(err && err.message || err);
         }
     }
-    const cpu = await tryAccelerator(modelBytes, 'wasm');
-    tried.CPU = Math.round(cpu.ms);
-    if (!best || cpu.ms <= best.ms) {
-        if (best) best.compiled.delete();
-        best = { ...cpu, mode: 'CPU' };
-    } else {
-        cpu.compiled.delete();
-    }
     model = best.compiled;
-    self.postMessage({ type: 'ready', mode: best.mode, gpuName: gpu ? gpu.name : '', gpuError, tried });
+    // 用 GPU：CPU 編好的模型先留著，前幾格畫面裡有人時兩邊對答案（crossCheck）
+    if (best.mode === 'GPU') checker = { model: cpu.compiled, same: 0, differ: 0 };
+    self.postMessage({ type: 'ready', mode: best.mode, gpuName: gpu ? gpu.name : '', gpuError, gpuWrong, checking: !!checker, tried });
 }
 
 // 給模型看畫面的一塊（region，畫面像素）→ 找到的每一個人（yolo-core.js 的 decodeAll）
@@ -155,7 +175,27 @@ async function peopleIn(bitmap, region, W, H) {
     ctx.fillRect(0, 0, S, S);
     ctx.drawImage(bitmap, region.rx, region.ry, region.rw, region.rh, fit.padX, fit.padY, fit.w, fit.h);
     yc.toInput(ctx.getImageData(0, 0, S, S).data, S, input);
-    return yc.decodeAll(await runOnce(model), region, fit, W, H, S, kpts);
+    const people = yc.decodeAll(await runOnce(model), region, fit, W, H, S, kpts);
+    return checker ? crossCheck(people, region, fit, W, H) : people;
+}
+
+// GPU 還在對答案（11/27）：同一份輸入（input 沒有變）也給 CPU 算，這一格用 CPU 的結果（GPU 還沒證明自己算得對，
+// 使用者從第一格就看得到骨架）；兩邊都沒有清楚的人（還沒站進畫面）看不出來，下一格再比
+async function crossCheck(people, region, fit, W, H) {
+    const S = yc.INPUT_SIZE;
+    const ref = yc.decodeAll(await runOnce(checker.model), region, fit, W, H, S, kpts);
+    const verdict = yc.compareRuns(people, ref, W, H);
+    if (verdict === 'same' && ++checker.same >= CHECK_SAME) {
+        checker.model.delete();
+        checker = null;
+        self.postMessage({ type: 'mode', mode: 'GPU', checked: true });
+    } else if (verdict === 'differ' && ++checker.differ >= CHECK_DIFFER) {
+        model.delete();
+        model = checker.model;
+        checker = null;
+        self.postMessage({ type: 'mode', mode: 'CPU', gpuWrong: true });
+    }
+    return ref;
 }
 
 // 使用者點的位置（主畫面送來的，鏡頭原始畫面的比例座標 0～1）→ 畫面像素；不是兩個 0～1 的數字就當作沒點

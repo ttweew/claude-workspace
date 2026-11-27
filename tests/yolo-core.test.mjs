@@ -1,8 +1,9 @@
 // YOLO 的前處理和讀輸出（js/ai/yolo-core.js，11/21）：補灰邊的數字、先框出人、模型輸出換回畫面上的位置；
 // 畫面裡有好幾個人時跟著誰（11/22）：每一個人都讀出來、跟著同一個人、一開始挑最大的、點哪個人就跟哪個人
+// GPU 和 CPU 對答案（11/27，手機的 GPU 算錯：每個數字都是 0）：啟動時全灰的畫面、前幾格有人的畫面
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { INPUT_SIZE, COLS, PERSON_SCORE, SAME_IOU, letterbox, regionFor, regionAround, toInput, decodeBest, decodeAll, iou, pickPerson } from '../js/ai/yolo-core.js';
+import { INPUT_SIZE, COLS, PERSON_SCORE, SAME_IOU, CLEAR_SCORE, POINT_SLACK, letterbox, regionFor, regionAround, toInput, decodeBest, decodeAll, iou, pickPerson, outputLooksSame, compareRuns } from '../js/ai/yolo-core.js';
 
 const S = INPUT_SIZE;
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -198,4 +199,90 @@ test('點畫面換人：點的那一點附近放大找（遠的人在整個畫�
     assert.equal(regionAround([5, 5], 40, 40), null, '畫面太小');
     assert.equal(regionAround([NaN, 5], 640, 480), null);
     assert.equal(regionAround(null, 640, 480), null);
+});
+
+// ---------- GPU 和 CPU 對答案（11/27）----------
+
+// 像真的模型看全灰畫面的輸出：300 個框（座標是 320 裡的像素）、分數很低、類別 0、17 個點
+function grayOutput(scale = 1) {
+    const out = new Float32Array(300 * COLS);
+    for (let r = 0; r < 300; r++) {
+        out.set([(80 + r % 60) * scale, (100 + r % 40) * scale, (120 + r % 70) * scale, (230 + r % 50) * scale, 0.0003, 0], r * COLS);
+        for (let j = 0; j < 17; j++) out.set([(100 + j) * scale, (130 + j) * scale, 0.02], r * COLS + 6 + j * 3);
+    }
+    return out;
+}
+
+test('啟動時對答案：GPU 和 CPU 的輸出一樣（或像 YOLO26s 差 2%）才用 GPU；全部是 0、壞掉的數字、差太多就不用', () => {
+    const cpu = grayOutput();
+    assert.equal(outputLooksSame(grayOutput(), cpu), true, '一模一樣（YOLO26n 實測）');
+    assert.equal(outputLooksSame(grayOutput(0.98), cpu), true, '框小 2%（YOLO26s 實測 162 和 158 像素）');
+    // 手機的 GPU 半精度算壞：每個數字都是 0（這台電腦的軟體 GPU 強制半精度時就是這樣），以前「是數字」就通過
+    assert.equal(outputLooksSame(new Float32Array(300 * COLS), cpu), false, '全部是 0');
+    const nan = grayOutput();
+    nan[57 * 10 + 2] = NaN;
+    assert.equal(outputLooksSame(nan, cpu), false, '有 NaN');
+    const inf = grayOutput();
+    inf[3] = Infinity;
+    assert.equal(outputLooksSame(inf, cpu), false, '有無限大');
+    assert.equal(outputLooksSame(grayOutput(3), cpu), false, '框大 3 倍');
+    assert.equal(outputLooksSame(grayOutput(0.3), cpu), false, '框小到 3 成');
+    const half = grayOutput();
+    half.fill(0, 0, Math.floor(half.length * 0.6));
+    assert.equal(outputLooksSame(half, cpu), false, '六成的數字是 0');
+    // 資料不對：長度不一樣、太短、不是陣列；CPU 自己是 0 也不行（沒有標準答案）
+    assert.equal(outputLooksSame(grayOutput().slice(0, 57 * 100), cpu), false);
+    assert.equal(outputLooksSame(new Float32Array(10), new Float32Array(10)), false);
+    assert.equal(outputLooksSame(null, cpu), false);
+    assert.equal(outputLooksSame(grayOutput(), null), false);
+    assert.equal(outputLooksSame(new Float32Array(300 * COLS), new Float32Array(300 * COLS)), false);
+});
+
+// 一個人（decodeAll 的格式）：box 是畫面像素、k 是畫面的比例座標；W×H 是直拿的手機畫面
+const W = 480, H = 640;
+function person(box, score = 0.9, { shift = [0, 0], conf = 0.95, confident = 17 } = {}) {
+    const [x1, y1, x2, y2] = box;
+    const k = Array.from({ length: 17 }, (_, j) => [
+        (x1 + (x2 - x1) * ((j % 4) + 1) / 5 + shift[0]) / W,
+        (y1 + (y2 - y1) * (j + 1) / 18 + shift[1]) / H,
+        j < confident ? conf : 0.1
+    ]);
+    return { score, box: [...box], k };
+}
+const BOX = [150, 100, 330, 600];   // 站著的人：寬 180、高 500，對角線約 531 像素
+
+test('有人的畫面對答案：找到同一個人、點的位置一樣 → same；YOLO26s 實測的差距（框重疊 0.997、點差 0.3%）也算一樣', () => {
+    assert.equal(compareRuns([person(BOX)], [person(BOX)], W, H), 'same');
+    const s = person([150.3, 100.3, 330.3, 600.3], 0.947, { shift: [1.2, -1], conf: 0.94 });
+    assert.ok(iou(s.box, BOX) > 0.99);
+    assert.equal(compareRuns([s], [person(BOX, 0.947)], W, H), 'same');
+    // 點差一點點（框對角線的 8%，還在 10% 以內）
+    assert.equal(compareRuns([person(BOX, 0.9, { shift: [0.08 * 531, 0] })], [person(BOX)], W, H), 'same');
+});
+
+test('有人的畫面對答案：GPU 看不到人（全部是 0）、多看到一個人、框在別的地方、點跑掉、點的可信度掉光 → differ', () => {
+    // 組員的手機：CPU 看得到人，GPU 什麼都沒有
+    assert.equal(compareRuns([], [person(BOX)], W, H), 'differ');
+    // GPU 看到 CPU 沒看到的清楚的人
+    assert.equal(compareRuns([person(BOX)], [], W, H), 'differ');
+    // 框在別的地方（沒有重疊一半以上）
+    assert.equal(compareRuns([person([10, 10, 120, 300])], [person(BOX)], W, H), 'differ');
+    // 框一樣，點全部往右偏框對角線的 20%
+    assert.equal(compareRuns([person(BOX, 0.9, { shift: [0.2 * 531, 0] })], [person(BOX)], W, H), 'differ');
+    // 框一樣，點的可信度全部變成 0.1（網站會當作看不到，骨架畫不出來）
+    assert.equal(compareRuns([person(BOX, 0.9, { conf: 0.1 })], [person(BOX)], W, H), 'differ');
+});
+
+test('有人的畫面對答案：兩邊都沒有清楚的人 → 看不出來（null）；清楚的點太少只看框；好幾個人時找得到同一個就算', () => {
+    assert.equal(compareRuns([], [], W, H), null, '還沒站進畫面');
+    // YOLO26s 看全灰的畫面：GPU 0.42 分、CPU 什麼都沒有，都不算清楚的人
+    assert.equal(compareRuns([person(BOX, 0.42)], [], W, H), null);
+    assert.equal(compareRuns([person(BOX, CLEAR_SCORE - 0.01)], [person(BOX, PERSON_SCORE)], W, H), null);
+    assert.equal(compareRuns('x', null, W, H), null, '不是陣列當作沒有人');
+    // 只有 2 個清楚的點（只露出一點點）：點不準也只看框
+    assert.equal(compareRuns([person(BOX, 0.9, { shift: [0.3 * 531, 0] })], [person(BOX, 0.9, { confident: 2 })], W, H), 'same');
+    // 兩個人：CPU 最高分的是右邊的人，GPU 把他排第二也算找到
+    const right = person([340, 120, 470, 560]), left = person(BOX, 0.95);
+    assert.equal(compareRuns([left, person([340, 120, 470, 560], 0.85)], [right, person(BOX, 0.8)], W, H), 'same');
+    assert.ok(POINT_SLACK > 0.003 * 10, '容許的差距比 YOLO26s 實測大很多');
 });

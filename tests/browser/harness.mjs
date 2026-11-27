@@ -142,17 +142,38 @@ export const fakeWorkerScript = frames => '(() => {\n' + fakeBody(frames) + '\ns
 //   量速度時（還沒畫畫面）回傳沒有人
 //   others（11/22，畫面裡有好幾個人）：另外站著不動的人 [{ dx, scale, score }]：第 0 格的姿勢以腳底為準縮小 scale 倍、往右移 dx（畫面寬的比例），
 //     分數 score；不在這次給模型看的那一塊裡（「先框出人」只看人附近）就找不到他，和真的模型一樣
+//   gpu（11/27，手機的 GPU 算錯）：假裝有真的 GPU（背景執行緒的 navigator.gpu），用 GPU 算時：
+//     'ok' 和 CPU 一樣、'zeros' 每個數字都是 0（這台電腦的軟體 GPU 強制半精度時就是這樣）、'blind' 啟動時正常，畫面上有人時全部給 0；
+//     CPU 每次多花 15 毫秒，GPU 才會被選上（手機也是 GPU 比較快）；量速度時給像真的模型看全灰畫面的輸出（300 個框、分數很低），對答案才比得出來
+//     self.__fakeCompiles：每次編譯的運算方式和精度；self.__fakeRuns：有畫面的格子 GPU、CPU 各算了幾次
 const COCO_FROM_33 = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-export const fakeLiteRt = (frames, others = []) => `const FRAMES = ${JSON.stringify(frames)};
+export const fakeLiteRt = (frames, others = [], gpu = null) => `const FRAMES = ${JSON.stringify(frames)};
 const OTHERS = ${JSON.stringify(others)};
 const COCO = ${JSON.stringify(COCO_FROM_33)};
+const GPU = ${JSON.stringify(gpu)};
 const used = self.__fakeUsed = [];
+const compiles = self.__fakeCompiles = [];
+const runs = self.__fakeRuns = { GPU: 0, CPU: 0 };
 let t0 = null, drawn = null, ts = null;
 const handler = self.onmessage;
+// 每一格（detect）重新看畫了什麼：同一格可以算好幾次（GPU 和 CPU 對答案時兩個都算）
 self.onmessage = e => {
-    if (e.data && e.data.type === 'detect') ts = e.data.ts;
+    if (e.data && e.data.type === 'detect') {
+        ts = e.data.ts;
+        drawn = null;
+    }
     return handler.call(self, e);
 };
+if (GPU) Object.defineProperty(self.navigator, 'gpu', { configurable: true, value: { requestAdapter: async () => ({ info: { vendor: 'fake', architecture: GPU } }) } });
+function blank() {
+    const out = new Float32Array(300 * 57);
+    if (!GPU) return out;
+    for (let r = 0; r < 300; r++) {
+        out.set([10 + r % 50, 20 + r % 30, 200 + r % 40, 260, 0.0003, 0], r * 57);
+        for (let j = 0; j < 17; j++) out.set([100 + j, 120 + j, 0.01], r * 57 + 6 + j * 3);
+    }
+    return out;
+}
 const draw = OffscreenCanvasRenderingContext2D.prototype.drawImage;
 OffscreenCanvasRenderingContext2D.prototype.drawImage = function (img, sx, sy, sw, sh, dx, dy, dw, dh) {
     if (arguments.length === 9) drawn = { W: img.width, H: img.height, sx, sy, sw, sh, dx, dy, dw, dh };
@@ -165,12 +186,16 @@ export class Tensor {
     delete() {}
 }
 export async function loadAndCompile(model, options) {
+    const onGpu = !!options && options.accelerator === 'webgpu';
+    compiles.push({ accelerator: options && options.accelerator, precision: options && options.gpuOptions ? options.gpuOptions.precision : undefined });
     return {
         async run() {
+            if (GPU && !onGpu) await new Promise(r => setTimeout(r, 15));
             const out = new Float32Array(300 * 57);
             const d = drawn;
-            drawn = null;
-            if (!d) return [new Tensor(out)];
+            if (!d) return [new Tensor(onGpu && GPU === 'zeros' ? out : blank())];
+            runs[onGpu ? 'GPU' : 'CPU']++;
+            if (onGpu && GPU !== 'ok') return [new Tensor(out)];
             const now = typeof ts === 'number' ? ts : performance.now();
             if (t0 === null) t0 = now;
             const i = Math.floor((now - t0) / (1000 / 30));
@@ -296,8 +321,8 @@ const MODEL = 'https://storage.googleapis.com/mediapipe-models/**';
 
 // 一個瀏覽環境（等於一個乾淨的瀏覽器分頁）：假 AI 播 frames；errors 收集網頁的程式錯誤
 // 擋在整個環境上（context.route），Service Worker 發出的請求也攔得到
-// yoloOthers：假的 YOLO 畫面裡另外站著的人（fakeLiteRt 的 others，11/22）
-export async function open(browser, frames, { width = 1280, height = 900, mobile = false, yoloOthers = [] } = {}) {
+// yoloOthers：假的 YOLO 畫面裡另外站著的人（fakeLiteRt 的 others，11/22）；yoloGpu：假的 GPU（fakeLiteRt 的 gpu，11/27）
+export async function open(browser, frames, { width = 1280, height = 900, mobile = false, yoloOthers = [], yoloGpu = null } = {}) {
     const context = await browser.newContext({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile });
     const page = await context.newPage();
     page.errors = [];
@@ -317,7 +342,7 @@ export async function open(browser, frames, { width = 1280, height = 900, mobile
         await context.route(cdn, route => route.fulfill({ body: 'fake-engine', contentType: 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' } }));
     }
     await context.route('**/models/yolo/*.tflite*', route => route.fulfill({ body: 'fake-model', contentType: 'application/octet-stream' }));
-    await context.route('**/vendor/litertjs/litert-core.js*', route => route.fulfill({ body: fakeLiteRt(frames, yoloOthers), contentType: 'text/javascript' }));
+    await context.route('**/vendor/litertjs/litert-core.js*', route => route.fulfill({ body: fakeLiteRt(frames, yoloOthers, yoloGpu), contentType: 'text/javascript' }));
     await context.route('https://www.gstatic.com/firebasejs/**', route => {
         const file = new URL(route.request().url()).pathname.split('/').pop();
         const body = Object.prototype.hasOwnProperty.call(FAKE_FIREBASE, file) ? FAKE_FIREBASE[file] : null;
