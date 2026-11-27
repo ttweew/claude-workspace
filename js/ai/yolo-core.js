@@ -138,3 +138,59 @@ export function pickPerson(people, { prev = null, focus = null } = {}) {
     }
     return people.reduce((a, b) => (area(b.box) > area(a.box) ? b : a));
 }
+
+// ---------- GPU 和 CPU 對答案（11/27）----------
+// 組員的手機選 YOLO 完全沒有骨架（全身進到畫面也沒有），MediaPipe 正常：手機的 GPU 算錯了，而且不會報錯
+// 這台測試電腦的軟體 GPU 強制用半精度（fp16）時，模型輸出的每一個數字都是 0（全灰的畫面、真人照片都一樣）；
+// 手機的 GPU 支援半精度，LiteRT.js 預設就用半精度。以前啟動時只看「算出來的是不是數字」，0 也是數字，
+// 什麼都沒算當然最快，就選了 GPU，之後每一格都「沒有人」
+// 現在 GPU 一律用一般精度（fp32，yolo-worker.js），再加兩道對答案：啟動時（outputLooksSame）、前幾格有人的畫面（compareRuns）
+
+// 啟動時給全灰的畫面算，GPU 和 CPU 的輸出要差不多：不是 0 的數字一樣多（真的模型 17100 個裡 16800 個不是 0，
+// 300 個是類別，都是 0）、框的座標平均大小差不多。11/27 實測：YOLO26n 兩邊一模一樣；YOLO26s 的權重壓成 8 位元，
+// CPU 和 GPU 算法不同，框的平均大小差 2%（162 和 158 像素）。全部是 0、壞掉的數字一看就差很多
+export const OUTPUT_RATIO = 2;   // 框的平均大小：GPU 要在 CPU 的一半到兩倍之間
+function outputSummary(data, cols) {
+    const rows = Math.floor(data.length / cols);
+    let nonzero = 0, coord = 0;
+    for (let i = 0; i < rows * cols; i++) {
+        if (!Number.isFinite(data[i])) return null;
+        if (data[i] !== 0) nonzero++;
+    }
+    for (let r = 0; r < rows; r++) for (let j = 0; j < 4; j++) coord += Math.abs(data[r * cols + j]);
+    return { nonzero, coord: rows ? coord / (rows * 4) : 0 };
+}
+export function outputLooksSame(gpu, cpu, kpts = 17) {
+    const cols = colsOf(kpts);
+    if (!gpu || !cpu || gpu.length !== cpu.length || gpu.length < cols) return false;
+    const g = outputSummary(gpu, cols), c = outputSummary(cpu, cols);
+    if (!g || !c || !(c.nonzero > 0) || !(c.coord > 0)) return false;
+    return g.nonzero * 2 >= c.nonzero && g.coord * OUTPUT_RATIO >= c.coord && g.coord <= c.coord * OUTPUT_RATIO;
+}
+
+// 前幾格畫面裡有人時，同一格 GPU、CPU 各算一次（decodeAll 的結果），看是不是找到同一個人、點的位置一樣
+// 回傳 'same'（一樣）、'differ'（不一樣）、null（兩邊都沒有清楚的人，看不出來，例如還沒站進畫面）
+// 11/27 真人照片實測：YOLO26n 兩邊一模一樣；YOLO26s 框重疊 0.997、點的位置最多差框對角線的 0.3%、點的可信度最多差 0.01
+export const CLEAR_SCORE = 0.5;   // 「清楚的人」才拿來比（YOLO26s 看全灰的畫面，GPU 給 0.42 分、CPU 0.22 分，都不算有人）；點也是可信度這麼高才比
+export const MATCH_IOU = 0.5;     // 另一邊要找得到框重疊一半以上的人，才算找到同一個人
+export const POINT_SLACK = 0.1;   // 同一個點的位置差不超過框對角線的 10% 才算一樣；三分之二以上的點一樣才算同一個姿勢
+export function compareRuns(gpu, cpu, W, H) {
+    const clear = p => !!p && p.score >= CLEAR_SCORE;
+    const g = Array.isArray(gpu) ? gpu : [], c = Array.isArray(cpu) ? cpu : [];
+    // 以 CPU 為準（電腦上測過、和真人實測對過的算法）；CPU 沒看到清楚的人、GPU 卻有，就看 CPU 有沒有同一個人
+    const ref = clear(c[0]) ? c[0] : clear(g[0]) ? g[0] : null;
+    if (!ref) return null;
+    const others = ref === c[0] ? g : c;
+    const match = others.find(p => iou(p.box, ref.box) >= MATCH_IOU);
+    if (!match) return 'differ';
+    const diag = Math.hypot(ref.box[2] - ref.box[0], ref.box[3] - ref.box[1]);
+    let n = 0, ok = 0;
+    ref.k.forEach(([x, y, conf], j) => {
+        if (!(conf >= CLEAR_SCORE)) return;
+        n++;
+        const q = match.k[j];
+        if (q && q[2] >= PERSON_SCORE && Math.hypot((q[0] - x) * W, (q[1] - y) * H) <= POINT_SLACK * diag) ok++;
+    });
+    // 清楚的點不到 3 個（只露出一點點）：只看框
+    return n < 3 || ok * 3 >= n * 2 ? 'same' : 'differ';
+}

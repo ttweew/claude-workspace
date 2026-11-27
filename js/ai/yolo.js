@@ -15,6 +15,10 @@ const INIT_TIMEOUT_MS = 90000;     // 背景執行緒啟動（載入引擎、編
 const DETECT_TIMEOUT_MS = 5000;    // 一格超過這麼久沒有結果，當作背景執行緒卡住（s 模型在慢的 CPU 上約 0.2 秒）
 const WORKER_URL = new URL('./yolo-worker.js' + new URL(import.meta.url).search, import.meta.url);
 
+// 這支手機的 GPU 和 CPU 對答案對不起來過（11/27，yolo-worker.js 開頭的說明）：這一頁之後重新啟動、換大小、
+// 換回 YOLO 都只用 CPU，不用每次再試一次（同一個 GPU，換模型也一樣會算錯）
+let gpuWrong = false;
+
 // 瀏覽器支不支援 WebAssembly 的「relaxed SIMD」（比較新的運算指令）：支援的用比較快的引擎，不支援的用相容版
 // 這幾個位元組是 LiteRT.js 自己用來檢查的同一個小程式（@litertjs/core 2.6.0 的 WASM_RELAXED_SIMD_CHECK）
 const RELAXED_SIMD_CHECK = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 15, 1, 13, 0, 65, 1, 253, 15, 65, 2, 253, 15, 253, 128, 2, 11]);
@@ -139,6 +143,7 @@ function startWorker(files, cpuOnly, kpts = 17) {
             const m = e.data;
             if (m.type === 'ready') {
                 clearTimeout(timer);
+                if (m.gpuWrong) gpuWrong = true;
                 resolve({ worker, info: m });
             } else if (m.type === 'fatal') {
                 clearTimeout(timer);
@@ -159,11 +164,13 @@ function startWorker(files, cpuOnly, kpts = 17) {
 }
 
 // 運算方式的說明（運算標籤點開時顯示）：兩種都量過的寫出各幾毫秒，使用者知道為什麼選這個
+// 用 GPU 時寫出和 CPU 對答案了沒（11/27）；對不起來改用 CPU 的寫原因（組員回報問題時，「複製手機資訊」會帶這一行）
 function describe(info) {
     const t = info.tried || {};
     const both = t.GPU !== undefined && t.CPU !== undefined ? '（量過：GPU 每格 ' + t.GPU + ' 毫秒、CPU ' + t.CPU + ' 毫秒）' : '';
-    if (info.mode === 'GPU') return 'WebGPU' + both;
+    if (info.mode === 'GPU') return 'WebGPU' + both + (info.checked ? '，和 CPU 對過答案' : '，前幾格和 CPU 對答案中');
     if (FORCE_CPU) return '測試模式';
+    if (info.gpuWrong || gpuWrong) return 'GPU 算出來的和 CPU 對不起來，改用 CPU' + both;
     if (info.gpuError) return 'GPU 無法使用';
     if (t.GPU !== undefined) return 'CPU 比較快' + both;
     return '未偵測到可用的 GPU';
@@ -231,7 +238,7 @@ export async function loadYolo(onProgress, attempt = 0, key = 'yolo-n') {
     }
     const downloadedAt = performance.now();
     onProgress({ stage: 'start', delegate: 'CPU' });
-    const { worker, info } = await startWorker(files, FORCE_CPU, kptsOf(key));
+    const { worker, info } = await startWorker(files, FORCE_CPU || gpuWrong, kptsOf(key));
     const readyAt = performance.now();
     console.info('YOLO 載入：', key, info.mode, info.tried);
     const seconds = ms => Math.round(ms / 100) / 10;
@@ -249,12 +256,20 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
     let dead = '';        // 背景執行緒停掉的原因
     let nextId = 0;
     let focus = null;     // 使用者點的位置（11/22，focusAt）：跟著下一格送出去，送了就清掉
+    let info = firstInfo; // 背景執行緒回報的運算方式（ready；11/27 起對完答案會再送 mode 更新）
 
     function attach(w) {
         worker = w;
         dead = '';
         w.onmessage = e => {
             const m = e.data;
+            // 前幾格對完答案（11/27）：對過了繼續用 GPU；對不起來，背景執行緒已經改用 CPU
+            if (m.type === 'mode') {
+                if (m.gpuWrong) gpuWrong = true;
+                info = { ...info, mode: m.mode === 'GPU' ? 'GPU' : 'CPU', checked: !!m.checked, gpuWrong: !!m.gpuWrong };
+                setInfo(info);
+                return;
+            }
             if (m.type !== 'result' && m.type !== 'detect-error') return;
             const p = pending;
             pending = null;
@@ -346,8 +361,9 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
         async restart() {
             worker.terminate();
             fail(new Error('重新啟動中'));
-            const fresh = await startWorker(files, FORCE_CPU, kptsOf(pose.model));
-            setInfo(fresh.info);
+            const fresh = await startWorker(files, FORCE_CPU || gpuWrong, kptsOf(pose.model));
+            info = fresh.info;
+            setInfo(info);
             attach(fresh.worker);
         },
         // 同一家換大小（n ↔ s）：先下載新的模型檔，再用它重新啟動；失敗時回到原本的模型（錯誤標 recovered，照常可用）
@@ -380,6 +396,6 @@ function yoloPose(firstWorker, firstInfo, files, firstKey, timings) {
             fail(new Error('已換成別的模型'));
         }
     };
-    setInfo(firstInfo);
+    setInfo(info);
     return pose;
 }

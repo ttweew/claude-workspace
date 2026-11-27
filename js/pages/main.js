@@ -190,6 +190,7 @@ let speedOn = false;                 // 正在測 AI 速度：不跳速度建議
 let speedStatus = null;              // 測速換模型時：下載進度也寫在卡片上
 const speedMeter = new SpeedMeter(); // 速度建議：量這台裝置實際跑多快
 let measureFrom = 0;                 // 從這個時間 3 秒後才開始量（剛開鏡頭、從背景回來的幾秒比較慢，不準）
+let measuredCompute = '';            // 速度是用哪一種運算方式量的（GPU、CPU；11/27：YOLO 對完答案可能自己從 GPU 改成 CPU）
 let lastPersonAt = -Infinity;        // 最近一次畫面裡有人的時間
 let adviceDone = false;              // 這次開鏡頭已經量完、給過建議（換格數重開鏡頭會再量一次）
 let shownAdvice = null;              // 畫面上正在顯示的建議
@@ -685,6 +686,17 @@ function measureFrame(ms, person) {
 
 // 每一秒：AI、鏡頭每秒幾格。還沒量完：量滿就給建議（自動時直接調整）；量完之後：自動調每秒格數
 function measureSecond() {
+    // AI 的運算方式自己換了（11/27：YOLO 的 GPU 和 CPU 對答案對不起來，改用 CPU，js/ai/yolo-worker.js）：
+    // 之前量的是 GPU 的速度，重新量（和 AI 重新啟動一樣）；測 AI 速度時一直在換模型，測完會重新量
+    const compute = pose ? pose.computeMode : '';
+    if (!speedOn && compute !== measuredCompute) {
+        const changed = measuredCompute !== '';
+        measuredCompute = compute;
+        if (changed) {
+            resetSpeedMeter();
+            return;
+        }
+    }
     const ms = median(secondMs);
     secondMs.length = 0;
     // 測 AI 速度的時候（js/ui/speed-card.js）一直在換模型：不給建議、不自動調（測完換回原本的模型會重新量）
